@@ -1,0 +1,10 @@
+{
+  "name": "tao-monitor",
+  "version": "1.0.0",
+  "description": "TAO Monitor — Terapia Anticoagulante Orale",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "node-fetch": "^3.3.2"
+  }
+}

@@ -1,0 +1,32 @@
+name: TAO Monitor — Alarm Checker
+
+on:
+  schedule:
+    # Gira ogni minuto (limite GitHub Actions: ogni 5 minuti nel piano gratuito)
+    # Per notifiche più precise usare ogni minuto con workaround
+    - cron: '* * * * *'
+  workflow_dispatch: # permette di avviarlo manualmente per test
+
+jobs:
+  check-alarms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install firebase-admin node-fetch
+
+      - name: Check and send alarms
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+        run: node alarm-checker.js
