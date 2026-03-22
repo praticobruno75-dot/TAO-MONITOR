@@ -1605,9 +1605,22 @@ function toggleAlarmFromList(dateStr) {
   saveData(appData); renderList(appData);
 }
 function toggleTaken(dateStr) {
-  appData=loadData(); if(!appData.taken) appData.taken={};
-  if(appData.taken[dateStr]) { appData.taken[dateStr]=false; delete(appData.takenTimes||{})[dateStr]; }
-  else { appData.taken[dateStr]=true; if(!appData.takenTimes) appData.takenTimes={}; appData.takenTimes[dateStr]=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}); }
+  appData=loadData();
+  if(!appData.taken) appData.taken={};
+  if(!appData.takenEditTimes) appData.takenEditTimes={};
+  const nowTs = Date.now();
+  if(appData.taken[dateStr]===true) {
+    // Remove
+    appData.taken[dateStr] = false;
+    appData.takenEditTimes[dateStr] = nowTs;
+    if(appData.takenTimes) delete appData.takenTimes[dateStr];
+  } else {
+    // Mark as taken
+    appData.taken[dateStr] = true;
+    appData.takenEditTimes[dateStr] = nowTs;
+    if(!appData.takenTimes) appData.takenTimes={};
+    appData.takenTimes[dateStr] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  }
   saveData(appData); renderTerapiaTab();
   saveBackupToFolder(true);
   fbAutoSync();
@@ -1705,6 +1718,8 @@ function confirmAlarm() {
     if(!appData.taken) appData.taken={};
     if(!appData.takenTimes) appData.takenTimes={};
     appData.taken[currentAlarmDate]=true;
+    if(!appData.takenEditTimes) appData.takenEditTimes={};
+    appData.takenEditTimes[currentAlarmDate]=Date.now();
     appData.takenTimes[currentAlarmDate]=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     saveData(appData);
   }
@@ -1917,12 +1932,17 @@ function toggleTakenFromModal() {
   appData = loadData();
   if(!appData.taken) appData.taken = {};
   if(!appData.takenTimes) appData.takenTimes = {};
-  const isTaken = appData.taken[_dayDetailKey];
-  if(isTaken) {
+  if(!appData.takenEditTimes) appData.takenEditTimes = {};
+  const nowTs = Date.now();
+  if(appData.taken[_dayDetailKey] === true) {
+    // Remove
     appData.taken[_dayDetailKey] = false;
+    appData.takenEditTimes[_dayDetailKey] = nowTs;
     delete appData.takenTimes[_dayDetailKey];
   } else {
+    // Mark as taken
     appData.taken[_dayDetailKey] = true;
+    appData.takenEditTimes[_dayDetailKey] = nowTs;
     appData.takenTimes[_dayDetailKey] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   }
   saveData(appData);
@@ -2228,9 +2248,36 @@ function fbStartRealtimeSync() {
 function fbMergeData(remote, local) {
   const merged = Object.assign({}, remote);
 
-  // takenTimes e taken: merge completo (unione)
-  merged.takenTimes = Object.assign({}, remote.takenTimes||{}, local.takenTimes||{});
-  merged.taken      = Object.assign({}, remote.taken||{}, local.taken||{});
+  // taken + takenTimes: vince il timestamp più recente per ogni giorno
+  // Usiamo takenEditTime per sapere l'ultima modifica di ogni giorno
+  const remoteTaken     = remote.taken          || {};
+  const localTaken      = local.taken           || {};
+  const remoteTakenTs   = remote.takenEditTimes || {};
+  const localTakenTs    = local.takenEditTimes  || {};
+  const remoteTakenTime = remote.takenTimes     || {};
+  const localTakenTime  = local.takenTimes      || {};
+
+  const mergedTaken     = Object.assign({}, remoteTaken);
+  const mergedTakenTs   = Object.assign({}, remoteTakenTs);
+  const mergedTakenTime = Object.assign({}, remoteTakenTime);
+
+  // For each date modified locally, check if local is more recent
+  const allDates = new Set([...Object.keys(localTaken), ...Object.keys(localTakenTs)]);
+  for(const date of allDates) {
+    const localTs  = localTakenTs[date]  || 0;
+    const remoteTs = remoteTakenTs[date] || 0;
+    if(localTs >= remoteTs) {
+      // Local modification is more recent — use it (even if false/removal)
+      mergedTaken[date]     = localTaken[date];
+      mergedTakenTs[date]   = localTs;
+      if(localTakenTime[date]) mergedTakenTime[date] = localTakenTime[date];
+      else delete mergedTakenTime[date];
+    }
+  }
+
+  merged.taken          = mergedTaken;
+  merged.takenEditTimes = mergedTakenTs;
+  merged.takenTimes     = mergedTakenTime;
 
   // Alarms: vince il timestamp più recente per ogni giorno
   const remoteAlarms  = remote.alarms       || {};
