@@ -1902,7 +1902,24 @@ async function fbRegisterFCM() {
   if(!_fbMessaging || !_fbVapidKey || !_fbUser) return;
   try {
     const { getToken } = window._firebaseModules;
-    const token = await getToken(_fbMessaging, { vapidKey: _fbVapidKey });
+    // Register FCM SW explicitly with correct path for GitHub Pages subfolder
+    const swReg = await navigator.serviceWorker.register(
+      '/TAO-MONITOR/firebase-messaging-sw.js',
+      { scope: '/TAO-MONITOR/' }
+    );
+    // Send Firebase config to the SW
+    const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
+    if(swReg.active) swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+    else if(swReg.installing) {
+      swReg.installing.addEventListener('statechange', e => {
+        if(e.target.state === 'activated')
+          swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+      });
+    }
+    const token = await getToken(_fbMessaging, {
+      vapidKey: _fbVapidKey,
+      serviceWorkerRegistration: swReg
+    });
     if(token) {
       // Save token to Firestore so alarm-checker.js can use it
       const { doc, setDoc } = window._firebaseModules;
