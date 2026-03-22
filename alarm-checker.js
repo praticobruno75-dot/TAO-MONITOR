@@ -97,8 +97,8 @@ async function checkAlarms() {
             notification: {
               title:              '💊 Ora del Coumadin!',
               body:               `Ricorda di prendere il farmaco — ${alarm.date} alle ${alarm.time}`,
-              icon:               'https://praticobruno75-dot.github.io/TAO-MONITOR/icon-192.png',
-              badge:              'https://praticobruno75-dot.github.io/TAO-MONITOR/icon-192.png',
+              icon:               'https://praticobruno75-dot.github.io/icon-192.png',
+              badge:              'https://praticobruno75-dot.github.io/icon-192.png',
               requireInteraction: true,
               vibrate:            [200, 100, 200, 100, 200],
               actions: [
@@ -107,7 +107,7 @@ async function checkAlarms() {
               ]
             },
             fcmOptions: {
-              link: 'https://praticobruno75-dot.github.io/TAO-MONITOR/'
+              link: 'https://praticobruno75-dot.github.io/'
             }
           }
         });
@@ -176,14 +176,14 @@ async function checkSnooze(now) {
           notification: {
             title: '💊 Promemoria Coumadin!',
             body:  `Hai posticipato. Ora di prendere il farmaco!`,
-            icon:  'https://praticobruno75-dot.github.io/TAO-MONITOR/icon-192.png',
+            icon:  'https://praticobruno75-dot.github.io/icon-192.png',
             requireInteraction: true,
             actions: [
               { action: 'confirm',  title: '✅ Confermo' },
               { action: 'snooze15', title: '⏰ +15 min' }
             ]
           },
-          fcmOptions: { link: 'https://praticobruno75-dot.github.io/TAO-MONITOR/' }
+          fcmOptions: { link: 'https://praticobruno75-dot.github.io/' }
         }
       });
       batch.update(doc.ref, { processed: true, sentAt: now.toISOString() });

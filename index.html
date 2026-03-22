@@ -1904,8 +1904,8 @@ async function fbRegisterFCM() {
     const { getToken } = window._firebaseModules;
     // Register FCM SW explicitly with correct path for GitHub Pages subfolder
     const swReg = await navigator.serviceWorker.register(
-      '/TAO-MONITOR/firebase-messaging-sw.js',
-      { scope: '/TAO-MONITOR/' }
+      '/firebase-messaging-sw.js',
+      { scope: '/' }
     );
     // Send Firebase config to the SW
     const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');

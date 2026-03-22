@@ -53,8 +53,8 @@ self.addEventListener('push', event => {
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon:               '/TAO-MONITOR/icon-192.png',
-      badge:              '/TAO-MONITOR/icon-192.png',
+      icon:               '/icon-192.png',
+      badge:              '/icon-192.png',
       tag:                'tao-alarm',
       renotify:           true,
       requireInteraction: true,
@@ -86,8 +86,8 @@ self.addEventListener('notificationclick', event => {
         });
 
         // Apri o porta in primo piano l'app
-        const taoUrl = 'https://praticobruno75-dot.github.io/TAO-MONITOR/';
-        const appClient = clients.find(c => c.url.includes('TAO-MONITOR'));
+        const taoUrl = 'https://praticobruno75-dot.github.io/';
+        const appClient = clients.find(c => c.url.includes(''));
         if(appClient) return appClient.focus();
         return self.clients.openWindow(taoUrl);
       })

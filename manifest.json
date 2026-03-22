@@ -2,7 +2,7 @@
   "name": "TAO Monitor — Terapia Anticoagulante Orale",
   "short_name": "TAO Monitor",
   "description": "Monitoraggio terapia anticoagulante orale: storico INR, calendario terapia, allarmi assunzione.",
-  "start_url": "./index.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0d1117",
@@ -32,7 +32,7 @@
       "name": "Carica PDF",
       "short_name": "PDF",
       "description": "Carica una nuova scheda TAO",
-      "url": "./index.html#upload",
+      "url": "./#upload",
       "icons": [
         {
           "src": "icon-192.png",
@@ -44,7 +44,7 @@
       "name": "Terapia oggi",
       "short_name": "Oggi",
       "description": "Vedi la terapia di oggi",
-      "url": "./index.html#terapia",
+      "url": "./#terapia",
       "icons": [
         {
           "src": "icon-192.png",
