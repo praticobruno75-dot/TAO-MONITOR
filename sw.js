@@ -40,7 +40,8 @@ self.addEventListener('install', event => {
       });
     }).then(() => {
       console.log('[SW] Install complete');
-      return self.skipWaiting(); // Activate immediately
+      // Don't skipWaiting automatically - wait for user to click "Aggiorna"
+      // self.skipWaiting() is called only when user confirms update
     })
   );
 });

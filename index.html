@@ -405,14 +405,25 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       </div>
       <div id="calView">
         <div class="cal-header">
-          <button onclick="prevMonth()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer">◀</button>
-          <div class="cal-month" id="calMonthTitle">—</div>
-          <button onclick="nextMonth()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer">▶</button>
+          <button onclick="prevTherapy()" id="prevTherapyBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer">◀</button>
+          <div style="text-align:center">
+            <div class="cal-month" id="calMonthTitle">—</div>
+            <div id="therapyCounter" style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:1px"></div>
+          </div>
+          <button onclick="nextTherapy()" id="nextTherapyBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer">▶</button>
         </div>
-        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-grid" id="calGrid" id="swipeCalGrid"></div>
       </div>
       <div id="listView" style="display:none">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px">
+          <button onclick="prevTherapy()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">◀</button>
+          <div style="text-align:center;flex:1">
+            <div id="listTherapyTitle" style="font-size:13px;font-weight:600;color:var(--accent)">—</div>
+            <div id="listTherapyCounter" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+          </div>
+          <button onclick="nextTherapy()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">▶</button>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
           <button id="sortToggleBtn" onclick="toggleListSort()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;transition:all .2s">↑ Dal più vecchio</button>
         </div>
         <div class="day-list" id="dayList"></div>
@@ -898,7 +909,9 @@ function confirmDefaultTime() {
   if(pendingTherapyForAlarm) {
     const days = getTherapyDays(pendingTherapyForAlarm);
     if(!appData.alarms) appData.alarms = {};
-    days.forEach(d => { appData.alarms[d] = time; });
+    const nowTs = Date.now();
+    if(!appData.alarmTimes) appData.alarmTimes={};
+    days.forEach(d => { appData.alarms[d] = time; appData.alarmTimes[d] = nowTs; });
     // Schedule alarms
     days.forEach(d => scheduleAlarm(d, time));
   }
@@ -1113,6 +1126,7 @@ function deleteControl(idx) {
 // ===================================================
 let currentCalMonth=new Date().getMonth(), currentCalYear=new Date().getFullYear();
 let currentView='cal', selectedDayKey=null, calInitialized=false;
+let currentTherapyIdx=0; // index of currently shown therapy plan
 
 function getAllTherapies() {
   const d=loadData();
@@ -1122,30 +1136,52 @@ function getAllTherapies() {
 function renderTerapiaTab() {
   const data=loadData();
   const therapies=getAllTherapies();
-  if(!therapies.length) { document.getElementById('terapiaEmpty').style.display='block'; document.getElementById('terapiaContent').style.display='none'; return; }
+  if(!therapies.length) {
+    document.getElementById('terapiaEmpty').style.display='block';
+    document.getElementById('terapiaContent').style.display='none';
+    return;
+  }
   document.getElementById('terapiaEmpty').style.display='none';
   document.getElementById('terapiaContent').style.display='block';
-  const latest=therapies[therapies.length-1];
-  document.getElementById('terapiaFarmaco').textContent=latest.farmaco||'—';
-  const allDays=therapies.flatMap(t=>getTherapyDays(t));
-  const uniqueDays=[...new Set(allDays)];
-  const takenDays=uniqueDays.filter(k=>data.taken&&data.taken[k]).length;
-  document.getElementById('takenCount').textContent=takenDays;
-  document.getElementById('takenTotal').textContent=`su ${uniqueDays.length} giorni`;
-  const pct=uniqueDays.length>0?Math.round(takenDays/uniqueDays.length*100):0;
-  document.getElementById('takenProgress').style.width=pct+'%';
-  const allDoseVals=therapies.flatMap(t=>Object.values(t.dosePerId||{}));
-  const minD=allDoseVals.length?Math.min(...allDoseVals):1, maxD=allDoseVals.length?Math.max(...allDoseVals):1;
-  document.getElementById('terapiaDose').textContent=minD===maxD?String(minD):`${minD}–${maxD}`;
-  document.getElementById('terapiaDurata').textContent=uniqueDays.length||'—';
-  if(!calInitialized && therapies.length) {
-    const d=parseDate(therapies[0].dataInizio);
-    currentCalMonth=d.getMonth(); currentCalYear=d.getFullYear();
-    calInitialized=true;
+
+  // Clamp index
+  if(currentTherapyIdx >= therapies.length) currentTherapyIdx = therapies.length-1;
+  if(currentTherapyIdx < 0) currentTherapyIdx = 0;
+
+  const t = therapies[currentTherapyIdx];
+  document.getElementById('terapiaFarmaco').textContent = t.farmaco||'—';
+
+  // Dose range for current therapy only
+  const doseVals = Object.values(t.dosePerId||{});
+  const minD = doseVals.length ? Math.min(...doseVals) : 1;
+  const maxD = doseVals.length ? Math.max(...doseVals) : 1;
+  document.getElementById('terapiaDose').textContent = minD===maxD ? String(minD) : `${minD}–${maxD}`;
+
+  const days = getTherapyDays(t);
+  document.getElementById('terapiaDurata').textContent = days.length||'—';
+
+  // Taken count for current therapy only
+  const takenDays = days.filter(d => data.taken&&data.taken[d]).length;
+  document.getElementById('takenCount').textContent = takenDays;
+  document.getElementById('takenTotal').textContent = `su ${days.length} giorni`;
+  const pct = days.length>0 ? Math.round(takenDays/days.length*100) : 0;
+  document.getElementById('takenProgress').style.width = pct+'%';
+
+  // On first render go to therapy containing today, or latest
+  if(!calInitialized) {
+    const today = formatDate(new Date());
+    const todayIdx = therapies.findIndex(t => {
+      const days = getTherapyDays(t);
+      return days.includes(today);
+    });
+    currentTherapyIdx = todayIdx >= 0 ? todayIdx : therapies.length-1;
+    calInitialized = true;
   }
+
   if(currentView==='cal') renderCalendar(data);
   else renderList(data);
 }
+
 
 function getTherapyDays(t) {
   const days=[];
@@ -1169,12 +1205,10 @@ function buildDayMap(therapies) {
       if(!map[d]) map[d]={ dose:getDayDoseFromTherapy(t,d), unitMg:t.doseUnitaMg||5, isControl:false };
       else { map[d].dose = map[d].dose || getDayDoseFromTherapy(t,d); }
     }
-    // dataControllo = next appointment date (show as control badge, no dose override)
     if(t.dataControllo) {
       if(!map[t.dataControllo]) map[t.dataControllo]={ dose:null, unitMg:5, isControl:true };
       else map[t.dataControllo].isControl=true;
     }
-    // dataInizio = current control date — ensure it has a dose
     if(t.dataInizio) {
       if(!map[t.dataInizio]) map[t.dataInizio]={ dose:getDayDoseFromTherapy(t,t.dataInizio), unitMg:t.doseUnitaMg||5, isControl:false };
       else if(map[t.dataInizio].dose===null) map[t.dataInizio].dose=getDayDoseFromTherapy(t,t.dataInizio);
@@ -1183,88 +1217,146 @@ function buildDayMap(therapies) {
   return map;
 }
 
-function dosePillLabel(dose, unitMg) {
-  const mg=Math.round(dose*(unitMg||5)*100)/100;
-  const fr={0.25:'¼',0.5:'½',0.75:'¾'};
-  const w=Math.floor(dose), f=Math.round((dose-w)*4)/4;
-  let s='';
-  if(w>0&&f>0) s=`${w} e ${fr[f]||f} cpr`;
-  else if(w>0) s=`${w} cpr`;
-  else if(f>0) s=`${fr[f]||f} cpr`;
-  else s=`${dose} cpr`;
-  return `${s} · ${mg}mg`;
-}
-
 function renderCalendar(data) {
-  const therapies=getAllTherapies();
-  const dayMap=buildDayMap(therapies);
-  const alarms=data.alarms||{}, taken=data.taken||{}, takenTimes=data.takenTimes||{};
-  const monthNames=['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
-  document.getElementById('calMonthTitle').textContent=`${monthNames[currentCalMonth]} ${currentCalYear}`;
-  const grid=document.getElementById('calGrid');
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const t = therapies[currentTherapyIdx];
+  const days = getTherapyDays(t);
+  const alarms = data.alarms||{}, taken = data.taken||{}, takenTimes = data.takenTimes||{};
+
+  // Update title and counter
+  const title = `${t.dataInizio||'—'} → ${t.dataFine||'—'}`;
+  document.getElementById('calMonthTitle').textContent = title;
+  document.getElementById('therapyCounter').textContent =
+    `Piano ${currentTherapyIdx+1} di ${therapies.length}`;
+
+  // Update arrow states
+  const prevBtn = document.getElementById('prevTherapyBtn');
+  const nextBtn = document.getElementById('nextTherapyBtn');
+  if(prevBtn) prevBtn.style.opacity = currentTherapyIdx===0 ? '0.3' : '1';
+  if(nextBtn) nextBtn.style.opacity = currentTherapyIdx===therapies.length-1 ? '0.3' : '1';
+
+  // Build weekly grid showing only therapy days
+  // Group days by ISO week
+  const grid = document.getElementById('calGrid');
   grid.innerHTML='';
-  ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(d=>{ const el=document.createElement('div'); el.className='cal-dow'; el.textContent=d; grid.appendChild(el); });
-  const firstDay=new Date(currentCalYear,currentCalMonth,1);
-  const lastDay=new Date(currentCalYear,currentCalMonth+1,0);
-  let startDow=firstDay.getDay(); startDow=startDow===0?6:startDow-1;
-  for(let i=0;i<startDow;i++) { const el=document.createElement('div'); el.className='cal-day empty'; grid.appendChild(el); }
-  const today=formatDate(new Date());
-  for(let day=1;day<=lastDay.getDate();day++) {
-    const dateStr=formatDate(new Date(currentCalYear,currentCalMonth,day));
-    const info=dayMap[dateStr];
-    const inTherapy=info&&info.dose!==null;
-    const isToday=dateStr===today, isControl=info&&info.isControl;
-    const isTaken=taken[dateStr], alarm=alarms[dateStr], takenTime=takenTimes[dateStr];
+
+  // Day-of-week headers
+  ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(d=>{
     const el=document.createElement('div');
-    el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
-    let inner=`<div class="cal-day-num">${day}</div>`;
-    if(inTherapy) {
-      const dose=info.dose, isSpecial=dose!==1;
-      inner+=`<div onclick="openModal('${dateStr}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
-        ${drawDoseSVG(dose, info.unitMg, 44)}
-      </div>`;
-      if(alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
-      if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
-      else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
-    }
-    if(isControl) inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
-    if(isTaken&&!takenTimes[dateStr]) inner+=`<div class="cal-taken-mark">✅</div>`;
-    el.innerHTML=inner;
+    el.className='cal-dow'; el.textContent=d;
     grid.appendChild(el);
+  });
+
+  if(!days.length) return;
+
+  const today = formatDate(new Date());
+  const controlDate = t.dataControllo;
+
+  // Find first day of first week
+  const firstDay = parseDate(days[0]);
+  let startDow = firstDay.getDay();
+  startDow = startDow===0?6:startDow-1; // Mon=0
+
+  // Build a set for quick lookup
+  const daysSet = new Set(days);
+
+  // Find last day
+  const lastDay = parseDate(days[days.length-1]);
+  let lastDow = lastDay.getDay();
+  lastDow = lastDow===0?6:lastDow-1;
+
+  // Iterate from Monday of first week to Sunday of last week
+  const gridStart = new Date(firstDay);
+  gridStart.setDate(gridStart.getDate() - startDow);
+  const gridEnd = new Date(lastDay);
+  gridEnd.setDate(gridEnd.getDate() + (6 - lastDow));
+
+  let cur = new Date(gridStart);
+  while(cur <= gridEnd) {
+    const dateStr = formatDate(cur);
+    const inTherapy = daysSet.has(dateStr);
+    const isToday = dateStr===today;
+    const isControl = dateStr===controlDate;
+    const isTaken = taken[dateStr];
+    const alarm = alarms[dateStr];
+    const takenTime = takenTimes[dateStr];
+
+    const el = document.createElement('div');
+
+    if(!inTherapy && !isControl) {
+      // Empty cell — show greyed out day number only
+      el.className='cal-day';
+      el.style.cssText='background:transparent;border-color:transparent;min-height:90px';
+      el.innerHTML=`<div class="cal-day-num" style="color:rgba(125,133,144,0.2)">${cur.getDate()}</div>`;
+    } else {
+      el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
+      let inner=`<div class="cal-day-num">${cur.getDate()}</div>`;
+      if(inTherapy) {
+        const dose=getDayDoseFromTherapy(t,dateStr);
+        inner+=`<div onclick="openModal('${dateStr}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
+          ${drawDoseSVG(dose,t.doseUnitaMg||5,44)}
+        </div>`;
+        if(alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
+        if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
+        else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
+      }
+      if(isControl) inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
+      el.innerHTML=inner;
+      if(inTherapy) el.onclick=()=>openModal(dateStr);
+    }
+    grid.appendChild(el);
+    cur.setDate(cur.getDate()+1);
   }
 }
 
-let listSortAsc = true; // false = newest first
-
-function toggleListSort() {
-  listSortAsc = !listSortAsc;
-  const btn = document.getElementById('sortToggleBtn');
-  if(btn) btn.textContent = listSortAsc ? '↑ Dal più vecchio' : '↓ Dal più recente';
-  renderList(loadData());
-}
 
 function renderList(data) {
-  const therapies=getAllTherapies();
-  const dayMap=buildDayMap(therapies);
-  const alarms=data.alarms||{}, taken=data.taken||{}, takenTimes=data.takenTimes||{};
-  const today=formatDate(new Date());
-  const wd=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
-  let sortedDates=Object.keys(dayMap).filter(d=>dayMap[d].dose!==null).sort((a,b)=>parseDate(a)-parseDate(b));
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const t = therapies[currentTherapyIdx];
+  const days = getTherapyDays(t);
+  const alarms = data.alarms||{}, taken = data.taken||{}, takenTimes = data.takenTimes||{};
+  const today = formatDate(new Date());
+  const wd = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+
+  // Update list header
+  const titleEl = document.getElementById('listTherapyTitle');
+  const counterEl = document.getElementById('listTherapyCounter');
+  if(titleEl) titleEl.textContent = `${t.dataInizio||'—'} → ${t.dataFine||'—'}`;
+  if(counterEl) counterEl.textContent = `Piano ${currentTherapyIdx+1} di ${therapies.length}`;
+
+  // Sort days
+  let sortedDates = [...days];
   if(!listSortAsc) sortedDates = [...sortedDates].reverse();
-  const list=document.getElementById('dayList'); list.innerHTML='';
-  sortedDates.forEach(dateStr=>{
-    const info=dayMap[dateStr], d=parseDate(dateStr);
-    const isTaken=taken[dateStr], alarm=alarms[dateStr], takenTime=takenTimes[dateStr];
-    const isControl=info.isControl, isToday=dateStr===today, dose=info.dose, isSpecial=dose!==1;
-    const item=document.createElement('div');
+
+  const list = document.getElementById('dayList');
+  list.innerHTML='';
+
+  sortedDates.forEach(dateStr => {
+    const d = parseDate(dateStr);
+    const isTaken = taken[dateStr];
+    const alarm = alarms[dateStr];
+    const takenTime = takenTimes[dateStr];
+    const isControl = dateStr===t.dataControllo;
+    const isToday = dateStr===today;
+    const dose = getDayDoseFromTherapy(t, dateStr);
+    const isSpecial = dose!==1;
+
+    const item = document.createElement('div');
     item.className='day-item'+(isTaken?' taken':'')+(isControl?' control-day':'')+(isToday?' today-item':'');
     if(isToday) item.setAttribute('data-today','true');
+
     item.innerHTML=`
-      <div class="day-date"><div>${dateStr} ${isToday?'🔵':''}</div><div class="day-weekday">${wd[d.getDay()]}</div></div>
-      <div style="display:flex;align-items:center">${drawDoseSVG(dose,info.unitMg,40)}</div>
+      <div class="day-date">
+        <div>${dateStr} ${isToday?'🔵':''}</div>
+        <div class="day-weekday">${wd[d.getDay()]}</div>
+      </div>
+      <div class="day-dose" style="${isSpecial?'border-color:#f0883e;color:white':'border-color:#3fb950;color:white'}">${dosePillLabel(dose,t.doseUnitaMg||5)}</div>
       ${isControl?'<span class="control-tag">📋 Controllo</span>':''}
       <div class="day-alarm">
-        <input type="time" class="alarm-input" value="${alarm||'17:30'}" data-date="${dateStr}" onchange="setAlarmDirect('${dateStr}',this.value)">
+        <input type="time" class="alarm-input" value="${alarm||'17:30'}" data-date="${dateStr}"
+          onchange="setAlarmDirect('${dateStr}',this.value)">
         <button class="btn-alarm${alarm?' active':''}" onclick="toggleAlarmFromList('${dateStr}')">
           ${alarm?'🔔 Attivo':'🔕 Off'}
         </button>
@@ -1285,8 +1377,52 @@ function renderList(data) {
   });
 }
 
-function prevMonth() { currentCalMonth--; if(currentCalMonth<0){currentCalMonth=11;currentCalYear--;} renderCalendar(loadData()); }
-function nextMonth() { currentCalMonth++; if(currentCalMonth>11){currentCalMonth=0;currentCalYear++;} renderCalendar(loadData()); }
+
+function prevTherapy() {
+  const therapies = getAllTherapies();
+  if(currentTherapyIdx > 0) {
+    currentTherapyIdx--;
+    renderTerapiaTab();
+  }
+}
+
+function nextTherapy() {
+  const therapies = getAllTherapies();
+  if(currentTherapyIdx < therapies.length-1) {
+    currentTherapyIdx++;
+    renderTerapiaTab();
+  }
+}
+
+// Keep old names as aliases for any remaining references
+function prevMonth() { prevTherapy(); }
+function nextMonth() { nextTherapy(); }
+
+// ---- SWIPE SUPPORT ----
+function initSwipe() {
+  const area = document.getElementById('terapiaContent');
+  if(!area) return;
+  let startX=0, startY=0, startTime=0;
+
+  area.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+  }, { passive:true });
+
+  area.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    const dt = Date.now() - startTime;
+
+    // Valid swipe: fast, horizontal, more than 60px
+    if(dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5) {
+      if(dx < 0) nextTherapy();  // swipe left → next
+      else        prevTherapy(); // swipe right → prev
+    }
+  }, { passive:true });
+}
+
 function setView(v) {
   currentView=v;
   document.getElementById('calView').style.display=v==='cal'?'block':'none';
@@ -1310,20 +1446,39 @@ function closeModal() { document.getElementById('dayModal').classList.remove('ac
 function saveAlarm() {
   if(!selectedDayKey) return;
   const time=document.getElementById('modalTime').value;
-  appData=loadData(); if(!appData.alarms) appData.alarms={};
-  appData.alarms[selectedDayKey]=time; saveData(appData);
-  scheduleAlarm(selectedDayKey,time); closeModal(); renderTerapiaTab();
+  appData=loadData();
+  if(!appData.alarms) appData.alarms={};
+  if(!appData.alarmTimes) appData.alarmTimes={};
+  appData.alarms[selectedDayKey]     = time;
+  appData.alarmTimes[selectedDayKey] = Date.now();
+  saveData(appData);
+  scheduleAlarm(selectedDayKey, time); closeModal(); renderTerapiaTab();
   fbAutoSync();
   // Sync alarms to Firestore for push notifications
   if(_fbUser && _fbDb) { navigator.serviceWorker?.ready.then(()=>fbRegisterFCM()); }
 }
 function setAlarmDirect(dateStr, time) {
-  appData=loadData(); if(!appData.alarms) appData.alarms={}; appData.alarms[dateStr]=time; saveData(appData); scheduleAlarm(dateStr,time);
+  appData=loadData();
+  if(!appData.alarms) appData.alarms={};
+  if(!appData.alarmTimes) appData.alarmTimes={};
+  appData.alarms[dateStr]     = time;
+  appData.alarmTimes[dateStr] = Date.now();
+  saveData(appData);
+  scheduleAlarm(dateStr, time);
 }
 function toggleAlarmFromList(dateStr) {
   appData=loadData(); if(!appData.alarms) appData.alarms={};
-  if(appData.alarms[dateStr]) { delete appData.alarms[dateStr]; }
-  else { const t=document.querySelector(`input[data-date="${dateStr}"]`); const time=t?t.value:(appData.defaultAlarmTime||'17:30'); appData.alarms[dateStr]=time; scheduleAlarm(dateStr,time); }
+  if(!appData.alarmTimes) appData.alarmTimes={};
+  if(appData.alarms[dateStr]) {
+    delete appData.alarms[dateStr];
+    delete appData.alarmTimes[dateStr];
+  } else {
+    const t=document.querySelector(`input[data-date="${dateStr}"]`);
+    const time=t?t.value:(appData.defaultAlarmTime||'17:30');
+    appData.alarms[dateStr]     = time;
+    appData.alarmTimes[dateStr] = Date.now();
+    scheduleAlarm(dateStr,time);
+  }
   saveData(appData); renderList(appData);
 }
 function toggleTaken(dateStr) {
@@ -1491,53 +1646,49 @@ function drawDoseSVG(dose, unitMg, size=52) {
   const wholes = Math.floor(dose);
   const frac = Math.round((dose - wholes) * 4); // quarters: 0,1,2,3
   const isSpecial = (dose !== 1.0);
-  const colorOn  = isSpecial ? '#f0883e' : '#3fb950';
-  const colorOff = 'rgba(255,255,255,0.07)';
-  const colorLine = isSpecial ? 'rgba(240,136,62,0.5)' : 'rgba(63,185,80,0.5)';
+
+  // Always white fill, border color depends on dose type
+  const colorOn    = 'white';
+  const colorOff   = 'rgba(255,255,255,0.12)';
+  const colorBorder = isSpecial ? '#f0883e' : '#3fb950';
+  const colorLine  = isSpecial ? 'rgba(240,136,62,0.6)' : 'rgba(63,185,80,0.6)';
 
   const r = size / 2 - 3;
   const cx = size / 2;
   const cy = size / 2;
 
-  // polar -> cartesian, angle 0 = top
   function pt(angleDeg, radius) {
     const rad = (angleDeg - 90) * Math.PI / 180;
     return [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
   }
 
-  // Draw one full circle divided into 4 quarters, all filled
-  // with explicit dividing lines from center to edge
+  // Full circle: white fill + dark dividing lines + colored border
   function fullCircle(ox) {
-    // Single filled circle
-    const disk = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colorOn}" stroke="${colorOn}" stroke-width="2"/>`;
-    // 4 dividing lines from center to circumference (top, right, bottom, left)
+    const disk = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colorOn}" stroke="${colorBorder}" stroke-width="2"/>`;
     const divLines = [0, 90, 180, 270].map(angle => {
       const [x, y] = pt(angle, r);
       return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}"
-        stroke="#0d1117" stroke-width="2" stroke-linecap="round"/>`;
+        stroke="${colorBorder}" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>`;
     }).join('');
-    // Outer ring
-    const ring = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorOn}" stroke-width="2"/>`;
+    const ring = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorBorder}" stroke-width="2"/>`;
     return `<g transform="translate(${ox},0)">${disk}${divLines}${ring}</g>`;
   }
 
-  // Draw fraction: only filled spicchi, NO outer arc/circle
-  // Each spicchio is a pie slice starting from center, no closing arc border
+  // Fractional spicchi: white fill, colored border, no outer arc
   function fracSpicchi(ox, nQuarters) {
     const slices = [];
     for(let q = 0; q < nQuarters; q++) {
       const [x1,y1] = pt(q*90, r);
       const [x2,y2] = pt(q*90+90, r);
-      // Slice: center -> arc -> back, filled, with subtle dividing lines
       slices.push(
         `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 0,1 ${x2.toFixed(2)},${y2.toFixed(2)} Z"
-          fill="${colorOn}" stroke="${colorLine}" stroke-width="1.5" stroke-linejoin="round"/>`
+          fill="${colorOn}" stroke="${colorBorder}" stroke-width="1.5" stroke-linejoin="round"/>`
       );
     }
     return `<g transform="translate(${ox},0)">${slices.join('')}</g>`;
   }
 
-  const gap = 6; // gap between circles/spicchi
+  const gap = 6;
   const totalCols = wholes + (frac > 0 ? 1 : 0);
   const totalW = totalCols > 0 ? totalCols * size + (totalCols - 1) * gap : size;
 
@@ -1550,18 +1701,15 @@ function drawDoseSVG(dose, unitMg, size=52) {
   }
 
   const label = doseToText(dose);
-  const labelColor = isSpecial ? '#f0883e' : '#3fb950';
-  const svgH = size;
 
   return `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:2px">
-    <svg width="${totalW}" height="${svgH}" viewBox="0 0 ${totalW} ${svgH}" style="overflow:visible">
+    <svg width="${totalW}" height="${size}" viewBox="0 0 ${totalW} ${size}" style="overflow:visible">
       ${groups.join('')}
     </svg>
-    <div style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:${labelColor};line-height:1.2;text-align:center;max-width:80px">${label}</div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1">${mg}mg</div>
+    <div style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:white;line-height:1.2;text-align:center;max-width:80px">${label}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.7);line-height:1">${mg}mg</div>
   </div>`;
 }
-
 
 // ===================================================
 // HELPERS
@@ -1803,10 +1951,33 @@ function fbStartRealtimeSync() {
 
 function fbMergeData(remote, local) {
   const merged = Object.assign({}, remote);
-  // Keep local taken/alarms as they are device-specific
+
+  // takenTimes e taken: merge completo (unione)
   merged.takenTimes = Object.assign({}, remote.takenTimes||{}, local.takenTimes||{});
   merged.taken      = Object.assign({}, remote.taken||{}, local.taken||{});
-  merged.alarms     = Object.assign({}, remote.alarms||{}, local.alarms||{});
+
+  // Alarms: vince il timestamp più recente per ogni giorno
+  const remoteAlarms  = remote.alarms       || {};
+  const localAlarms   = local.alarms        || {};
+  const remoteATs     = remote.alarmTimes   || {}; // timestamp ultima modifica
+  const localATs      = local.alarmTimes    || {};
+
+  const mergedAlarms  = Object.assign({}, remoteAlarms);
+  const mergedATs     = Object.assign({}, remoteATs);
+
+  for(const date of Object.keys(localAlarms)) {
+    const localTs  = localATs[date]  || 0;
+    const remoteTs = remoteATs[date] || 0;
+    if(localTs >= remoteTs) {
+      // Modifica locale più recente: usa locale
+      mergedAlarms[date] = localAlarms[date];
+      mergedATs[date]    = localTs;
+    }
+    // altrimenti mantieni remoto (già in mergedAlarms)
+  }
+
+  merged.alarms     = mergedAlarms;
+  merged.alarmTimes = mergedATs;
   return merged;
 }
 
@@ -2496,6 +2667,7 @@ function openStartupTab() {
 // Run startup sequence
 lockLandscapeOnMobile();
 initAlarms();
+initSwipe();
 setTimeout(initFirebase, 800);
 setTimeout(() => {
   hideSplash();
@@ -2509,25 +2681,75 @@ if('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
       .then(reg => {
         console.log('[TAO] Service Worker registrato:', reg.scope);
-        // Check for updates
+
+        // Check for updates only when a new SW is waiting
+        // (not on first install)
+        let refreshing = false;
+
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           newWorker.addEventListener('statechange', () => {
-            if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              showUpdateBanner();
+            // Only show banner if there is an existing controller
+            // (i.e. not the very first install)
+            if(newWorker.state === 'installed' &&
+               navigator.serviceWorker.controller &&
+               !refreshing) {
+              showUpdateBanner(reg);
             }
           });
+        });
+
+        // When SW takes control, reload once only
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if(!refreshing) {
+            refreshing = true;
+            // Don't auto-reload — let user decide via banner
+          }
         });
       })
       .catch(err => console.warn('[TAO] SW registration failed:', err));
   });
 }
 
-function showUpdateBanner() {
+let _updateBannerShown = false;
+
+function showUpdateBanner(reg) {
+  if(_updateBannerShown) return;
+  _updateBannerShown = true;
+
   const banner = document.createElement('div');
+  banner.id = 'updateBanner';
   banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1c2333;border-top:1px solid #58a6ff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;z-index:9999;font-size:13px;color:#e6edf3';
-  banner.innerHTML = '<span>🔄 Nuova versione disponibile</span><button onclick="location.reload()" style="background:#58a6ff;color:#0d1117;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600">Aggiorna</button>';
+  banner.innerHTML = `
+    <span>🔄 Nuova versione disponibile</span>
+    <div style="display:flex;gap:8px">
+      <button onclick="document.getElementById('updateBanner').remove();_updateBannerShown=false;"
+        style="background:transparent;color:#7d8590;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">
+        Dopo
+      </button>
+      <button onclick="activateUpdate()"
+        style="background:#58a6ff;color:#0d1117;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600">
+        Aggiorna
+      </button>
+    </div>`;
   document.body.appendChild(banner);
+
+  // Store reg for activation
+  window._pendingSWReg = reg;
+}
+
+function activateUpdate() {
+  const reg = window._pendingSWReg;
+  if(reg && reg.waiting) {
+    // Tell the waiting SW to skip waiting and become active
+    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    // Reload once after the new SW takes control
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    }, { once: true });
+  } else {
+    window.location.reload();
+  }
 }
 </script>
 </body>
