@@ -26,16 +26,24 @@ const db        = getFirestore();
 const messaging = getMessaging();
 
 // ---- HELPERS ----
+const TZ = 'Europe/Rome';
+
 function formatDate(d) {
-  const dd   = String(d.getDate()).padStart(2, '0');
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
+  // Format date in Italian timezone
+  const opts = { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' };
+  const parts = new Intl.DateTimeFormat('it-IT', opts).formatToParts(d);
+  const day  = parts.find(p => p.type === 'day').value;
+  const mon  = parts.find(p => p.type === 'month').value;
+  const year = parts.find(p => p.type === 'year').value;
+  return `${day}/${mon}/${year}`;
 }
 
 function formatTime(d) {
-  const hh  = String(d.getHours()).padStart(2, '0');
-  const min = String(d.getMinutes()).padStart(2, '0');
+  // Format time in Italian timezone
+  const opts = { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false };
+  const parts = new Intl.DateTimeFormat('it-IT', opts).formatToParts(d);
+  const hh  = parts.find(p => p.type === 'hour').value.padStart(2, '0');
+  const min = parts.find(p => p.type === 'minute').value.padStart(2, '0');
   return `${hh}:${min}`;
 }
 
