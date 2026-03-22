@@ -62,8 +62,9 @@ self.addEventListener('activate', event => {
           })
       )
     ).then(() => {
-      console.log('[SW] Activated. Taking control of all clients.');
-      return self.clients.claim();
+      console.log('[SW] Activated.');
+      // Don't call clients.claim() - it triggers controllerchange
+      // and causes the update banner to loop
     })
   );
 });

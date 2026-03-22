@@ -415,18 +415,29 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
         <div class="cal-grid" id="calGrid" id="swipeCalGrid"></div>
       </div>
       <div id="listView" style="display:none">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px">
-          <button onclick="prevTherapy()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">◀</button>
-          <div style="text-align:center;flex:1">
-            <div id="listTherapyTitle" style="font-size:13px;font-weight:600;color:var(--accent)">—</div>
-            <div id="listTherapyCounter" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+        <!-- PLAN INDEX (shown first) -->
+        <div id="planIndex">
+          <div class="section-title" style="margin-bottom:16px">📋 Tutti i piani terapeutici</div>
+          <div id="planIndexList" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+        <!-- PLAN DAYS (shown after selecting a plan) -->
+        <div id="planDays" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px">
+            <button onclick="showPlanIndex()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-size:12px">← Piani</button>
+            <div style="text-align:center;flex:1">
+              <div id="listTherapyTitle" style="font-size:13px;font-weight:600;color:var(--accent)">—</div>
+              <div id="listTherapyCounter" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button onclick="prevTherapy()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">◀</button>
+              <button onclick="nextTherapy()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">▶</button>
+            </div>
           </div>
-          <button onclick="nextTherapy()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">▶</button>
+          <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+            <button id="sortToggleBtn" onclick="toggleListSort()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;transition:all .2s">↑ Dal più vecchio</button>
+          </div>
+          <div class="day-list" id="dayList"></div>
         </div>
-        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
-          <button id="sortToggleBtn" onclick="toggleListSort()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;transition:all .2s">↑ Dal più vecchio</button>
-        </div>
-        <div class="day-list" id="dayList"></div>
       </div>
     </div>
   </div>
@@ -1272,8 +1283,12 @@ function renderCalendar(data) {
   const gridEnd = new Date(lastDay);
   gridEnd.setDate(gridEnd.getDate() + (6 - lastDow));
 
+  // Extend grid end by 7 days (extra week for delayed control)
+  const gridEndExtended = new Date(gridEnd);
+  gridEndExtended.setDate(gridEndExtended.getDate() + 7);
+
   let cur = new Date(gridStart);
-  while(cur <= gridEnd) {
+  while(cur <= gridEndExtended) {
     const dateStr = formatDate(cur);
     const inTherapy = daysSet.has(dateStr);
     const isToday = dateStr===today;
@@ -1281,14 +1296,23 @@ function renderCalendar(data) {
     const isTaken = taken[dateStr];
     const alarm = alarms[dateStr];
     const takenTime = takenTimes[dateStr];
+    const isExtraWeek = cur > gridEnd; // days after official therapy end
 
     const el = document.createElement('div');
 
-    if(!inTherapy && !isControl) {
-      // Empty cell — show greyed out day number only
+    if(!inTherapy && !isControl && !isExtraWeek) {
+      // Inside grid range but not therapy — fully transparent
       el.className='cal-day';
       el.style.cssText='background:transparent;border-color:transparent;min-height:90px';
-      el.innerHTML=`<div class="cal-day-num" style="color:rgba(125,133,144,0.2)">${cur.getDate()}</div>`;
+      el.innerHTML=`<div class="cal-day-num" style="color:rgba(125,133,144,0.15)">${cur.getDate()}</div>`;
+    } else if(isExtraWeek && !isControl) {
+      // Extra week — white border, no dose, but can mark taken
+      el.className='cal-day'+(isToday?' today':'')+(isTaken?' taken':'');
+      el.style.borderColor='rgba(255,255,255,0.2)';
+      let inner=`<div class="cal-day-num" style="color:var(--muted)">${cur.getDate()}</div>`;
+      if(isTaken) inner+=`<div class="cal-taken-time">✅ ${takenTime||''}</div>`;
+      el.innerHTML=inner;
+      el.onclick=()=>toggleTaken(dateStr);
     } else {
       el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
       let inner=`<div class="cal-day-num">${cur.getDate()}</div>`;
@@ -1429,7 +1453,63 @@ function setView(v) {
   document.getElementById('listView').style.display=v==='list'?'block':'none';
   document.getElementById('calViewBtn').classList.toggle('active',v==='cal');
   document.getElementById('listViewBtn').classList.toggle('active',v==='list');
-  const data=loadData(); if(v==='cal') renderCalendar(data); else renderList(data);
+  const data=loadData();
+  if(v==='cal') renderCalendar(data);
+  else showPlanIndex(); // Always show plan index when switching to list
+}
+
+function showPlanIndex() {
+  document.getElementById('planIndex').style.display='block';
+  document.getElementById('planDays').style.display='none';
+  renderPlanIndex();
+}
+
+function showPlanDays(idx) {
+  currentTherapyIdx = idx;
+  document.getElementById('planIndex').style.display='none';
+  document.getElementById('planDays').style.display='block';
+  renderList(loadData());
+}
+
+function renderPlanIndex() {
+  const therapies = getAllTherapies();
+  const data = loadData();
+  const container = document.getElementById('planIndexList');
+  container.innerHTML='';
+  const today = formatDate(new Date());
+
+  therapies.forEach((t, idx) => {
+    const days = getTherapyDays(t);
+    const takenCount = days.filter(d=>data.taken&&data.taken[d]).length;
+    const pct = days.length>0?Math.round(takenCount/days.length*100):0;
+    const isActive = days.includes(today);
+    const isCurrent = idx===currentTherapyIdx;
+
+    const card = document.createElement('div');
+    card.className='card';
+    card.style.cssText=`cursor:pointer;border-color:${isActive?'var(--accent2)':isCurrent?'var(--accent)':'var(--border)'};transition:all .2s`;
+    card.onclick=()=>{ showPlanDays(idx); };
+    card.innerHTML=`
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:4px">
+            ${isActive?'<span style="color:var(--accent2);margin-right:6px">●</span>':''}
+            Piano ${idx+1} — ${t.dataInizio||'—'} → ${t.dataFine||'—'}
+          </div>
+          <div style="font-size:12px;color:var(--muted)">${t.farmaco||'—'} · ${days.length} giorni · ${takenCount}/${days.length} assunzioni</div>
+          <div style="margin-top:8px;background:var(--border);border-radius:4px;height:4px;overflow:hidden">
+            <div style="height:100%;border-radius:4px;background:${pct>=70?'var(--accent2)':'var(--warn)'};width:${pct}%"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="event.stopPropagation();currentTherapyIdx=${idx};setView('cal')" 
+            style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-size:11px">🗓</button>
+          <button onclick="event.stopPropagation();showPlanDays(${idx})"
+            style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-size:11px">☰</button>
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
 }
 
 // ===================================================
@@ -2652,13 +2732,7 @@ function openStartupTab() {
   const hasTherapy = (data.therapies&&data.therapies.length>0) || data.therapy;
   if(hasTherapy) {
     switchTab('terapia');
-    setTimeout(() => {
-      setView('list');
-      setTimeout(() => {
-        const todayEl = document.querySelector('[data-today="true"]');
-        if(todayEl) todayEl.scrollIntoView({behavior:'smooth', block:'center'});
-      }, 300);
-    }, 150);
+    setTimeout(() => setView('cal'), 150);
   } else {
     switchTab('upload');
   }
