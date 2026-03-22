@@ -1841,9 +1841,38 @@ let _dayDetailKey = null;
 let _longPressTimer = null;
 const LONG_PRESS_MS = 500;
 
-function openDayDetailModal(dateStr) {
+async function openDayDetailModal(dateStr) {
   _dayDetailKey = dateStr;
-  const data = loadData();
+
+  // Show modal immediately with local data
+  _renderDayDetailModal(dateStr, loadData());
+
+  // Then sync from Firestore and refresh if needed
+  if(_fbUser && _fbDb) {
+    try {
+      const { doc, getDoc } = window._firebaseModules;
+      const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+      const snapshot = await getDoc(docRef);
+      if(snapshot.exists()) {
+        const remoteData = snapshot.data();
+        const localData = loadData();
+        // If remote is different, update local and re-render modal
+        if(JSON.stringify(remoteData.taken) !== JSON.stringify(localData.taken) ||
+           JSON.stringify(remoteData.takenTimes) !== JSON.stringify(localData.takenTimes)) {
+          const merged = fbMergeData(remoteData, localData);
+          saveData(merged);
+          appData = merged;
+          _renderDayDetailModal(dateStr, merged);
+          renderTerapiaTab();
+        }
+      }
+    } catch(e) {
+      console.warn('[TAO] Modal sync error:', e);
+    }
+  }
+}
+
+function _renderDayDetailModal(dateStr, data) {
   const therapies = getAllTherapies();
   const t = therapies[currentTherapyIdx];
   const taken = data.taken || {};
@@ -2191,6 +2220,11 @@ function fbStartRealtimeSync() {
         `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
       );
       showAutoBackupToast('☁️ Dati aggiornati dal cloud');
+
+      // If day detail modal is open, refresh it with new data
+      if(_dayDetailKey && document.getElementById('dayDetailModal').classList.contains('active')) {
+        _renderDayDetailModal(_dayDetailKey, merged);
+      }
     }
   }, err => {
     console.error('[FB] Realtime sync error:', err);
