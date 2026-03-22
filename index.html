@@ -2792,35 +2792,36 @@ if('serviceWorker' in navigator) {
       .then(reg => {
         console.log('[TAO] Service Worker registrato:', reg.scope);
 
-        // Silent auto-update: when new SW is waiting, activate it immediately
         function activateSilently(r) {
           if(r.waiting) {
+            // Mark that we triggered an update — prevent reload loop
+            sessionStorage.setItem('sw_updating', '1');
             r.waiting.postMessage({ type: 'SKIP_WAITING' });
           }
         }
 
+        // Reload once after SW takes control — only if WE triggered it
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if(sessionStorage.getItem('sw_updating') === '1') {
+            sessionStorage.removeItem('sw_updating');
+            window.location.reload();
+          }
+        });
+
         // If already waiting on page load, activate silently
-        if(reg.waiting) {
+        if(reg.waiting && navigator.serviceWorker.controller) {
           activateSilently(reg);
+          return; // don't attach updatefound too
         }
 
-        // When new SW is found, wait for it to install then activate silently
+        // Watch for future updates
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           newWorker.addEventListener('statechange', () => {
-            if(newWorker.state === 'installed') {
+            if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               activateSilently(reg);
             }
           });
-        });
-
-        // When SW takes control, reload the page once silently
-        let reloading = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if(!reloading) {
-            reloading = true;
-            window.location.reload();
-          }
         });
       })
       .catch(err => console.warn('[TAO] SW registration failed:', err));
