@@ -578,6 +578,29 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div id="pdfPreviewArea" style="display:none"></div>
   </div>
 
+<!-- DAY DETAIL MODAL (long press) -->
+<div class="modal-overlay" id="dayDetailModal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-title" id="dayDetailTitle">📅 Dettaglio giorno</div>
+    <div id="dayDetailDose" style="font-size:13px;color:var(--muted);margin-bottom:16px"></div>
+
+    <!-- Alarm time -->
+    <div class="modal-row">
+      <div class="modal-label">⏰ Orario allarme</div>
+      <input type="time" class="modal-input" id="dayDetailTime" value="17:30">
+    </div>
+
+    <!-- Taken status -->
+    <div id="dayDetailTakenInfo" style="font-size:12px;color:var(--accent2);margin-bottom:12px;display:none"></div>
+
+    <div class="modal-btns" style="flex-direction:column;gap:8px">
+      <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%">○ Segna come preso</button>
+      <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%">🔔 Salva orario allarme</button>
+      <button onclick="closeDayDetailModal()" class="btn-secondary" style="width:100%;color:var(--muted)">Chiudi</button>
+    </div>
+  </div>
+</div>
+
 </main>
 
 <script>
@@ -1335,6 +1358,7 @@ function renderCalendar(data) {
       else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
       el.innerHTML=inner;
       el.onclick=()=>openModal(dateStr);
+      addLongPressHandlers(el, dateStr);
     } else {
       el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
       let inner=`<div class="cal-day-num">${cur.getDate()}</div>`;
@@ -1349,7 +1373,10 @@ function renderCalendar(data) {
       }
       if(isControl) inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
       el.innerHTML=inner;
-      if(inTherapy) el.onclick=()=>openModal(dateStr);
+      if(inTherapy) {
+        el.onclick=()=>openModal(dateStr);
+        addLongPressHandlers(el, dateStr);
+      }
     }
     grid.appendChild(el);
     cur.setDate(cur.getDate()+1);
@@ -1805,6 +1832,132 @@ function drawDoseSVG(dose, unitMg, size=52) {
     <div style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:white;line-height:1.2;text-align:center;max-width:80px">${label}</div>
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.7);line-height:1">${mg}mg</div>
   </div>`;
+}
+
+// ===================================================
+// DAY DETAIL MODAL (long press)
+// ===================================================
+let _dayDetailKey = null;
+let _longPressTimer = null;
+const LONG_PRESS_MS = 500;
+
+function openDayDetailModal(dateStr) {
+  _dayDetailKey = dateStr;
+  const data = loadData();
+  const therapies = getAllTherapies();
+  const t = therapies[currentTherapyIdx];
+  const taken = data.taken || {};
+  const takenTimes = data.takenTimes || {};
+  const alarms = data.alarms || {};
+
+  // Title
+  document.getElementById('dayDetailTitle').textContent = `📅 ${dateStr}`;
+
+  // Dose info
+  const dose = getDayDoseFromTherapy(t, dateStr);
+  const mg = Math.round(dose * (t.doseUnitaMg||5) * 100) / 100;
+  document.getElementById('dayDetailDose').textContent = `${doseToText(dose)} — ${mg}mg`;
+
+  // Alarm time
+  document.getElementById('dayDetailTime').value = alarms[dateStr] || data.defaultAlarmTime || '17:30';
+
+  // Taken status
+  const isTaken = taken[dateStr];
+  const takenTime = takenTimes[dateStr];
+  const takenInfo = document.getElementById('dayDetailTakenInfo');
+  const takenBtn = document.getElementById('dayDetailTakenBtn');
+
+  if(isTaken) {
+    takenInfo.style.display = 'block';
+    takenInfo.textContent = takenTime ? `✅ Assunto alle ${takenTime}` : '✅ Segnato come preso';
+    takenBtn.textContent = '○ Rimuovi assunzione';
+    takenBtn.style.background = 'transparent';
+    takenBtn.style.border = '1px solid var(--border)';
+    takenBtn.style.color = 'var(--muted)';
+  } else {
+    takenInfo.style.display = 'none';
+    takenBtn.textContent = '✅ Segna come preso';
+    takenBtn.style.background = 'var(--accent2)';
+    takenBtn.style.border = 'none';
+    takenBtn.style.color = '#0d1117';
+  }
+
+  document.getElementById('dayDetailModal').classList.add('active');
+}
+
+function closeDayDetailModal() {
+  document.getElementById('dayDetailModal').classList.remove('active');
+  _dayDetailKey = null;
+}
+
+function toggleTakenFromModal() {
+  if(!_dayDetailKey) return;
+  appData = loadData();
+  if(!appData.taken) appData.taken = {};
+  if(!appData.takenTimes) appData.takenTimes = {};
+  const isTaken = appData.taken[_dayDetailKey];
+  if(isTaken) {
+    appData.taken[_dayDetailKey] = false;
+    delete appData.takenTimes[_dayDetailKey];
+  } else {
+    appData.taken[_dayDetailKey] = true;
+    appData.takenTimes[_dayDetailKey] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  }
+  saveData(appData);
+  fbAutoSync();
+  saveBackupToFolder(true);
+  closeDayDetailModal();
+  renderTerapiaTab();
+}
+
+function saveAlarmFromModal() {
+  if(!_dayDetailKey) return;
+  const time = document.getElementById('dayDetailTime').value;
+  appData = loadData();
+  if(!appData.alarms) appData.alarms = {};
+  if(!appData.alarmTimes) appData.alarmTimes = {};
+  appData.alarms[_dayDetailKey] = time;
+  appData.alarmTimes[_dayDetailKey] = Date.now();
+  saveData(appData);
+  scheduleAlarm(_dayDetailKey, time);
+  fbAutoSync();
+  closeDayDetailModal();
+  renderTerapiaTab();
+}
+
+// Long press handlers for calendar cells
+function addLongPressHandlers(el, dateStr) {
+  // Touch (mobile)
+  el.addEventListener('touchstart', e => {
+    _longPressTimer = setTimeout(() => {
+      e.preventDefault();
+      openDayDetailModal(dateStr);
+    }, LONG_PRESS_MS);
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+
+  el.addEventListener('touchmove', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+
+  // Desktop (mouse)
+  el.addEventListener('mousedown', e => {
+    if(e.button !== 0) return;
+    _longPressTimer = setTimeout(() => {
+      openDayDetailModal(dateStr);
+    }, LONG_PRESS_MS);
+  });
+
+  el.addEventListener('mouseup', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+
+  el.addEventListener('mouseleave', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
 }
 
 // ===================================================
