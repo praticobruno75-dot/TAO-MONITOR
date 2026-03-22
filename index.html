@@ -1953,6 +1953,21 @@ function closeDayDetailModal() {
   _dayDetailKey = null;
 }
 
+function toggleTakenFromAlarm(dateStr) {
+  appData = loadData();
+  if(!appData.taken) appData.taken = {};
+  if(!appData.takenTimes) appData.takenTimes = {};
+  if(!appData.takenEditTimes) appData.takenEditTimes = {};
+  appData.taken[dateStr] = true;
+  appData.takenEditTimes[dateStr] = Date.now();
+  appData.takenTimes[dateStr] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  saveData(appData);
+  fbAutoSync();
+  saveBackupToFolder(true);
+  renderTerapiaTab();
+  showAutoBackupToast('✅ Assunzione confermata dalla notifica');
+}
+
 function toggleTakenFromModal() {
   if(!_dayDetailKey) return;
   appData = loadData();
