@@ -1844,10 +1844,7 @@ const LONG_PRESS_MS = 500;
 async function openDayDetailModal(dateStr) {
   _dayDetailKey = dateStr;
 
-  // Show modal immediately with local data
-  _renderDayDetailModal(dateStr, loadData());
-
-  // Then sync from Firestore and refresh if needed
+  // Always fetch fresh data from Firestore before showing modal
   if(_fbUser && _fbDb) {
     try {
       const { doc, getDoc } = window._firebaseModules;
@@ -1856,20 +1853,19 @@ async function openDayDetailModal(dateStr) {
       if(snapshot.exists()) {
         const remoteData = snapshot.data();
         const localData = loadData();
-        // If remote is different, update local and re-render modal
-        if(JSON.stringify(remoteData.taken) !== JSON.stringify(localData.taken) ||
-           JSON.stringify(remoteData.takenTimes) !== JSON.stringify(localData.takenTimes)) {
-          const merged = fbMergeData(remoteData, localData);
-          saveData(merged);
-          appData = merged;
-          _renderDayDetailModal(dateStr, merged);
-          renderTerapiaTab();
-        }
+        // Always merge and use latest data
+        const merged = fbMergeData(remoteData, localData);
+        saveData(merged);
+        appData = merged;
+        _renderDayDetailModal(dateStr, merged);
+        return;
       }
     } catch(e) {
       console.warn('[TAO] Modal sync error:', e);
     }
   }
+  // Fallback: use local data
+  _renderDayDetailModal(dateStr, loadData());
 }
 
 function _renderDayDetailModal(dateStr, data) {
