@@ -1,6 +1,6 @@
 // TAO Monitor — Service Worker
 // Versione cache: aggiorna questo numero ad ogni deploy
-const CACHE_VERSION = 'tao-v3';
+const CACHE_VERSION = 'tao-v4';
 const CACHE_NAME = `tao-monitor-${CACHE_VERSION}`;
 
 // File da mettere in cache per funzionamento offline

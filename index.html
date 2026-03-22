@@ -1283,9 +1283,18 @@ function renderCalendar(data) {
   const gridEnd = new Date(lastDay);
   gridEnd.setDate(gridEnd.getDate() + (6 - lastDow));
 
-  // Extend grid end by 7 days (extra week for delayed control)
+  // Extend grid end by 7 days ONLY if no next therapy covers those days
   const gridEndExtended = new Date(gridEnd);
-  gridEndExtended.setDate(gridEndExtended.getDate() + 7);
+  const therapiesAll = getAllTherapies();
+  const nextTherapy = therapiesAll[currentTherapyIdx + 1];
+  const nextTherapyStart = nextTherapy ? parseDate(nextTherapy.dataInizio) : null;
+  // Add extra week only if next therapy starts more than 7 days after this one ends
+  // or there is no next therapy
+  const shouldAddExtraWeek = !nextTherapyStart ||
+    nextTherapyStart > new Date(gridEnd.getTime() + 7*24*60*60*1000);
+  if(shouldAddExtraWeek) {
+    gridEndExtended.setDate(gridEndExtended.getDate() + 7);
+  }
 
   let cur = new Date(gridStart);
   while(cur <= gridEndExtended) {
@@ -1296,7 +1305,9 @@ function renderCalendar(data) {
     const isTaken = taken[dateStr];
     const alarm = alarms[dateStr];
     const takenTime = takenTimes[dateStr];
-    const isExtraWeek = cur > gridEnd; // days after official therapy end
+    const isExtraWeek = cur > gridEnd && shouldAddExtraWeek;
+    // If next therapy starts on this day, don't show as extra week
+    const isNextTherapyDay = nextTherapyStart && formatDate(cur) === formatDate(nextTherapyStart);
 
     const el = document.createElement('div');
 
@@ -2781,69 +2792,39 @@ if('serviceWorker' in navigator) {
       .then(reg => {
         console.log('[TAO] Service Worker registrato:', reg.scope);
 
-        // Check for updates only when a new SW is waiting
-        // (not on first install)
-        let refreshing = false;
-
-        // Check if there's already a waiting worker on load
-        if(reg.waiting && navigator.serviceWorker.controller) {
-          showUpdateBanner(reg);
+        // Silent auto-update: when new SW is waiting, activate it immediately
+        function activateSilently(r) {
+          if(r.waiting) {
+            r.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
         }
 
+        // If already waiting on page load, activate silently
+        if(reg.waiting) {
+          activateSilently(reg);
+        }
+
+        // When new SW is found, wait for it to install then activate silently
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           newWorker.addEventListener('statechange', () => {
-            if(newWorker.state === 'installed' &&
-               navigator.serviceWorker.controller &&
-               !refreshing) {
-              showUpdateBanner(reg);
+            if(newWorker.state === 'installed') {
+              activateSilently(reg);
             }
           });
+        });
+
+        // When SW takes control, reload the page once silently
+        let reloading = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if(!reloading) {
+            reloading = true;
+            window.location.reload();
+          }
         });
       })
       .catch(err => console.warn('[TAO] SW registration failed:', err));
   });
-}
-
-let _updateBannerShown = false;
-
-function showUpdateBanner(reg) {
-  if(_updateBannerShown) return;
-  _updateBannerShown = true;
-
-  const banner = document.createElement('div');
-  banner.id = 'updateBanner';
-  banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1c2333;border-top:1px solid #58a6ff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;z-index:9999;font-size:13px;color:#e6edf3';
-  banner.innerHTML = `
-    <span>🔄 Nuova versione disponibile</span>
-    <div style="display:flex;gap:8px">
-      <button onclick="document.getElementById('updateBanner').remove();_updateBannerShown=false;"
-        style="background:transparent;color:#7d8590;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">
-        Dopo
-      </button>
-      <button onclick="activateUpdate()"
-        style="background:#58a6ff;color:#0d1117;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-weight:600">
-        Aggiorna
-      </button>
-    </div>`;
-  document.body.appendChild(banner);
-
-  // Store reg for activation
-  window._pendingSWReg = reg;
-}
-
-function activateUpdate() {
-  const reg = window._pendingSWReg;
-  if(reg && reg.waiting) {
-    // Tell the waiting SW to skip waiting and become active
-    reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-    // Reload once after the new SW takes control
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      window.location.reload();
-    }, { once: true });
-  } else {
-    window.location.reload();
-  }
 }
 </script>
 </body>
