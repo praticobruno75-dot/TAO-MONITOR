@@ -1620,7 +1620,17 @@ function initFirebase() {
       _fbAuth      = getAuth(_fbApp);
       _fbDb        = getFirestore(_fbApp);
 
-      try { _fbMessaging = getMessaging(_fbApp); fbListenMessages(); } catch(e) {}
+      try {
+        _fbMessaging = getMessaging(_fbApp);
+        fbListenMessages();
+        // Send config to firebase-messaging-sw.js
+        const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
+        navigator.serviceWorker?.getRegistrations().then(regs => {
+          regs.forEach(reg => {
+            if(reg.active) reg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+          });
+        });
+      } catch(e) { console.warn('[FB] Messaging init:', e); }
 
       // Listen for auth state
       onAuthStateChanged(_fbAuth, user => {
