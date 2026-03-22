@@ -2791,35 +2791,15 @@ if('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js')
       .then(reg => {
         console.log('[TAO] Service Worker registrato:', reg.scope);
-
-        function activateSilently(r) {
-          if(r.waiting) {
-            // Mark that we triggered an update — prevent reload loop
-            sessionStorage.setItem('sw_updating', '1');
-            r.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-        }
-
-        // Reload once after SW takes control — only if WE triggered it
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if(sessionStorage.getItem('sw_updating') === '1') {
-            sessionStorage.removeItem('sw_updating');
-            window.location.reload();
-          }
-        });
-
-        // If already waiting on page load, activate silently
-        if(reg.waiting && navigator.serviceWorker.controller) {
-          activateSilently(reg);
-          return; // don't attach updatefound too
-        }
-
-        // Watch for future updates
+        // When a new SW is found, tell it to skip waiting
+        // so it is ready for the NEXT time the user opens the app.
+        // No automatic reload — user gets new version on next natural open.
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           newWorker.addEventListener('statechange', () => {
             if(newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              activateSilently(reg);
+              newWorker.postMessage({ type: 'SKIP_WAITING' });
+              console.log('[TAO] Nuova versione pronta per la prossima apertura.');
             }
           });
         });
