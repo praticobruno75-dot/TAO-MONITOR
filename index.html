@@ -3368,95 +3368,35 @@ async function generatePDFReport() {
 
   if(window.isCapacitor) {
     try {
-      // Render PDF using PDF.js inside a canvas overlay
+      // Simple approach: open PDF in new window as data URI
       const pdfDataUri = doc.output('datauristring');
-      const pdfData = atob(pdfDataUri.split(',')[1]);
-      const pdfArray = new Uint8Array(pdfData.length);
-      for(let i = 0; i < pdfData.length; i++) pdfArray[i] = pdfData.charCodeAt(i);
-
-      // Create overlay
-      const overlay = document.createElement('div');
-      overlay.id = 'pdfOverlay';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#525659;display:flex;flex-direction:column;overflow:hidden';
-      overlay.innerHTML = `
-        <div style="background:#323639;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
-          <span style="color:white;font-size:13px;font-weight:600">📄 ${fname}</span>
-          <div style="display:flex;gap:8px">
-            <button onclick="window._pdfShare()" style="background:#238636;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">📤 Condividi</button>
-            <button onclick="document.getElementById('pdfOverlay').remove()" style="background:#555;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">✕ Chiudi</button>
-          </div>
-        </div>
-        <div id="pdfPages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;align-items:center;gap:16px"></div>`;
-      document.body.appendChild(overlay);
-
-      // Attach share button listener immediately after DOM insertion
-      overlay.querySelector('#pdfShareBtn').addEventListener('click', async function() {
-        console.log('[TAO] Share clicked');
-        try {
-          const blob = doc.output('blob');
-          const file = new File([blob], fname, { type: 'application/pdf' });
-          if(typeof navigator.share === 'function') {
-            await navigator.share({ files: [file], title: 'TAO Monitor Report' });
-          } else {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = fname;
-            document.body.appendChild(a); a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
-          }
-        } catch(e) { console.error('[TAO] Share:', e.message || e); }
-      });
-
-      // Render all pages with PDF.js
-      const pagesContainer = document.getElementById('pdfPages');
-      const loadingTask = pdfjsLib.getDocument({ data: pdfArray });
-      const pdf = await loadingTask.promise;
-
-      for(let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
-        const viewport = page.getViewport({ scale: window.devicePixelRatio || 1.5 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.cssText = `width:100%;max-width:${viewport.width / (window.devicePixelRatio||1.5)}px;box-shadow:0 2px 8px rgba(0,0,0,0.4);background:white`;
-        pagesContainer.appendChild(canvas);
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-      }
-
-      // Store doc globally for onclick access
-      window._pdfDoc = doc;
-      window._pdfFname = fname;
-      window._pdfShare = async function() {
-        console.log('[TAO] Share clicked');
-        try {
-          const blob = window._pdfDoc.output('blob');
-          console.log('[TAO] Blob size:', blob.size);
-          const file = new File([blob], window._pdfFname, { type: 'application/pdf' });
-          if(typeof navigator.share === 'function') {
-            console.log('[TAO] Using Web Share API');
-            await navigator.share({ files: [file], title: 'TAO Monitor Report' });
-            return;
-          }
-          console.log('[TAO] Fallback to download');
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url; a.download = window._pdfFname;
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 5000);
-        } catch(e) {
-          console.error('[TAO] Share error:', e.message || e);
-        }
-      };
-
+      const w = window.open();
+      w.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{margin:0;background:#525659;font-family:sans-serif}
+  .bar{background:#323639;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+  .bar span{color:white;font-size:13px}
+  button{background:#238636;color:white;border:none;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer}
+  embed{width:100%;height:calc(100vh - 46px);display:block}
+</style>
+</head>
+<body>
+<div class="bar">
+  <span>📄 ${fname}</span>
+  <button onclick="window.close()">✕ Chiudi</button>
+</div>
+<embed src="${pdfDataUri}" type="application/pdf">
+</body>
+</html>`);
+      w.document.close();
       msgEl.style.color = 'var(--accent2)';
-      msgEl.textContent = `✅ Report generato — ${pdf.numPages} pagine`;
+      msgEl.textContent = '✅ Report aperto';
       return;
     } catch(e) {
-      console.warn('[TAO] PDF render error:', e.message || e);
-      msgEl.style.color = 'var(--warn)';
-      msgEl.textContent = '⚠️ Errore visualizzazione PDF';
+      console.warn('[TAO] PDF open error:', e.message || e);
     }
   }
 
