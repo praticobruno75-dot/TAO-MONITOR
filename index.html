@@ -3368,27 +3368,32 @@ async function generatePDFReport() {
 
   if(window.isCapacitor) {
     try {
-      // Use blob URL — works in Capacitor WebView without plugins
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
+      // Generate PDF as data URI and open in external browser
+      const pdfDataUri = doc.output('datauristring');
 
-      // Create temporary link and click it
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fname;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+      // Use Capacitor Browser to open PDF externally
+      if(window.Capacitor.Plugins.Browser) {
+        await window.Capacitor.Plugins.Browser.open({
+          url: pdfDataUri,
+          presentationStyle: 'fullscreen'
+        });
+        msgEl.style.color = 'var(--accent2)';
+        msgEl.textContent = `✅ Report aperto: ${fname}`;
+        return;
+      }
 
-      msgEl.style.color = 'var(--accent2)';
-      msgEl.textContent = `✅ Report scaricato: ${fname}`;
-      return;
+      // Fallback: use window.open
+      const w = window.open('', '_blank');
+      if(w) {
+        w.document.write('<iframe src="' + pdfDataUri + '" style="width:100%;height:100%;border:none"></iframe>');
+        msgEl.style.color = 'var(--accent2)';
+        msgEl.textContent = `✅ Report aperto: ${fname}`;
+        return;
+      }
     } catch(e) {
       console.warn('[TAO] PDF Capacitor error:', e.message || e);
-      // Fall through to normal download
     }
+    // Last fallback: normal download
   }
 
   doc.save(fname);
