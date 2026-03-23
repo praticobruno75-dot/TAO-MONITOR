@@ -3368,32 +3368,45 @@ async function generatePDFReport() {
 
   if(window.isCapacitor) {
     try {
-      // Generate PDF as data URI and open in external browser
       const pdfDataUri = doc.output('datauristring');
 
-      // Use Capacitor Browser to open PDF externally
-      if(window.Capacitor.Plugins.Browser) {
-        await window.Capacitor.Plugins.Browser.open({
-          url: pdfDataUri,
-          presentationStyle: 'fullscreen'
-        });
-        msgEl.style.color = 'var(--accent2)';
-        msgEl.textContent = `✅ Report aperto: ${fname}`;
-        return;
-      }
+      // Create full-screen PDF viewer overlay inside the app
+      const overlay = document.createElement('div');
+      overlay.id = 'pdfOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#000;display:flex;flex-direction:column';
+      overlay.innerHTML = `
+        <div style="background:#161b22;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #30363d;flex-shrink:0">
+          <span style="color:white;font-weight:600;font-size:13px">📄 ${fname}</span>
+          <div style="display:flex;gap:8px">
+            <button id="pdfShareBtn" style="background:#238636;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">📤 Condividi</button>
+            <button onclick="document.getElementById('pdfOverlay').remove()" style="background:#21262d;color:#ccc;border:1px solid #30363d;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">✕</button>
+          </div>
+        </div>
+        <iframe src="${pdfDataUri}" style="flex:1;border:none;width:100%;background:white"></iframe>`;
+      document.body.appendChild(overlay);
 
-      // Fallback: use window.open
-      const w = window.open('', '_blank');
-      if(w) {
-        w.document.write('<iframe src="' + pdfDataUri + '" style="width:100%;height:100%;border:none"></iframe>');
-        msgEl.style.color = 'var(--accent2)';
-        msgEl.textContent = `✅ Report aperto: ${fname}`;
-        return;
-      }
+      // Share button using Web Share API
+      document.getElementById('pdfShareBtn').onclick = async () => {
+        try {
+          const blob = doc.output('blob');
+          const file = new File([blob], fname, { type: 'application/pdf' });
+          if(navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'TAO Monitor Report' });
+          } else if(navigator.share) {
+            await navigator.share({ title: 'TAO Monitor Report', text: fname, url: pdfDataUri });
+          } else {
+            const link = document.createElement('a');
+            link.href = pdfDataUri; link.download = fname; link.click();
+          }
+        } catch(e) { console.warn('Share:', e); }
+      };
+
+      msgEl.style.color = 'var(--accent2)';
+      msgEl.textContent = `✅ Report generato: ${fname}`;
+      return;
     } catch(e) {
-      console.warn('[TAO] PDF Capacitor error:', e.message || e);
+      console.warn('[TAO] PDF viewer error:', e.message || e);
     }
-    // Last fallback: normal download
   }
 
   doc.save(fname);
