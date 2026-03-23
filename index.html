@@ -476,6 +476,28 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   <div class="tab-panel" id="tab-strumenti">
 
     <!-- BACKUP -->
+    <!-- RINGTONE SECTION -->
+    <div class="section-title">🔔 Suoneria allarme</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Scegli la suoneria che verrà usata quando scatta l'allarme farmaco.
+        <span id="ringtoneCapacitorOnly" style="display:none;color:var(--warn)">
+          Disponibile solo nell'app Android.
+        </span>
+      </div>
+      <div id="currentRingtoneLabel" style="font-size:13px;color:var(--accent2);margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">
+        🎵 Suoneria sveglia predefinita
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button onclick="pickRingtone()" id="pickRingtoneBtn" class="btn-primary" style="flex:1">
+          🔔 Scegli suoneria
+        </button>
+        <button onclick="resetRingtone()" class="btn-secondary" style="flex:1">
+          ↩ Predefinita
+        </button>
+      </div>
+    </div>
+
     <div class="section-title">💾 Backup dati</div>
     <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:32px">
       <div class="card">
@@ -2081,6 +2103,61 @@ function addLongPressHandlers(el, dateStr) {
 }
 
 // ===================================================
+// RINGTONE PICKER
+// ===================================================
+const RINGTONE_KEY = 'tao_ringtone_uri';
+const RINGTONE_NAME_KEY = 'tao_ringtone_name';
+
+function initRingtoneUI() {
+  const name = localStorage.getItem(RINGTONE_NAME_KEY);
+  const label = document.getElementById('currentRingtoneLabel');
+  if(label) {
+    label.textContent = name ? `🎵 ${name}` : '🎵 Suoneria sveglia predefinita';
+  }
+  // Show note if not in Capacitor
+  const note = document.getElementById('ringtoneCapacitorOnly');
+  if(note && !window.isCapacitor) {
+    note.style.display = 'inline';
+    const btn = document.getElementById('pickRingtoneBtn');
+    if(btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  }
+}
+
+async function pickRingtone() {
+  if(!window.isCapacitor) {
+    showAutoBackupToast('⚠️ Disponibile solo nell\'app Android');
+    return;
+  }
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+    const result = await AlarmPlugin.pickRingtone();
+    if(result && result.uri) {
+      localStorage.setItem(RINGTONE_KEY, result.uri);
+      localStorage.setItem(RINGTONE_NAME_KEY, result.name || 'Suoneria personalizzata');
+      const label = document.getElementById('currentRingtoneLabel');
+      if(label) label.textContent = `🎵 ${result.name || 'Suoneria personalizzata'}`;
+      showAutoBackupToast('✅ Suoneria salvata');
+    }
+  } catch(e) {
+    console.warn('[TAO] Ringtone picker error:', e);
+    showAutoBackupToast('❌ Errore selezione suoneria');
+  }
+}
+
+function resetRingtone() {
+  localStorage.removeItem(RINGTONE_KEY);
+  localStorage.removeItem(RINGTONE_NAME_KEY);
+  const label = document.getElementById('currentRingtoneLabel');
+  if(label) label.textContent = '🎵 Suoneria sveglia predefinita';
+  showAutoBackupToast('✅ Suoneria ripristinata al default');
+}
+
+function getRingtoneUri() {
+  return localStorage.getItem(RINGTONE_KEY) || null;
+}
+
+// ===================================================
 // HELPERS
 // ===================================================
 function previewAlarm() {
@@ -3193,6 +3270,7 @@ lockLandscapeOnMobile();
 initAlarms();
 initSwipe();
 initCapacitor();
+initRingtoneUI();
 
 // Hide splash immediately in Capacitor, after 1.2s in browser
 const splashDelay = window.isCapacitor ? 100 : 1200;
