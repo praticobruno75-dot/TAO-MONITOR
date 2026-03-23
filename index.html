@@ -691,7 +691,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
         <button onclick="setReportRange(12)" class="range-btn">Ultimo anno</button>
         <button onclick="setReportRange(0)" class="range-btn">Tutto</button>
       </div>
-      <button onclick="generatePDFReport()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">📄 Genera e scarica PDF</button>
+      <button onclick="handlePDFReport()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">📄 Genera e scarica PDF</button>
       <div id="reportMsg" style="margin-top:12px;font-size:13px;color:var(--muted);display:none"></div>
     </div>
 
@@ -3099,6 +3099,20 @@ setTimeout(initFirebase, 1000);
 }
 
 // ---- PDF REPORT ----
+function handlePDFReport() {
+  if(window.isCapacitor) {
+    // On Android: open web version in external Chrome at report section
+    const url = 'https://praticobruno75-dot.github.io/?tab=strumenti&action=report';
+    if(window.Capacitor?.Plugins?.Browser) {
+      window.Capacitor.Plugins.Browser.open({ url });
+    } else {
+      window.open(url, '_system');
+    }
+    return;
+  }
+  generatePDFReport();
+}
+
 async function generatePDFReport() {
   const msgEl = document.getElementById('reportMsg');
   msgEl.style.display = 'block';
@@ -3507,6 +3521,29 @@ function openStartupTab() {
 }
 
 // Run startup sequence
+// Auto-open report if opened from Android app
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('action') === 'report') {
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        // Switch to Strumenti tab and scroll to report section
+        switchTab('strumenti');
+        setTimeout(() => {
+          const el = document.querySelector('.section-title');
+          const els = document.querySelectorAll('.section-title');
+          for(const e of els) {
+            if(e.textContent.includes('Report')) {
+              e.scrollIntoView({ behavior: 'smooth' });
+              break;
+            }
+          }
+        }, 500);
+      }, 1000);
+    });
+  }
+})();
+
 lockLandscapeOnMobile();
 initAlarms();
 initSwipe();
