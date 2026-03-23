@@ -3382,7 +3382,7 @@ async function generatePDFReport() {
         <div style="background:#323639;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
           <span style="color:white;font-size:13px;font-weight:600">📄 ${fname}</span>
           <div style="display:flex;gap:8px">
-            <button id="pdfShareBtn" style="background:#238636;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">📤 Condividi</button>
+            <button onclick="window._pdfShare()" style="background:#238636;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">📤 Condividi</button>
             <button onclick="document.getElementById('pdfOverlay').remove()" style="background:#555;color:white;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px">✕ Chiudi</button>
           </div>
         </div>
@@ -3405,46 +3405,29 @@ async function generatePDFReport() {
         await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
       }
 
-      // Share button — try multiple methods
-      document.getElementById('pdfShareBtn').onclick = async () => {
-        const btn = document.getElementById('pdfShareBtn');
-        btn.textContent = '⏳...';
-        btn.disabled = true;
+      // Store doc globally for onclick access
+      window._pdfDoc = doc;
+      window._pdfFname = fname;
+      window._pdfShare = async function() {
+        console.log('[TAO] Share clicked');
         try {
-          const blob = doc.output('blob');
-          const file = new File([blob], fname, { type: 'application/pdf' });
-
-          // Method 1: Web Share API with file (Chrome Android)
+          const blob = window._pdfDoc.output('blob');
+          console.log('[TAO] Blob size:', blob.size);
+          const file = new File([blob], window._pdfFname, { type: 'application/pdf' });
           if(typeof navigator.share === 'function') {
-            await navigator.share({
-              files: [file],
-              title: 'TAO Monitor Report INR'
-            });
-            btn.textContent = '📤 Condividi';
-            btn.disabled = false;
+            console.log('[TAO] Using Web Share API');
+            await navigator.share({ files: [file], title: 'TAO Monitor Report' });
             return;
           }
-        } catch(e) {
-          console.warn('[TAO] Web Share error:', e.message);
-        }
-
-        try {
-          // Method 2: download via object URL
-          const blob = doc.output('blob');
+          console.log('[TAO] Fallback to download');
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = url;
-          a.download = fname;
-          document.body.appendChild(a);
-          a.click();
+          a.href = url; a.download = window._pdfFname;
+          document.body.appendChild(a); a.click();
           document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(url), 5000);
-          btn.textContent = '📤 Condividi';
-          btn.disabled = false;
         } catch(e) {
-          console.warn('[TAO] Download error:', e.message);
-          btn.textContent = '❌ Errore';
-          btn.disabled = false;
+          console.error('[TAO] Share error:', e.message || e);
         }
       };
 
