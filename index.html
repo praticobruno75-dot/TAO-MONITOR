@@ -423,6 +423,38 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   </div>
 </div>
       <div class="chart-card"><div class="chart-title">💉 Dosaggio settimanale</div><div class="chart-wrap"><canvas id="doseChart"></canvas></div></div>
+      <!-- REPORT BUTTON -->
+      <div id="reportPanel" style="margin-bottom:20px">
+        <button onclick="toggleReportPanel()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">
+          📄 Crea Report PDF
+        </button>
+        <div id="reportPanelContent" style="display:none;margin-top:12px">
+          <div class="card">
+            <div class="modal-label" style="margin-bottom:12px">Seleziona periodo</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+              <button onclick="setReportRange(1)" class="range-btn">1 mese</button>
+              <button onclick="setReportRange(3)" class="range-btn">3 mesi</button>
+              <button onclick="setReportRange(6)" class="range-btn">6 mesi</button>
+              <button onclick="setReportRange(0)" class="range-btn">Tutto</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+              <div class="modal-row">
+                <div class="modal-label">Data inizio</div>
+                <input type="date" id="reportDateFrom" class="modal-input">
+              </div>
+              <div class="modal-row">
+                <div class="modal-label">Data fine</div>
+                <input type="date" id="reportDateTo" class="modal-input">
+              </div>
+            </div>
+            <div id="reportMsg" style="font-size:13px;color:var(--muted);margin-bottom:12px;min-height:18px"></div>
+            <button onclick="handlePDFReport()" class="btn-primary" style="width:100%;padding:12px;font-size:15px">
+              📄 Genera e scarica PDF
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="section-title">📋 Tutti i controlli</div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="history-table" id="historyTable">
@@ -673,26 +705,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     </div>
 
     <!-- PDF REPORT -->
-    <div class="section-title">📄 Esporta report PDF</div>
-    <div class="card" style="margin-bottom:24px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
-        <div class="modal-row">
-          <div class="modal-label">Data inizio periodo</div>
-          <input type="date" id="reportDateFrom" class="modal-input">
-        </div>
-        <div class="modal-row">
-          <div class="modal-label">Data fine periodo</div>
-          <input type="date" id="reportDateTo" class="modal-input">
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-        <button onclick="setReportRange(3)" class="range-btn">Ultimi 3 mesi</button>
-        <button onclick="setReportRange(6)" class="range-btn">Ultimi 6 mesi</button>
-        <button onclick="setReportRange(12)" class="range-btn">Ultimo anno</button>
-        <button onclick="setReportRange(0)" class="range-btn">Tutto</button>
-      </div>
-      <button onclick="handlePDFReport()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">📄 Genera e scarica PDF</button>
-      <div id="reportMsg" style="margin-top:12px;font-size:13px;color:var(--muted);display:none"></div>
+</div>
     </div>
 
     <!-- PDF PREVIEW AREA (hidden, used for capture) -->
@@ -3099,11 +3112,29 @@ setTimeout(initFirebase, 1000);
 }
 
 // ---- PDF REPORT ----
+function toggleReportPanel() {
+  const content = document.getElementById('reportPanelContent');
+  if(!content) return;
+  const isOpen = content.style.display !== 'none';
+  if(isOpen) {
+    content.style.display = 'none';
+  } else {
+    content.style.display = 'block';
+    // Auto-open on Android goes to PWA directly
+    if(window.isCapacitor) {
+      content.style.display = 'none';
+      handlePDFReport();
+      return;
+    }
+    // Set default dates
+    setReportRange(3);
+  }
+}
+
 function handlePDFReport() {
   if(window.isCapacitor) {
     const url = 'https://praticobruno75-dot.github.io/?action=report';
     try {
-      // Use AlarmPlugin.openUrl to open in external browser
       const { AlarmPlugin } = window.Capacitor.Plugins;
       if(AlarmPlugin) {
         AlarmPlugin.openUrl({ url });
@@ -3112,7 +3143,6 @@ function handlePDFReport() {
     } catch(e) {
       console.warn('[TAO] openUrl error:', e.message);
     }
-    // Fallback
     window.open(url, '_blank');
     return;
   }
@@ -3527,25 +3557,23 @@ function openStartupTab() {
 }
 
 // Run startup sequence
-// Auto-open report if opened from Android app
+// Auto-open report panel if opened from Android app
 (function() {
   const params = new URLSearchParams(window.location.search);
   if(params.get('action') === 'report') {
     window.addEventListener('load', () => {
       setTimeout(() => {
-        // Switch to Strumenti tab and scroll to report section
-        switchTab('strumenti');
+        // Switch to INR tab and open report panel
+        switchTab('inr');
         setTimeout(() => {
-          const el = document.querySelector('.section-title');
-          const els = document.querySelectorAll('.section-title');
-          for(const e of els) {
-            if(e.textContent.includes('Report')) {
-              e.scrollIntoView({ behavior: 'smooth' });
-              break;
-            }
+          const panel = document.getElementById('reportPanelContent');
+          if(panel) {
+            panel.style.display = 'block';
+            setReportRange(3);
+            document.getElementById('reportPanel')?.scrollIntoView({ behavior: 'smooth' });
           }
-        }, 500);
-      }, 1000);
+        }, 800);
+      }, 1200);
     });
   }
 })();
