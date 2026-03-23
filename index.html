@@ -1953,6 +1953,16 @@ function closeDayDetailModal() {
   _dayDetailKey = null;
 }
 
+function showAlarmToast(dateStr, time) {
+  // Show alarm UI without auto-confirming — user must tap Confirm
+  currentAlarmDate = dateStr;
+  const sub = document.getElementById('alarmSub');
+  if(sub) sub.textContent = `${dateStr} — orario programmato: ${time}`;
+  const toast = document.getElementById('alarmToast');
+  if(toast) toast.classList.add('show');
+  startAlarmSound();
+}
+
 function toggleTakenFromAlarm(dateStr) {
   appData = loadData();
   if(!appData.taken) appData.taken = {};
