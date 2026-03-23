@@ -3368,42 +3368,25 @@ async function generatePDFReport() {
 
   if(window.isCapacitor) {
     try {
-      const { Filesystem } = window.Capacitor.Plugins;
-      const pdfBase64 = doc.output('datauristring').split(',')[1];
+      // Use blob URL — works in Capacitor WebView without plugins
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
 
-      // Step 1: write to cache directory
-      const writeResult = await Filesystem.writeFile({
-        path: fname,
-        data: pdfBase64,
-        directory: 'CACHE',
-        recursive: true
-      });
-      console.log('[TAO] PDF written to:', writeResult.uri);
+      // Create temporary link and click it
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fname;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
 
-      // Step 2: use Android share intent to let user save/send
-      const shareData = {
-        title: 'TAO Monitor — Report INR',
-        text: fname,
-        url: writeResult.uri,
-        dialogTitle: 'Salva o condividi il report'
-      };
-
-      // Try Capacitor Share plugin
-      if(window.Capacitor.Plugins.Share) {
-        await window.Capacitor.Plugins.Share.share(shareData);
-        msgEl.style.color = 'var(--accent2)';
-        msgEl.textContent = `✅ Report pronto: ${fname}`;
-      } else {
-        // Fallback: open URI directly
-        window.open(writeResult.uri, '_blank');
-        msgEl.style.color = 'var(--accent2)';
-        msgEl.textContent = `✅ Report aperto: ${fname}`;
-      }
+      msgEl.style.color = 'var(--accent2)';
+      msgEl.textContent = `✅ Report scaricato: ${fname}`;
       return;
     } catch(e) {
       console.warn('[TAO] PDF Capacitor error:', e.message || e);
-      msgEl.style.color = 'var(--warn)';
-      msgEl.textContent = '⚠️ Errore: ' + (e.message || 'impossibile salvare');
       // Fall through to normal download
     }
   }
