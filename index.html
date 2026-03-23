@@ -299,10 +299,9 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   <div class="alarm-actions">
     <button class="alarm-btn-confirm" onclick="confirmAlarm()">✅ Confermo assunzione</button>
     <div class="alarm-snooze-row">
-      <button class="alarm-snooze-btn" onclick="snoozeAlarm(5)">+5 min</button>
-      <button class="alarm-snooze-btn" onclick="snoozeAlarm(10)">+10 min</button>
-      <button class="alarm-snooze-btn" onclick="snoozeAlarm(15)">+15 min</button>
       <button class="alarm-snooze-btn" onclick="snoozeAlarm(30)">+30 min</button>
+      <button class="alarm-snooze-btn" onclick="snoozeAlarm(45)">+45 min</button>
+      <button class="alarm-snooze-btn" onclick="snoozeAlarm(60)">+60 min</button>
     </div>
     <button class="alarm-btn-close" onclick="closeAlarm()">✕ Chiudi senza confermare</button>
   </div>
@@ -1796,13 +1795,23 @@ function confirmAlarm() {
 function snoozeAlarm(minutes) {
   stopAlarmSound();
   document.getElementById('alarmToast').classList.remove('show');
-  const dateToSnooze=currentAlarmDate;
-  currentAlarmDate=null;
-  setTimeout(()=>{
-    const now=new Date();
-    const timeStr=now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-    fireAlarm(dateToSnooze, timeStr);
-  }, minutes*60*1000);
+  const dateToSnooze = currentAlarmDate;
+  currentAlarmDate = null;
+
+  // Calculate new alarm time
+  const snoozeDate = new Date(Date.now() + minutes * 60 * 1000);
+  const newTimeStr = snoozeDate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+
+  // Schedule native alarm if in Capacitor
+  if(window.isCapacitor) {
+    scheduleNativeAlarm(dateToSnooze, newTimeStr);
+    console.log(`[TAO] Snooze nativo: ${dateToSnooze} alle ${newTimeStr}`);
+  }
+
+  // Also schedule local setTimeout as fallback (if app stays open)
+  setTimeout(() => {
+    fireAlarm(dateToSnooze, newTimeStr);
+  }, minutes * 60 * 1000);
 }
 
 function closeAlarm() {
