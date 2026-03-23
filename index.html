@@ -1954,17 +1954,24 @@ function closeDayDetailModal() {
 }
 
 function showAlarmToast(dateStr, time) {
-  // Show alarm UI without auto-confirming — user must tap Confirm
+  console.log('[TAO] showAlarmToast called:', dateStr, time);
   currentAlarmDate = dateStr;
+
+  // Update subtitle
   const sub = document.getElementById('alarmSub');
   if(sub) sub.textContent = `${dateStr} — orario programmato: ${time}`;
+
+  // Show toast — uses translateY transform, just add 'show' class
   const toast = document.getElementById('alarmToast');
   if(toast) {
+    toast.style.zIndex = '99999';
     toast.classList.add('show');
-    // Scroll toast into view on mobile
-    toast.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    console.log('[TAO] Toast shown, classes:', toast.className);
+  } else {
+    console.warn('[TAO] alarmToast element not found!');
   }
-  // Try to play sound — may fail in Capacitor without user gesture
+
+  // Try to play sound
   try { startAlarmSound(); } catch(e) { console.warn('[TAO] Sound error:', e); }
 }
 
@@ -3037,13 +3044,22 @@ async function scheduleNativeAlarm(dateStr, time) {
   try {
     const { AlarmPlugin } = window.Capacitor.Plugins;
     if(!AlarmPlugin) return;
-    // Generate numeric alarm ID from date
+
+    // Check if alarm time is in the future before scheduling
     const [dd,mm,yyyy] = dateStr.split('/');
+    const [hh,min] = time.split(':');
+    const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
+    if(alarmDate <= new Date()) {
+      console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
+      return; // Skip past alarms silently
+    }
+
     const alarmId = parseInt(`${yyyy}${mm}${dd}`);
     const therapies = getAllTherapies();
     const t = therapies[currentTherapyIdx];
-    const dose = getDayDoseFromTherapy(t, dateStr);
+    const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
     const doseText = doseToText(dose);
+
     await AlarmPlugin.scheduleAlarm({
       date: dateStr,
       time: time,
@@ -3052,9 +3068,8 @@ async function scheduleNativeAlarm(dateStr, time) {
     });
     console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
   } catch(e) {
-    console.warn('[CAP] Native alarm error:', e);
-    // Fallback to setTimeout
-    scheduleAlarmTimeout(dateStr, time);
+    console.warn('[CAP] Native alarm error:', e.message || e);
+    // Don't fallback to setTimeout in Capacitor — just log
   }
 }
 
