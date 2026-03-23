@@ -1,1 +1,3307 @@
-{"type":"error","error":{"type":"api_error","message":"Internal server error"},"request_id":"req_011CZLJxwRMgSkrpuQRVa7r5"}
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TAO Monitor">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>TAO Monitor</title>
+<!-- Capacitor (only loaded in native app context) -->
+<script>
+  // Capacitor is injected by the native app before page loads
+  // window.Capacitor is available immediately if running in native APK
+  window.isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  
+  // Hide splash screen as early as possible
+  if(window.isCapacitor) {
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        window.Capacitor.Plugins.SplashScreen?.hide({ fadeOutDuration: 500 });
+      } catch(e) {}
+    });
+  }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+<!-- Firebase SDKs -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+  import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  // Only load Firebase Messaging in PWA (not in Capacitor WebView)
+  const isCapacitor = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+  let getMessaging = null, getToken = null, onMessage = null;
+  if(!isCapacitor) {
+    try {
+      const messaging = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging.js');
+      getMessaging = messaging.getMessaging;
+      getToken = messaging.getToken;
+      onMessage = messaging.onMessage;
+    } catch(e) {
+      console.warn('[FB] Messaging not available:', e.message);
+    }
+  }
+
+  window._firebaseModules = { initializeApp, getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, getFirestore, doc, setDoc, getDoc, onSnapshot, getMessaging, getToken, onMessage };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1117;--surface:#161b22;--surface2:#1c2333;--border:#30363d;--text:#e6edf3;--muted:#7d8590;--accent:#58a6ff;--accent2:#3fb950;--warn:#f0883e;--danger:#ff7b72;--card-radius:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh}
+header{display:flex;align-items:center;gap:18px;padding:22px 32px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#ff7b72,#f0883e);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-text{font-family:'DM Serif Display',serif;font-size:20px}
+.logo-sub{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.patient-badge{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-size:13px;display:none}
+.patient-badge.visible{display:block}
+.patient-name{font-weight:600;color:var(--accent)}
+nav{display:flex;gap:4px;padding:16px 32px 0;border-bottom:1px solid var(--border);background:var(--surface)}
+.tab-btn{padding:10px 20px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;border-radius:6px 6px 0 0}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(88,166,255,.06)}
+main{padding:28px 32px;max-width:1200px;margin:0 auto}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--card-radius);padding:48px;text-align:center;cursor:pointer;transition:all .25s;background:var(--surface);position:relative}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(88,166,255,.04)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-icon{font-size:40px;margin-bottom:14px}
+.upload-title{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:8px}
+.upload-sub{color:var(--muted);font-size:13px}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:24px 0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--card-radius);padding:20px}
+.card-label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:8px}
+.card-value{font-family:'DM Mono',monospace;font-size:28px;font-weight:500;line-height:1}
+.card-sub{font-size:12px;color:var(--muted);margin-top:6px}
+.inr-good{color:var(--accent2)}
+.inr-warn{color:var(--warn)}
+.inr-bad{color:var(--danger)}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--card-radius);padding:24px;margin-bottom:24px}
+.chart-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:20px}
+.chart-wrap{position:relative;height:280px}
+.history-table{width:100%;border-collapse:collapse;font-size:13px}
+.history-table th{text-align:left;padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}
+.history-table td{padding:12px 16px;border-bottom:1px solid rgba(48,54,61,.5);font-family:'DM Mono',monospace;font-size:13px}
+.history-table tr:last-child td{border-bottom:none}
+.history-table tr:hover td{background:rgba(255,255,255,.02)}
+.inr-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;font-size:12px;font-weight:500}
+.inr-badge.good{background:rgba(63,185,80,.15);color:var(--accent2)}
+.inr-badge.warn{background:rgba(240,136,62,.15);color:var(--warn)}
+.inr-badge.bad{background:rgba(255,123,114,.15);color:var(--danger)}
+
+/* CALENDAR */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.cal-month{font-family:'DM Serif Display',serif;font-size:22px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-dow{text-align:center;padding:8px 4px;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}
+.cal-day{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 8px;min-height:110px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.cal-day:hover{border-color:var(--accent)}
+.cal-day.empty{background:transparent;border-color:transparent;cursor:default;min-height:0}
+.cal-day.today{border-color:var(--accent)}
+.cal-day.has-dose{border-color:rgba(63,185,80,.4)}
+.cal-day.taken{background:rgba(63,185,80,.08)}
+.cal-day.control-day{border-color:rgba(240,136,62,.5);background:rgba(240,136,62,.04)}
+.cal-day-num{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.cal-day.today .cal-day-num{color:var(--accent)}
+
+/* DOSE CIRCLE — stile grafico grande */
+.dose-circle{display:flex;flex-direction:column;align-items:center;justify-content:center;width:54px;height:54px;border-radius:50%;border:2.5px solid var(--accent2);background:rgba(63,185,80,.1);margin:0 auto 6px;position:relative;cursor:pointer;transition:all .2s}
+.dose-circle:hover{background:rgba(63,185,80,.2)}
+.dose-circle.special{border-color:var(--warn);background:rgba(240,136,62,.12)}
+.dose-circle.taken-circle{border-color:var(--accent2);background:rgba(63,185,80,.25)}
+.dose-circle-num{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;line-height:1;color:var(--accent2)}
+.dose-circle.special .dose-circle-num{color:var(--warn)}
+.dose-circle-mg{font-size:9px;color:var(--muted);margin-top:1px}
+.dose-time-badge{font-size:10px;font-family:'DM Mono',monospace;color:var(--accent);background:rgba(88,166,255,.12);border-radius:6px;padding:2px 6px;text-align:center;margin-top:2px}
+.cal-taken-mark{position:absolute;top:6px;right:6px;font-size:13px}
+.cal-control-badge{background:rgba(240,136,62,.2);color:var(--warn);border-radius:6px;padding:2px 6px;font-size:10px;margin-top:4px;display:inline-block;width:100%;text-align:center}
+.cal-taken-time{font-size:9px;color:var(--accent2);text-align:center;font-family:'DM Mono',monospace;margin-top:2px}
+
+/* LIST */
+.day-list{display:flex;flex-direction:column;gap:8px}
+.day-item{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 20px;display:flex;align-items:center;gap:16px;transition:all .2s;flex-wrap:wrap}
+.day-item.taken{border-color:rgba(63,185,80,.3);background:rgba(63,185,80,.04)}
+.day-item.control-day{border-color:rgba(240,136,62,.4)}
+.day-date{font-family:'DM Mono',monospace;font-size:13px;width:110px;flex-shrink:0}
+.day-weekday{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.day-dose{border-radius:8px;padding:6px 14px;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;background:rgba(63,185,80,.15);color:var(--accent2);flex-shrink:0}
+.day-dose.special{background:rgba(240,136,62,.2);color:var(--warn)}
+.day-alarm{display:flex;align-items:center;gap:8px;flex:1}
+.alarm-input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;width:110px}
+.alarm-input:focus{outline:none;border-color:var(--accent)}
+.btn-alarm{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .2s;display:flex;align-items:center;gap:5px}
+.btn-alarm:hover{border-color:var(--accent);color:var(--accent)}
+.btn-alarm.active{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent)}
+.btn-taken{padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .2s;margin-left:auto}
+.btn-taken:hover{border-color:var(--accent2);color:var(--accent2)}
+.btn-taken.taken{background:rgba(63,185,80,.15);border-color:var(--accent2);color:var(--accent2)}
+.day-taken-time{font-size:11px;color:var(--accent2);font-family:'DM Mono',monospace}
+.control-tag{background:rgba(240,136,62,.15);color:var(--warn);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:500}
+
+.view-toggle{display:flex;gap:4px;background:var(--surface2);border-radius:8px;padding:3px}
+.view-btn{padding:5px 14px;border:none;background:transparent;color:var(--muted);border-radius:6px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .2s}
+.view-btn.active{background:var(--surface);color:var(--text)}
+.section-title{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.progress-bar-wrap{background:var(--border);border-radius:4px;height:6px;overflow:hidden;margin-top:10px}
+.progress-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width .5s ease}
+.delete-btn{background:transparent;border:1px solid var(--border);color:var(--danger);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .2s}
+.delete-btn:hover{background:rgba(255,123,114,.1);border-color:var(--danger)}
+
+/* LOADING */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(13,17,23,.85);z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading-overlay.active{display:flex}
+.spinner{width:42px;height:42px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--muted);font-size:14px}
+
+/* MODAL base */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(13,17,23,.8);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.active{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--card-radius);padding:28px;width:400px;max-width:95vw}
+.modal-title{font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:16px}
+.modal-row{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.modal-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.modal-input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;width:100%}
+.modal-input:focus{outline:none;border-color:var(--accent)}
+.modal-btns{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+.btn-primary{flex:1;padding:10px;background:var(--accent);color:#0d1117;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;cursor:pointer;transition:opacity .2s;min-width:100px}
+.btn-primary:hover{opacity:.85}
+.btn-secondary{flex:1;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all .2s;min-width:100px}
+.btn-secondary:hover{color:var(--text);border-color:var(--text)}
+
+/* ALARM TOAST */
+.alarm-toast{position:fixed;bottom:0;right:0;left:0;margin:0 auto;background:var(--surface2);border:2px solid var(--warn);border-top-left-radius:20px;border-top-right-radius:20px;border-bottom-left-radius:0;border-bottom-right-radius:0;padding:24px 28px 32px;z-index:9999;transform:translateY(100%);transition:transform .4s cubic-bezier(.17,.84,.44,1);max-width:480px;width:100%;box-shadow:0 -8px 40px rgba(0,0,0,.6)}
+@media(min-width:520px){.alarm-toast{bottom:24px;right:24px;left:auto;border-radius:20px;width:380px;transform:translateY(calc(100% + 40px))}}
+.alarm-toast.show{transform:translateY(0)}
+@media(min-width:520px){.alarm-toast.show{transform:translateY(0)}}
+.alarm-toast-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.alarm-icon{font-size:32px;animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.alarm-toast.confirmed .alarm-icon{animation:none}
+.alarm-title{font-size:16px;font-weight:600}
+.alarm-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.alarm-actions{display:flex;flex-direction:column;gap:8px}
+.alarm-btn-confirm{width:100%;padding:10px;background:var(--accent2);color:#0d1117;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .2s}
+.alarm-btn-confirm:hover{opacity:.85}
+.alarm-snooze-row{display:flex;gap:6px}
+.alarm-snooze-btn{flex:1;padding:8px 4px;background:rgba(88,166,255,.12);border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s}
+.alarm-snooze-btn:hover{background:rgba(88,166,255,.25)}
+.alarm-btn-close{width:100%;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .2s}
+.alarm-btn-close:hover{color:var(--text);border-color:var(--text)}
+
+.info-bar{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--accent);margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-icon{font-size:48px;margin-bottom:16px}
+.empty-title{font-size:18px;color:var(--text);margin-bottom:8px}
+.range-btn{padding:5px 12px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:6px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .2s}
+.today-item{border-color:var(--accent)!important;box-shadow:0 0 0 1px var(--accent)}
+.range-btn:hover{border-color:var(--accent);color:var(--accent)}
+.range-btn.active{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent);font-weight:600}
+@media(max-width:640px){main{padding:16px}header{padding:14px 16px}nav{padding:12px 16px 0;overflow-x:auto}.tab-btn{white-space:nowrap}.cards-grid{grid-template-columns:repeat(2,1fr)}.cal-grid{gap:3px}.cal-day{min-height:90px;padding:6px 4px}.dose-circle{width:44px;height:44px}.dose-circle-num{font-size:13px}}
+</style>
+</head>
+<body class="splash-active">
+
+<!-- SPLASH SCREEN -->
+<div id="splashScreen" style="
+  position:fixed;inset:0;z-index:99999;
+  background:linear-gradient(135deg,#ff4e3a 0%,#ff7b45 40%,#f0883e 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  transition:opacity 0.5s ease, transform 0.5s ease;
+">
+  <div style="text-align:center;animation:splashPulse 0.6s ease-out">
+    <div style="
+      font-family:'DM Serif Display',serif;
+      font-size:clamp(42px,10vw,80px);
+      color:white;
+      letter-spacing:-2px;
+      line-height:1;
+      text-shadow:0 4px 24px rgba(0,0,0,0.3);
+      margin-bottom:12px;
+    ">TAO</div>
+    <div style="
+      font-family:'DM Serif Display',serif;
+      font-size:clamp(18px,4vw,32px);
+      color:rgba(255,255,255,0.9);
+      letter-spacing:8px;
+      text-transform:uppercase;
+      text-shadow:0 2px 12px rgba(0,0,0,0.2);
+      margin-bottom:32px;
+    ">MONITOR</div>
+    <div style="
+      font-family:'DM Sans',sans-serif;
+      font-size:clamp(12px,2.5vw,16px);
+      color:rgba(255,255,255,0.7);
+      letter-spacing:2px;
+      text-transform:uppercase;
+    ">Terapia Anticoagulante Orale</div>
+  </div>
+  <div style="
+    position:absolute;bottom:40px;
+    display:flex;gap:8px;
+  ">
+    <div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.9);animation:splashDot 1s ease-in-out 0s infinite"></div>
+    <div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.6);animation:splashDot 1s ease-in-out 0.2s infinite"></div>
+    <div style="width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.3);animation:splashDot 1s ease-in-out 0.4s infinite"></div>
+  </div>
+</div>
+<style>
+@keyframes splashPulse {
+  from { opacity:0; transform:scale(0.85); }
+  to   { opacity:1; transform:scale(1); }
+}
+/* Prevent flash of content before splash hides */
+body.splash-active header, body.splash-active nav, body.splash-active main {
+  visibility: hidden;
+}
+@keyframes splashDot {
+  0%,100% { opacity:0.3; transform:scale(0.8); }
+  50%      { opacity:1;   transform:scale(1.2); }
+}
+</style>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Lettura PDF…</div>
+</div>
+
+<!-- AUTO BACKUP TOAST -->
+<div id="autoBackupToast" style="position:fixed;top:80px;right:16px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;z-index:500;transform:translateX(120%);transition:transform .3s cubic-bezier(.17,.84,.44,1);max-width:300px;box-shadow:0 4px 16px rgba(0,0,0,.4)">
+  <span id="autoBackupMsg" style="color:var(--muted)"></span>
+</div>
+<style>
+  #autoBackupToast.show { transform: translateX(0); }
+</style>
+
+<!-- ALARM TOAST -->
+<div class="alarm-toast" id="alarmToast">
+  <div class="alarm-toast-header">
+    <div class="alarm-icon">💊</div>
+    <div>
+      <div class="alarm-title">Ora del Coumadin!</div>
+      <div class="alarm-sub" id="alarmSub"></div>
+    </div>
+  </div>
+  <div class="alarm-actions">
+    <button class="alarm-btn-confirm" onclick="confirmAlarm()">✅ Confermo assunzione</button>
+    <div class="alarm-snooze-row">
+      <button class="alarm-snooze-btn" onclick="snoozeAlarm(30)">+30 min</button>
+      <button class="alarm-snooze-btn" onclick="snoozeAlarm(45)">+45 min</button>
+      <button class="alarm-snooze-btn" onclick="snoozeAlarm(60)">+60 min</button>
+    </div>
+    <button class="alarm-btn-close" onclick="closeAlarm()">✕ Chiudi senza confermare</button>
+  </div>
+</div>
+
+<!-- MODAL: day alarm time -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">⏰ Imposta orario</div>
+    <div class="modal-row">
+      <div class="modal-label">Orario assunzione</div>
+      <input type="time" class="modal-input" id="modalTime" value="17:30">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeModal()">Annulla</button>
+      <button class="btn-primary" onclick="saveAlarm()">✓ Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: default time setup -->
+<div class="modal-overlay" id="defaultTimeModal">
+  <div class="modal">
+    <div class="modal-title" id="defaultTimeTitle">⏰ Orario di assunzione</div>
+    <div class="modal-row">
+      <div class="modal-label" id="defaultTimeLabel">Imposta l'orario predefinito per tutte le dosi</div>
+      <input type="time" class="modal-input" id="defaultTimeInput" value="17:30">
+    </div>
+    <div id="defaultTimeInfo" style="font-size:12px;color:var(--muted);margin-top:-8px;line-height:1.6;display:none"></div>
+    <div class="modal-btns" id="defaultTimeBtns">
+      <button class="btn-primary" onclick="confirmDefaultTime()">✓ Conferma</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">❤️</div>
+    <div>
+      <div class="logo-text">TAO Monitor</div>
+      <div class="logo-sub">Terapia Anticoagulante Orale</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="patient-badge" id="patientBadge"><span class="patient-name" id="patientNameHeader">—</span></div>
+    <button id="notifBtn" onclick="requestNotifPermission()" style="display:none;padding:8px 16px;background:rgba(88,166,255,.1);border:1px solid var(--accent);border-radius:8px;color:var(--accent);font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer">🔔 Abilita notifiche</button>
+  </div>
+</header>
+
+<nav>
+  <button class="tab-btn active" onclick="switchTab(&apos;upload&apos;)">📄 Carica PDF</button>
+  <button class="tab-btn" onclick="switchTab(&apos;inr&apos;)">📈 Storico INR</button>
+  <button class="tab-btn" onclick="switchTab(&apos;terapia&apos;)">💊 Terapia</button>
+  <button class="tab-btn" onclick="switchTab(&apos;strumenti&apos;)">🛠 Strumenti</button>
+</nav>
+
+<main>
+  <!-- UPLOAD TAB -->
+  <div class="tab-panel active" id="tab-upload">
+    <div class="info-bar" style="background:rgba(63,185,80,.08);border-color:rgba(63,185,80,.25);color:var(--accent2);">
+      <span>✅</span><span>Analisi PDF completamente locale — nessuna API, nessun costo, nessun dato inviato online.</span>
+    </div>
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" accept=".pdf" id="pdfInput" onchange="handleFileSelect(event)">
+      <div class="upload-icon">📋</div>
+      <div class="upload-title">Carica la scheda TAO</div>
+      <div class="upload-sub">Trascina il PDF o clicca per selezionarlo<br>Analisi automatica nel browser, senza internet</div>
+    </div>
+    <div id="uploadResult" style="display:none;margin-top:24px">
+      <div class="info-bar"><span>✅</span><span id="uploadResultText">Dati estratti.</span></div>
+      <div class="cards-grid" id="extractedCards"></div>
+    </div>
+    <div id="parseDebug" style="display:none;margin-top:16px">
+      <div class="card"><div class="card-label" style="margin-bottom:8px">⚠️ Testo estratto (debug)</div>
+      <pre id="parseDebugText" style="font-size:11px;color:var(--muted);white-space:pre-wrap;max-height:300px;overflow:auto"></pre></div>
+    </div>
+  </div>
+
+  <!-- INR TAB -->
+  <div class="tab-panel" id="tab-inr">
+    <div id="inrEmpty" class="empty-state"><div class="empty-icon">📈</div><div class="empty-title">Nessun dato</div><div>Carica un PDF per iniziare</div></div>
+    <div id="inrContent" style="display:none">
+      <div class="cards-grid" id="inrCards"></div>
+      <div class="chart-card">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+    <div class="chart-title" style="margin:0">📊 Andamento INR nel tempo</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap" id="inrRangeButtons">
+      <button class="range-btn" onclick="setINRRange(3)">3 mesi</button>
+      <button class="range-btn" onclick="setINRRange(6)">6 mesi</button>
+      <button class="range-btn" onclick="setINRRange(12)">1 anno</button>
+      <button class="range-btn active" onclick="setINRRange(0)">Tutto</button>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-align:right" id="inrRangeInfo"></div>
+  <div class="chart-wrap"><canvas id="inrChart"></canvas></div>
+  <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7">
+    🖱 Scorri con la rotella per zoomare · Trascina per spostarti · Doppio click per resettare
+  </div>
+</div>
+      <div class="chart-card"><div class="chart-title">💉 Dosaggio settimanale</div><div class="chart-wrap"><canvas id="doseChart"></canvas></div></div>
+      <div class="section-title">📋 Tutti i controlli</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="history-table" id="historyTable">
+          <thead><tr><th>Data</th><th>INR</th><th>Range</th><th>Target</th><th>Dose sett.</th><th>Stato</th><th></th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TERAPIA TAB -->
+  <div class="tab-panel" id="tab-terapia">
+    <div id="terapiaEmpty" class="empty-state"><div class="empty-icon">💊</div><div class="empty-title">Nessuna terapia</div><div>Carica un PDF per iniziare</div></div>
+    <div id="terapiaContent" style="display:none">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="section-title" style="margin:0">💊 Piano terapeutico</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+          <button onclick="previewAlarm()" style="padding:6px 14px;background:rgba(240,136,62,.12);border:1px solid var(--warn);color:var(--warn);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;">🔔 Test allarme</button>
+          <div class="view-toggle">
+            <button class="view-btn active" id="calViewBtn" onclick="setView(&apos;cal&apos;)">🗓 Calendario</button>
+            <button class="view-btn" id="listViewBtn" onclick="setView(&apos;list&apos;)">☰ Lista</button>
+          </div>
+        </div>
+      </div>
+      <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:24px">
+        <div class="card"><div class="card-label">Farmaco</div><div class="card-value" id="terapiaFarmaco" style="font-size:18px">—</div></div>
+        <div class="card"><div class="card-label">Dose</div><div class="card-value inr-good" id="terapiaDose">—</div><div class="card-sub">cpr/die</div></div>
+        <div class="card"><div class="card-label">Giorni totali</div><div class="card-value" id="terapiaDurata">—</div></div>
+        <div class="card"><div class="card-label">Assunzioni</div><div class="card-value inr-good" id="takenCount">0</div><div class="card-sub" id="takenTotal">su — giorni</div><div class="progress-bar-wrap"><div class="progress-bar-fill" id="takenProgress" style="width:0%"></div></div></div>
+      </div>
+      <div id="calView">
+        <div class="cal-header">
+          <button onclick="prevTherapy()" id="prevTherapyBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer">◀</button>
+          <div style="text-align:center">
+            <div class="cal-month" id="calMonthTitle">—</div>
+            <div id="therapyCounter" style="font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:1px"></div>
+          </div>
+          <button onclick="nextTherapy()" id="nextTherapyBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 14px;cursor:pointer">▶</button>
+        </div>
+        <div class="cal-grid" id="calGrid" id="swipeCalGrid"></div>
+      </div>
+      <div id="listView" style="display:none">
+        <!-- PLAN INDEX (shown first) -->
+        <div id="planIndex">
+          <div class="section-title" style="margin-bottom:16px">📋 Tutti i piani terapeutici</div>
+          <div id="planIndexList" style="display:flex;flex-direction:column;gap:10px"></div>
+        </div>
+        <!-- PLAN DAYS (shown after selecting a plan) -->
+        <div id="planDays" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px">
+            <button onclick="showPlanIndex()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-size:12px">← Piani</button>
+            <div style="text-align:center;flex:1">
+              <div id="listTherapyTitle" style="font-size:13px;font-weight:600;color:var(--accent)">—</div>
+              <div id="listTherapyCounter" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button onclick="prevTherapy()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">◀</button>
+              <button onclick="nextTherapy()" style="padding:6px 10px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;cursor:pointer;font-size:13px">▶</button>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+            <button id="sortToggleBtn" onclick="toggleListSort()" style="padding:6px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;transition:all .2s">↑ Dal più vecchio</button>
+          </div>
+          <div class="day-list" id="dayList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRUMENTI TAB -->
+  <div class="tab-panel" id="tab-strumenti">
+
+    <!-- BACKUP -->
+    <!-- RINGTONE SECTION -->
+    <div class="section-title">🔔 Suoneria allarme</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Scegli la suoneria che verrà usata quando scatta l'allarme farmaco.
+        <span id="ringtoneCapacitorOnly" style="display:none;color:var(--warn)">
+          Disponibile solo nell'app Android.
+        </span>
+      </div>
+      <div id="currentRingtoneLabel" style="font-size:13px;color:var(--accent2);margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">
+        🎵 Suoneria sveglia predefinita
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button onclick="pickRingtone()" id="pickRingtoneBtn" class="btn-primary" style="flex:1">
+          🔔 Scegli suoneria
+        </button>
+        <button onclick="resetRingtone()" class="btn-secondary" style="flex:1">
+          ↩ Predefinita
+        </button>
+      </div>
+    </div>
+
+    <div class="section-title">💾 Backup dati</div>
+    <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:32px">
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px">Backup automatico</div>
+        <div style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">
+          Scegli una cartella sul dispositivo. Il backup verrà salvato automaticamente dopo ogni caricamento PDF e dopo ogni conferma assunzione.
+        </div>
+        <button onclick="pickBackupFolder()" class="btn-primary" style="width:100%;margin-bottom:10px">📁 Scegli cartella backup</button>
+        <div id="backupFolderStatus" style="font-size:12px;display:none;line-height:1.5;padding:8px;background:var(--bg);border-radius:8px"></div>
+        <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:10px">Oppure scarica manualmente:</div>
+        <button onclick="exportBackup()" class="btn-secondary" style="width:100%">⬇ Scarica backup JSON</button>
+      </div>
+      <div class="card">
+        <div class="card-label" style="margin-bottom:10px">Importa backup</div>
+        <div style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">
+          Ripristina i dati da un file JSON precedentemente esportato. <strong style="color:var(--warn)">Attenzione: sovrascrive i dati attuali.</strong>
+        </div>
+        <label style="display:block;width:100%">
+          <input type="file" accept=".json" id="importBackupInput" onchange="importBackup(event)" style="display:none">
+          <span class="btn-primary" style="display:block;text-align:center;cursor:pointer;padding:10px;border-radius:8px;font-weight:600;font-size:14px">⬆ Carica backup JSON</span>
+        </label>
+        <div id="importBackupMsg" style="margin-top:10px;font-size:12px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- FIREBASE SYNC -->
+    <div class="section-title">☁️ Sincronizzazione & Notifiche</div>
+
+    <!-- LOGIN CARD -->
+    <div class="card" style="margin-bottom:20px" id="fbAuthCard">
+      <div id="fbLoggedOut">
+        <div style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">
+          Accedi per sincronizzare i dati tra smartphone e desktop e ricevere 
+          notifiche anche a schermo spento.
+        </div>
+        <!-- CONFIG (collapsible) -->
+        <details style="margin-bottom:14px">
+          <summary style="font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:8px">
+            ⚙️ Configurazione Firebase (solo al primo avvio)
+          </summary>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+            <div class="modal-row">
+              <div class="modal-label">Firebase Config (JSON)</div>
+              <textarea id="fbConfigInput" class="modal-input" rows="4"
+                placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","messagingSenderId":"...","appId":"..."}'
+                style="font-size:11px;resize:vertical"></textarea>
+            </div>
+            <div class="modal-row">
+              <div class="modal-label">VAPID Key (per notifiche push)</div>
+              <input type="text" id="fbVapidInput" class="modal-input" placeholder="BxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxA">
+            </div>
+            <button onclick="saveFirebaseConfig()" class="btn-primary" style="width:100%">💾 Salva configurazione</button>
+            <div id="fbConfigStatus" style="font-size:12px;display:none"></div>
+          </div>
+        </details>
+
+        <!-- LOGIN FORM -->
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="modal-row">
+            <div class="modal-label">Email</div>
+            <input type="email" id="fbEmail" class="modal-input" placeholder="email@esempio.it">
+          </div>
+          <div class="modal-row">
+            <div class="modal-label">Password</div>
+            <input type="password" id="fbPassword" class="modal-input" placeholder="••••••••">
+          </div>
+          <div style="display:flex;gap:10px">
+            <button onclick="fbSignIn()" class="btn-primary" style="flex:1">🔑 Accedi</button>
+            <button onclick="fbRegister()" class="btn-secondary" style="flex:1">📝 Registrati</button>
+          </div>
+          <div id="fbAuthError" style="font-size:12px;color:var(--danger);display:none"></div>
+        </div>
+      </div>
+
+      <div id="fbLoggedIn" style="display:none">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:40px;height:40px;background:rgba(63,185,80,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px">☁️</div>
+          <div>
+            <div style="font-weight:600;color:var(--accent2)">Connesso</div>
+            <div id="fbUserEmail" style="font-size:12px;color:var(--muted)"></div>
+          </div>
+          <button onclick="fbSignOut()" class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:12px">Esci</button>
+        </div>
+        <div id="fbSyncStatus" style="font-size:12px;color:var(--muted);padding:10px;background:var(--bg);border-radius:8px;line-height:1.7;margin-bottom:12px"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button onclick="fbSyncNow()" class="btn-primary" style="flex:1">🔄 Sincronizza ora</button>
+          <button onclick="fbForceUpload()" class="btn-secondary" style="flex:1">⬆ Carica su cloud</button>
+          <button onclick="fbForceDownload()" class="btn-secondary" style="flex:1">⬇ Scarica da cloud</button>
+        </div>
+
+        <!-- NOTIFICHE PUSH -->
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔔 Notifiche push</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+            Abilita le notifiche per ricevere l'allarme anche a schermo spento.
+          </div>
+          <div id="fbNotifStatus" style="font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:10px;display:none"></div>
+          <button onclick="fbRequestNotifications()" id="fbNotifBtn" class="btn-primary" style="width:100%">
+            🔔 Abilita notifiche push
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PDF REPORT -->
+    <div class="section-title">📄 Esporta report PDF</div>
+    <div class="card" style="margin-bottom:24px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+        <div class="modal-row">
+          <div class="modal-label">Data inizio periodo</div>
+          <input type="date" id="reportDateFrom" class="modal-input">
+        </div>
+        <div class="modal-row">
+          <div class="modal-label">Data fine periodo</div>
+          <input type="date" id="reportDateTo" class="modal-input">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
+        <button onclick="setReportRange(3)" class="range-btn">Ultimi 3 mesi</button>
+        <button onclick="setReportRange(6)" class="range-btn">Ultimi 6 mesi</button>
+        <button onclick="setReportRange(12)" class="range-btn">Ultimo anno</button>
+        <button onclick="setReportRange(0)" class="range-btn">Tutto</button>
+      </div>
+      <button onclick="generatePDFReport()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">📄 Genera e scarica PDF</button>
+      <div id="reportMsg" style="margin-top:12px;font-size:13px;color:var(--muted);display:none"></div>
+    </div>
+
+    <!-- PDF PREVIEW AREA (hidden, used for capture) -->
+    <div id="pdfPreviewArea" style="display:none"></div>
+  </div>
+
+<!-- DAY DETAIL MODAL (long press) -->
+<div class="modal-overlay" id="dayDetailModal">
+  <div class="modal" style="max-width:340px">
+    <div class="modal-title" id="dayDetailTitle">📅 Dettaglio giorno</div>
+    <div id="dayDetailDose" style="font-size:13px;color:var(--muted);margin-bottom:16px"></div>
+
+    <!-- Alarm time -->
+    <div class="modal-row">
+      <div class="modal-label">⏰ Orario allarme</div>
+      <input type="time" class="modal-input" id="dayDetailTime" value="17:30">
+    </div>
+
+    <!-- Taken status -->
+    <div id="dayDetailTakenInfo" style="font-size:12px;color:var(--accent2);margin-bottom:12px;display:none"></div>
+
+    <div class="modal-btns" style="flex-direction:column;gap:8px">
+      <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%">○ Segna come preso</button>
+      <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%">🔔 Salva orario allarme</button>
+      <button onclick="closeDayDetailModal()" class="btn-secondary" style="width:100%;color:var(--muted)">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ===================================================
+// LOCAL TAO PARSER
+// ===================================================
+function parseTAOLocal(items) {
+  const text = items.map(i => i.str).join(' ');
+  const textL = text.toLowerCase();
+
+  function toFloat(s) { return s ? parseFloat(String(s).replace(',','.').trim()) : null; }
+  function normalizeDate(d) { return d ? d.replace(/\./g,'/') : null; }
+  function tryMatch(...patterns) {
+    for(const re of patterns) {
+      const m = text.match(re);
+      if(m && m[1]) return m[1].trim();
+    }
+    return null;
+  }
+
+  // ---- CODICE FISCALE ----
+  const cfMatch = text.match(/\*([A-Z0-9]{16})\*/);
+  const codiceFiscale = cfMatch ? cfMatch[1] : '';
+
+  // ---- PATIENT NAME ----
+  // The PDF stream has "PRATICO' GIULIO Nominativo:" (value before label)
+  // or "Nominativo: PRATICO' GIULIO" (label before value)
+  let nome = tryMatch(
+    /([A-ZÀÈÉÌÒÙ'][A-ZÀÈÉÌÒÙ'\s]{3,35}?)\s+Nominativo/,
+    /Nominativo\s*:\s*([A-ZÀÈÉÌÒÙ'][A-ZÀÈÉÌÒÙ'\s]{3,35}?)(?=\s*(?:Codice|Data di nascita|\d{2}[./]))/
+  ) || '';
+  nome = nome.replace(/\s+/g,' ').replace(/\s*(Codice|Data|Tel|Fax|Prov|Numero).*/i,'').trim();
+
+  // ---- DATE OF BIRTH ----
+  const dob = tryMatch(
+    /Data di nascita\s*:?\s*(\d{2}[./]\d{2}[./]\d{4})/i,
+    /(\d{2}[./]\d{2}[./]\d{4})\s+Data di nascita/i
+  );
+  const dataNascita = normalizeDate(dob);
+
+  // ---- FARMACO ----
+  const farmacoRaw = tryMatch(/Farmaco\s*:\s*(COUMADIN[^,\n]{1,30})/i) || 'COUMADIN (5 Mg.)';
+  const farmaco = farmacoRaw.replace(/\s+/g,' ').trim();
+  const mgMatch = text.match(/COUMADIN[^(]*\(\s*(\d+)\s*Mg/i);
+  const doseUnitaMg = mgMatch ? parseInt(mgMatch[1]) : 5;
+
+  // ---- DIAGNOSI ----
+  const diagnosi = tryMatch(
+    /Diagnosi\s*:\s*([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s]{3,50}?)(?=\s{2,}|\d{2}[./]\d{2}|Data del|Dose)/i
+  ) || '';
+
+  // ---- CONTROL DATE ----
+  // PDF has "02.02.2026 Data del Controllo:" or "Data del Controllo: 02.02.2026"
+  const dcRaw = tryMatch(
+    /(\d{2}[./]\d{2}[./]\d{4})\s+Data del Controllo/i,
+    /Data del Controllo\s*:\s*(\d{2}[./]\d{2}[./]\d{4})/i
+  );
+  const dataControllo = normalizeDate(dcRaw);
+
+  // ---- INR ----
+  // Text: "Risultato INR: --- Range --- 2,00 ~ 3,00 1,92"
+  // The INR value is the number right after "X ~ Y"
+  let inr = null;
+  const inrFull = text.match(/---\s*Range\s*---\s*[\d,]+\s*~\s*[\d,]+\s+([\d,]+)/i);
+  if(inrFull) inr = toFloat(inrFull[1]);
+  if(inr === null) {
+    const inrAfter = text.match(/[\d,]+\s*~\s*[\d,]+\s+([\d,]+)/);
+    if(inrAfter) inr = toFloat(inrAfter[1]);
+  }
+  if(inr === null) {
+    const inrDirect = text.match(/Risultato INR\s*:?\s*([\d,]+)/i);
+    if(inrDirect) inr = toFloat(inrDirect[1]);
+  }
+
+  // ---- RANGE ----
+  const rangeMatch = text.match(/([\d]+[,.]\d+)\s*~\s*([\d]+[,.]\d+)/);
+  const rangeMin = rangeMatch ? toFloat(rangeMatch[1]) : 2.0;
+  const rangeMax = rangeMatch ? toFloat(rangeMatch[2]) : 3.0;
+
+  // ---- TARGET ----
+  const targetRaw = tryMatch(/Target\s*:\s*([\d,]+)/i, /([\d,]+)\s+Target/i);
+  const target = targetRaw ? toFloat(targetRaw) : 2.5;
+
+  // ---- DOSE SETTIMANALE ----
+  // "36,25 Dose farmaco:" or "Dose farmaco: 36,25"
+  const doseSettRaw = tryMatch(
+    /([\d,]+)\s+Dose farmaco/i,
+    /Dose farmaco\s*:\s*([\d,]+)/i
+  );
+  const doseSettimanale = doseSettRaw ? toFloat(doseSettRaw) : null;
+
+  // ---- TEMPO IN RANGE ----
+  const tirMatch = text.match(/Tempo in range[:\s]+([\d,]+)\s*%/i);
+  const tempoInRange = tirMatch ? toFloat(tirMatch[1]) : null;
+
+  // ---- DURATA ----
+  const durataRaw = tryMatch(
+    /(\d+)\s+Durata Terapia/i,
+    /Durata Terapia\s*:\s*(\d+)/i
+  );
+  const durataGiorni = durataRaw ? parseInt(durataRaw) : 21;
+
+  // ---- PREVIOUS CONTROLS ----
+  const controlliPrecedenti = [];
+  const prevRe = /(\d{2}\/\d{2}\/\d{4})\s+([\d,]+)\s+([\d,]+)/g;
+  let pm;
+  while((pm = prevRe.exec(text)) !== null) {
+    const d = pm[1], v = toFloat(pm[2]), dose = toFloat(pm[3]);
+    if(d !== dataControllo && v > 0 && v < 10 && dose > 5 && dose < 100
+       && !controlliPrecedenti.find(c=>c.data===d)) {
+      controlliPrecedenti.push({ data: d, inr: v, doseSettimanale: dose });
+    }
+  }
+
+  // ---- YEAR ----
+  let year = new Date().getFullYear();
+  if(dataControllo) { const yy = dataControllo.match(/(\d{4})$/); if(yy) year = parseInt(yy[1]); }
+
+  // ---- DAILY DOSES ----
+  const monthMap = {
+    'gennaio':1,'febbraio':2,'marzo':3,'aprile':4,'maggio':5,'giugno':6,
+    'luglio':7,'agosto':8,'settembre':9,'ottobre':10,'novembre':11,'dicembre':12
+  };
+  const doseTextMap = [
+    ['una e tre quarti', 1.75], ['una e un quarto', 1.25], ['una e mezza', 1.5],
+    ['due e tre quarti', 2.75], ['due e un quarto', 2.25], ['due e mezza', 2.5],
+    ['tre quarti', 0.75], ['un quarto', 0.25], ['mezza', 0.5], ['mezzo', 0.5],
+    ['una', 1.0], ['due', 2.0], ['tre', 3.0],
+  ];
+  const monthNames = Object.keys(monthMap).join('|');
+  const doseAlt = doseTextMap.map(([k]) => k.replace(/ /g,'\\s+')).join('|');
+  const calRe = new RegExp(`(\\d{1,2})\\s+(${monthNames})\\s+(${doseAlt})`, 'gi');
+  const dosePerId = {};
+  let cm;
+  while((cm = calRe.exec(textL)) !== null) {
+    const day = parseInt(cm[1]);
+    const month = monthMap[cm[2].toLowerCase()];
+    const doseStr = cm[3].replace(/\s+/g,' ').toLowerCase();
+    if(!month || day < 1 || day > 31) continue;
+    const dateStr = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year}`;
+    const found = doseTextMap.find(([k]) => k === doseStr);
+    if(found && dosePerId[dateStr] === undefined) dosePerId[dateStr] = found[1];
+  }
+
+  // ---- THERAPY DATE RANGE ----
+  const dataInizio = dataControllo;
+  let dataFine = null;
+  if(dataControllo && durataGiorni) {
+    const start = parseDate(dataControllo);
+    const end = new Date(start);
+    end.setDate(end.getDate() + durataGiorni - 1);
+    dataFine = formatDate(end);
+  }
+
+  // ---- NEXT APPOINTMENT ----
+  const appRe = new RegExp(`(?:lunedi|lunedì|martedi|martedì|mercoledi|mercoledì|giovedi|giovedì|venerdi|venerdì|sabato|domenica)[,\\s]+(\\d{1,2})\\s+(${monthNames})\\s+(\\d{4})`, 'i');
+  const appMatch = text.match(appRe);
+  let dataAppuntamento = null;
+  if(appMatch) {
+    const d = appMatch[1].padStart(2,'0'), mName = appMatch[2].toLowerCase(), y = appMatch[3];
+    if(monthMap[mName]) dataAppuntamento = `${d}/${String(monthMap[mName]).padStart(2,'0')}/${y}`;
+  }
+
+  // ---- DEBUG ----
+  console.log('TAO Parser:', { nome, dataNascita, dataControllo, inr, rangeMin, rangeMax, target, doseSettimanale, durataGiorni, doseCount: Object.keys(dosePerId).length, dosePerId });
+
+  // ---- VALIDATION ----
+  if(!dataControllo || inr === null) { console.warn('Parsing failed:', { dataControllo, inr }); return null; }
+  if(!nome) nome = 'Paziente';
+
+  return {
+    paziente: { nome, dataNascita, codiceFiscale },
+    farmaco, diagnosi,
+    controllo: { data: dataControllo, inr, rangeMin, rangeMax, target, doseSettimanale, tempoInRange },
+    controlliPrecedenti,
+    terapia: { dataInizio, dataFine, durataGiorni, doseUnitaMg, dataControllo: dataAppuntamento || dataFine, dosePerId }
+  };
+}
+
+
+// ===================================================
+// STORAGE
+// ===================================================
+const STORAGE_KEY = 'tao_monitor_v2';
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : { controls: [], therapies: [], alarms: {}, taken: {}, takenTimes: {}, defaultAlarmTime: null };
+  } catch(e) { return { controls: [], therapies: [], alarms: {}, taken: {}, takenTimes: {}, defaultAlarmTime: null }; }
+}
+function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+let appData = loadData();
+
+// ===================================================
+// TABS
+// ===================================================
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', ['upload','inr','terapia','strumenti'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(name==='inr') renderINRTab();
+  if(name==='terapia') renderTerapiaTab();
+  if(name==='strumenti') initStrumenti();
+}
+
+// ===================================================
+// PDF UPLOAD
+// ===================================================
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('drag-over'); const f=e.dataTransfer.files[0]; if(f&&f.type==='application/pdf') processPDF(f); });
+function handleFileSelect(e) { const f=e.target.files[0]; if(f) processPDF(f); }
+
+async function processPDF(file) {
+  showLoading('Lettura PDF…');
+  try {
+    const items = await extractPDFItems(file);
+    showLoading('Analisi dati…');
+    const extracted = parseTAOLocal(items);
+    hideLoading();
+    if(extracted) {
+      applyExtractedData(extracted);
+    } else {
+      document.getElementById('parseDebugText').textContent = items.map(i=>i.str).join(' ');
+      document.getElementById('parseDebug').style.display = 'block';
+      alert('Impossibile estrarre i dati. Controlla il testo estratto.');
+    }
+  } catch(err) { hideLoading(); console.error(err); alert('Errore: '+err.message); }
+  document.getElementById('pdfInput').value = '';
+}
+
+async function extractPDFItems(file) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const ab = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: ab}).promise;
+  let items = [];
+  for(let i=1;i<=pdf.numPages;i++) {
+    const page = await pdf.getPage(i);
+    const tc = await page.getTextContent();
+    items = items.concat(tc.items);
+  }
+  return items;
+}
+
+// ===================================================
+// APPLY EXTRACTED DATA
+// ===================================================
+function applyExtractedData(extracted) {
+  appData = loadData();
+  const ctrl = extracted.controllo;
+
+  // Add control (avoid duplicates)
+  const existing = appData.controls.find(c => c.data===ctrl.data && c.inr===ctrl.inr);
+  if(!existing) {
+    appData.controls.push({ data:ctrl.data, inr:ctrl.inr, rangeMin:ctrl.rangeMin, rangeMax:ctrl.rangeMax, target:ctrl.target, doseSettimanale:ctrl.doseSettimanale, tempoInRange:ctrl.tempoInRange });
+  }
+  // Previous controls
+  (extracted.controlliPrecedenti||[]).forEach(cp => {
+    if(!appData.controls.find(c=>c.data===cp.data)) {
+      appData.controls.push({ data:cp.data, inr:cp.inr, rangeMin:ctrl.rangeMin, rangeMax:ctrl.rangeMax, target:ctrl.target, doseSettimanale:cp.doseSettimanale });
+    }
+  });
+  appData.controls.sort((a,b) => parseDate(a.data)-parseDate(b.data));
+
+  // Build new therapy object
+  if(!appData.therapies) appData.therapies = [];
+  const newT = {
+    farmaco: extracted.farmaco, diagnosi: extracted.diagnosi, paziente: extracted.paziente,
+    dataInizio: extracted.terapia.dataInizio, dataFine: extracted.terapia.dataFine,
+    durataGiorni: extracted.terapia.durataGiorni, doseUnitaMg: extracted.terapia.doseUnitaMg,
+    dataControllo: extracted.terapia.dataControllo, dosePerId: extracted.terapia.dosePerId||{},
+    rangeMin: ctrl.rangeMin, rangeMax: ctrl.rangeMax, target: ctrl.target
+  };
+  const existingT = appData.therapies.find(t => t.dataInizio===newT.dataInizio);
+  if(existingT) Object.assign(existingT, newT);
+  else appData.therapies.push(newT);
+  appData.therapies.sort((a,b) => parseDate(a.dataInizio)-parseDate(b.dataInizio));
+  appData.therapy = appData.therapies[appData.therapies.length-1];
+
+  saveData(appData);
+  calInitialized = false;
+  updatePatientBadge(extracted.paziente);
+  showExtractedResult(extracted);
+
+  // Auto backup + Drive sync after PDF load
+  saveBackupToFolder(true);
+  fbAutoSync();
+
+  // Ask about default alarm time
+  askDefaultAlarmTime(newT);
+}
+
+// ===================================================
+// DEFAULT ALARM TIME FLOW
+// ===================================================
+let pendingTherapyForAlarm = null;
+
+function askDefaultAlarmTime(therapy) {
+  const data = loadData();
+  pendingTherapyForAlarm = therapy;
+  const existing = data.defaultAlarmTime;
+  const modal = document.getElementById('defaultTimeModal');
+  const title = document.getElementById('defaultTimeTitle');
+  const label = document.getElementById('defaultTimeLabel');
+  const info = document.getElementById('defaultTimeInfo');
+  const btns = document.getElementById('defaultTimeBtns');
+  const input = document.getElementById('defaultTimeInput');
+
+  if(!existing) {
+    // First time: just ask
+    title.textContent = "⏰ Orario assunzione";
+    label.textContent = "Imposta l'orario predefinito per la terapia";
+    info.style.display = 'none';
+    input.value = '17:30';
+    btns.innerHTML = '<button class="btn-primary" onclick="confirmDefaultTime()">✓ Conferma</button>';
+  } else {
+    // New PDF: ask if keep or change
+    title.textContent = "⏰ Orario assunzione";
+    label.textContent = "Orario attuale per tutti i giorni:";
+    input.value = existing;
+    info.textContent = "Puoi mantenere questo orario o impostarne uno nuovo per il nuovo periodo. Potrai comunque variare ogni singolo giorno manualmente.";
+    info.style.display = 'block';
+    btns.innerHTML = `
+      <button class="btn-secondary" onclick="keepDefaultTime()">Mantieni ${existing}</button>
+      <button class="btn-primary" onclick="confirmDefaultTime()">Aggiorna orario</button>
+    `;
+  }
+  modal.classList.add('active');
+}
+
+function confirmDefaultTime() {
+  const time = document.getElementById('defaultTimeInput').value;
+  appData = loadData();
+  appData.defaultAlarmTime = time;
+  // Apply to all days of the pending therapy that don't have a custom alarm
+  if(pendingTherapyForAlarm) {
+    const days = getTherapyDays(pendingTherapyForAlarm);
+    if(!appData.alarms) appData.alarms = {};
+    const nowTs = Date.now();
+    if(!appData.alarmTimes) appData.alarmTimes={};
+    days.forEach(d => { appData.alarms[d] = time; appData.alarmTimes[d] = nowTs; });
+    // Schedule alarms
+    days.forEach(d => scheduleAlarm(d, time));
+  }
+  saveData(appData);
+  document.getElementById('defaultTimeModal').classList.remove('active');
+  pendingTherapyForAlarm = null;
+  renderTerapiaTab();
+}
+
+function keepDefaultTime() {
+  const data = loadData();
+  const time = data.defaultAlarmTime || '17:30';
+  // Apply existing time to new therapy days
+  if(pendingTherapyForAlarm) {
+    appData = loadData();
+    if(!appData.alarms) appData.alarms = {};
+    const days = getTherapyDays(pendingTherapyForAlarm);
+    days.forEach(d => { if(!appData.alarms[d]) appData.alarms[d] = time; scheduleAlarm(d, time); });
+    saveData(appData);
+  }
+  document.getElementById('defaultTimeModal').classList.remove('active');
+  pendingTherapyForAlarm = null;
+  renderTerapiaTab();
+}
+
+// ===================================================
+// SHOW EXTRACTED RESULT
+// ===================================================
+function showExtractedResult(extracted) {
+  const ctrl = extracted.controllo;
+  document.getElementById('extractedCards').innerHTML = `
+    <div class="card"><div class="card-label">Paziente</div><div class="card-value" style="font-size:17px">${extracted.paziente?.nome||'—'}</div><div class="card-sub">${extracted.paziente?.dataNascita||''}</div></div>
+    <div class="card"><div class="card-label">INR Attuale</div><div class="card-value ${inrClass(ctrl.inr,ctrl.rangeMin,ctrl.rangeMax)}">${ctrl.inr}</div><div class="card-sub">Range ${ctrl.rangeMin}–${ctrl.rangeMax} · Target ${ctrl.target}</div></div>
+    <div class="card"><div class="card-label">Dose Settimanale</div><div class="card-value">${ctrl.doseSettimanale||'—'}</div><div class="card-sub">mg/settimana</div></div>
+    <div class="card"><div class="card-label">Tempo in Range</div><div class="card-value inr-good">${ctrl.tempoInRange||'—'}%</div><div class="card-sub">Ottimo se > 70%</div></div>
+    <div class="card"><div class="card-label">Farmaco</div><div class="card-value" style="font-size:15px">${extracted.farmaco||'—'}</div><div class="card-sub">${extracted.diagnosi||''}</div></div>
+    <div class="card"><div class="card-label">Terapia</div><div class="card-value" style="font-size:16px">${extracted.terapia?.durataGiorni||'—'}</div><div class="card-sub">giorni dal ${extracted.terapia?.dataInizio||'—'}<br>${Object.keys(extracted.terapia?.dosePerId||{}).length} giorni con dose specifica</div></div>
+  `;
+  document.getElementById('uploadResult').style.display = 'block';
+  document.getElementById('uploadResultText').textContent = `Dati estratti dal ${ctrl.data}. Storico: ${appData.controls.length} controlli, ${appData.therapies.length} periodi terapia.`;
+}
+function updatePatientBadge(p) { if(!p?.nome) return; document.getElementById('patientNameHeader').textContent=p.nome; document.getElementById('patientBadge').classList.add('visible'); }
+
+// ===================================================
+// INR TAB
+// ===================================================
+let inrChartInst=null, doseChartInst=null;
+function renderINRTab() {
+  const data = loadData();
+  if(!data.controls||!data.controls.length) { document.getElementById('inrEmpty').style.display='block'; document.getElementById('inrContent').style.display='none'; return; }
+  document.getElementById('inrEmpty').style.display='none';
+  document.getElementById('inrContent').style.display='block';
+  const sorted = [...data.controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  const latest = sorted[sorted.length-1];
+  const inRange = sorted.filter(c=>c.rangeMin&&c.rangeMax&&c.inr>=c.rangeMin&&c.inr<=c.rangeMax).length;
+  const pct = sorted.length>0?Math.round(inRange/sorted.length*100):0;
+  const avgINR = sorted.length>0?(sorted.reduce((s,c)=>s+c.inr,0)/sorted.length).toFixed(2):'—';
+  document.getElementById('inrCards').innerHTML = `
+    <div class="card"><div class="card-label">Ultimo INR</div><div class="card-value ${inrClass(latest.inr,latest.rangeMin,latest.rangeMax)}">${latest.inr}</div><div class="card-sub">${latest.data}</div></div>
+    <div class="card"><div class="card-label">Range</div><div class="card-value" style="font-size:20px">${latest.rangeMin||'—'}–${latest.rangeMax||'—'}</div><div class="card-sub">Target: ${latest.target||'—'}</div></div>
+    <div class="card"><div class="card-label">INR Medio</div><div class="card-value">${avgINR}</div><div class="card-sub">su ${sorted.length} controlli</div></div>
+    <div class="card"><div class="card-label">% In range</div><div class="card-value ${pct>=70?'inr-good':pct>=50?'inr-warn':'inr-bad'}">${pct}%</div><div class="card-sub">${inRange}/${sorted.length} controlli</div></div>`;
+  inrAllData = sorted; renderINRChart(sorted); renderDoseChart(sorted);
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML='';
+  [...sorted].reverse().forEach((c,i)=>{
+    const st=getINRStatus(c.inr,c.rangeMin,c.rangeMax);
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${c.data}</td><td><span class="inr-badge ${st.cls}">${st.icon} ${c.inr}</span></td><td style="color:var(--muted)">${c.rangeMin||'—'}–${c.rangeMax||'—'}</td><td style="color:var(--muted)">${c.target||'—'}</td><td>${c.doseSettimanale||'—'} mg</td><td style="color:var(--${st.cls==='good'?'accent2':st.cls==='warn'?'warn':'danger'})">${st.label}</td><td><button class="delete-btn" onclick="deleteControl(${sorted.length-1-i})">🗑</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+let inrAllData = []; // store all controls for range filtering
+let inrRangeMonths = 0; // 0 = all
+
+function setINRRange(months) {
+  inrRangeMonths = months;
+  // Update button styles
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  const labels = {0:'Tutto', 3:'3 mesi', 6:'6 mesi', 12:'1 anno'};
+  document.querySelectorAll('.range-btn').forEach(b => {
+    if(b.textContent === (labels[months]||'')) b.classList.add('active');
+  });
+  // Filter and re-render
+  let filtered = inrAllData;
+  if(months > 0) {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    filtered = inrAllData.filter(c => parseDate(c.data) >= cutoff);
+  }
+  const infoEl = document.getElementById('inrRangeInfo');
+  if(infoEl) infoEl.textContent = filtered.length > 0
+    ? `${filtered.length} controlli · dal ${filtered[0].data} al ${filtered[filtered.length-1].data}`
+    : '';
+  renderINRChart(filtered);
+}
+
+function renderINRChart(sorted) {
+  inrAllData = sorted; // always keep full dataset
+  const ctx=document.getElementById('inrChart').getContext('2d');
+  if(inrChartInst) inrChartInst.destroy();
+
+  // Apply current range filter
+  let data = sorted;
+  if(inrRangeMonths > 0) {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - inrRangeMonths);
+    data = sorted.filter(c => parseDate(c.data) >= cutoff);
+  }
+  if(!data.length) data = sorted; // fallback to all if filter yields nothing
+
+  const labels=data.map(c=>c.data), vals=data.map(c=>c.inr);
+  const rMin=data[0]?.rangeMin||2, rMax=data[0]?.rangeMax||3, tgt=data[0]?.target||2.5;
+
+  // Update info label
+  const infoEl = document.getElementById('inrRangeInfo');
+  if(infoEl) infoEl.textContent = data.length > 0
+    ? `${data.length} controlli · dal ${data[0].data} al ${data[data.length-1].data}`
+    : '';
+
+  inrChartInst=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'INR',data:vals,
+        borderColor:'#58a6ff',
+        backgroundColor:'rgba(88,166,255,.08)',
+        pointBackgroundColor:vals.map(v=>v>=rMin&&v<=rMax?'#3fb950':v<rMin*.8||v>rMax*1.2?'#ff7b72':'#f0883e'),
+        pointBorderColor:'#0d1117',
+        pointBorderWidth:1.5,
+        pointRadius:vals.length > 20 ? 4 : 7,
+        pointHoverRadius:10,
+        borderWidth:2,tension:.3,fill:false},
+      {label:'Range min',data:Array(labels.length).fill(rMin),borderColor:'rgba(63,185,80,.5)',borderDash:[5,5],pointRadius:0,borderWidth:1.5,fill:false},
+      {label:'Range max',data:Array(labels.length).fill(rMax),borderColor:'rgba(63,185,80,.5)',borderDash:[5,5],pointRadius:0,borderWidth:1.5,fill:'-1',backgroundColor:'rgba(63,185,80,.07)'},
+      {label:'Target',data:Array(labels.length).fill(tgt),borderColor:'rgba(240,136,62,.6)',borderDash:[3,3],pointRadius:0,borderWidth:1,fill:false}
+    ]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{labels:{color:'#7d8590',font:{family:'DM Sans'}}},
+        tooltip:{
+          backgroundColor:'rgba(22,27,34,.95)',
+          borderColor:'rgba(48,54,61,.8)',
+          borderWidth:1,
+          titleColor:'#e6edf3',
+          bodyColor:'#7d8590',
+          padding:12,
+          callbacks:{
+            label: ctx => {
+              if(ctx.dataset.label==='INR') {
+                const v=ctx.parsed.y;
+                const status=v>=rMin&&v<=rMax?'✓ In range':v<rMin?'↓ Sotto range':'↑ Sopra range';
+                return ` INR: ${v}  ${status}`;
+              }
+              return null;
+            }
+          }
+        },
+        zoom:{
+          zoom:{
+            wheel:{enabled:true, speed:0.1},
+            pinch:{enabled:true},
+            mode:'x',
+            onZoomComplete: ({chart}) => {
+              // Update info after zoom
+            }
+          },
+          pan:{
+            enabled:true,
+            mode:'x',
+            threshold:5
+          },
+          limits:{
+            x:{minRange:1}
+          }
+        }
+      },
+      scales:{
+        x:{
+          ticks:{color:'#7d8590', maxRotation:45, maxTicksLimit: vals.length>12?12:undefined},
+          grid:{color:'rgba(48,54,61,.6)'}
+        },
+        y:{
+          ticks:{color:'#7d8590'},
+          grid:{color:'rgba(48,54,61,.6)'},
+          suggestedMin:Math.min(...vals,rMin)-.5,
+          suggestedMax:Math.max(...vals,rMax)+.5
+        }
+      }
+    }
+  });
+
+  // Add double-click to reset zoom
+  const canvas = document.getElementById('inrChart');
+  canvas.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
+}
+function renderDoseChart(sorted) {
+  const ctx=document.getElementById('doseChart').getContext('2d');
+  if(doseChartInst) doseChartInst.destroy();
+  const labels=sorted.map(c=>c.data), doses=sorted.map(c=>c.doseSettimanale);
+  doseChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Dose sett. (mg)',data:doses,backgroundColor:'rgba(88,166,255,.25)',borderColor:'#58a6ff',borderWidth:1.5,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#7d8590',font:{family:'DM Sans'}}}},scales:{x:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,.6)'}},y:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,.6)'},suggestedMin:Math.min(...doses)-5,suggestedMax:Math.max(...doses)+5}}}});
+}
+function deleteControl(idx) {
+  if(!confirm('Eliminare?')) return;
+  appData=loadData(); appData.controls.splice(idx,1); saveData(appData); renderINRTab();
+}
+
+// ===================================================
+// TERAPIA TAB
+// ===================================================
+let currentCalMonth=new Date().getMonth(), currentCalYear=new Date().getFullYear();
+let currentView='cal', selectedDayKey=null, calInitialized=false;
+let currentTherapyIdx=0; // index of currently shown therapy plan
+
+function getAllTherapies() {
+  const d=loadData();
+  return d.therapies&&d.therapies.length?d.therapies:(d.therapy?[d.therapy]:[]);
+}
+
+function renderTerapiaTab() {
+  const data=loadData();
+  const therapies=getAllTherapies();
+  if(!therapies.length) {
+    document.getElementById('terapiaEmpty').style.display='block';
+    document.getElementById('terapiaContent').style.display='none';
+    return;
+  }
+  document.getElementById('terapiaEmpty').style.display='none';
+  document.getElementById('terapiaContent').style.display='block';
+
+  // Clamp index
+  if(currentTherapyIdx >= therapies.length) currentTherapyIdx = therapies.length-1;
+  if(currentTherapyIdx < 0) currentTherapyIdx = 0;
+
+  const t = therapies[currentTherapyIdx];
+  document.getElementById('terapiaFarmaco').textContent = t.farmaco||'—';
+
+  // Dose range for current therapy only
+  const doseVals = Object.values(t.dosePerId||{});
+  const minD = doseVals.length ? Math.min(...doseVals) : 1;
+  const maxD = doseVals.length ? Math.max(...doseVals) : 1;
+  document.getElementById('terapiaDose').textContent = minD===maxD ? String(minD) : `${minD}–${maxD}`;
+
+  const days = getTherapyDays(t);
+  document.getElementById('terapiaDurata').textContent = days.length||'—';
+
+  // Taken count for current therapy only
+  const takenDays = days.filter(d => data.taken&&data.taken[d]).length;
+  document.getElementById('takenCount').textContent = takenDays;
+  document.getElementById('takenTotal').textContent = `su ${days.length} giorni`;
+  const pct = days.length>0 ? Math.round(takenDays/days.length*100) : 0;
+  document.getElementById('takenProgress').style.width = pct+'%';
+
+  // On first render go to therapy containing today, or latest
+  if(!calInitialized) {
+    const today = formatDate(new Date());
+    const todayIdx = therapies.findIndex(t => {
+      const days = getTherapyDays(t);
+      return days.includes(today);
+    });
+    currentTherapyIdx = todayIdx >= 0 ? todayIdx : therapies.length-1;
+    calInitialized = true;
+  }
+
+  if(currentView==='cal') renderCalendar(data);
+  else renderList(data);
+}
+
+
+function getTherapyDays(t) {
+  const days=[];
+  if(!t.dataInizio||!t.dataFine) return days;
+  let d=parseDate(t.dataInizio);
+  const end=parseDate(t.dataFine);
+  while(d<=end) { days.push(formatDate(d)); d=new Date(d); d.setDate(d.getDate()+1); }
+  return days;
+}
+
+function getDayDoseFromTherapy(t, dateStr) {
+  if(t.dosePerId&&t.dosePerId[dateStr]!==undefined) return t.dosePerId[dateStr];
+  return 1;
+}
+
+function buildDayMap(therapies) {
+  const map={};
+  for(const t of therapies) {
+    const days=getTherapyDays(t);
+    for(const d of days) {
+      if(!map[d]) map[d]={ dose:getDayDoseFromTherapy(t,d), unitMg:t.doseUnitaMg||5, isControl:false };
+      else { map[d].dose = map[d].dose || getDayDoseFromTherapy(t,d); }
+    }
+    if(t.dataControllo) {
+      if(!map[t.dataControllo]) map[t.dataControllo]={ dose:null, unitMg:5, isControl:true };
+      else map[t.dataControllo].isControl=true;
+    }
+    if(t.dataInizio) {
+      if(!map[t.dataInizio]) map[t.dataInizio]={ dose:getDayDoseFromTherapy(t,t.dataInizio), unitMg:t.doseUnitaMg||5, isControl:false };
+      else if(map[t.dataInizio].dose===null) map[t.dataInizio].dose=getDayDoseFromTherapy(t,t.dataInizio);
+    }
+  }
+  return map;
+}
+
+function renderCalendar(data) {
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const t = therapies[currentTherapyIdx];
+  const days = getTherapyDays(t);
+  const alarms = data.alarms||{}, taken = data.taken||{}, takenTimes = data.takenTimes||{};
+
+  // Update title and counter
+  const title = `${t.dataInizio||'—'} → ${t.dataFine||'—'}`;
+  document.getElementById('calMonthTitle').textContent = title;
+  document.getElementById('therapyCounter').textContent =
+    `Piano ${currentTherapyIdx+1} di ${therapies.length}`;
+
+  // Update arrow states
+  const prevBtn = document.getElementById('prevTherapyBtn');
+  const nextBtn = document.getElementById('nextTherapyBtn');
+  if(prevBtn) prevBtn.style.opacity = currentTherapyIdx===0 ? '0.3' : '1';
+  if(nextBtn) nextBtn.style.opacity = currentTherapyIdx===therapies.length-1 ? '0.3' : '1';
+
+  // Build weekly grid showing only therapy days
+  // Group days by ISO week
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML='';
+
+  // Day-of-week headers
+  ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'].forEach(d=>{
+    const el=document.createElement('div');
+    el.className='cal-dow'; el.textContent=d;
+    grid.appendChild(el);
+  });
+
+  if(!days.length) return;
+
+  const today = formatDate(new Date());
+  const controlDate = t.dataControllo;
+
+  // Find first day of first week
+  const firstDay = parseDate(days[0]);
+  let startDow = firstDay.getDay();
+  startDow = startDow===0?6:startDow-1; // Mon=0
+
+  // Build a set for quick lookup
+  const daysSet = new Set(days);
+
+  // Find last day
+  const lastDay = parseDate(days[days.length-1]);
+  let lastDow = lastDay.getDay();
+  lastDow = lastDow===0?6:lastDow-1;
+
+  // Iterate from Monday of first week to Sunday of last week
+  const gridStart = new Date(firstDay);
+  gridStart.setDate(gridStart.getDate() - startDow);
+  const gridEnd = new Date(lastDay);
+  gridEnd.setDate(gridEnd.getDate() + (6 - lastDow));
+
+  // Extend grid end by 7 days ONLY if no next therapy covers those days
+  const gridEndExtended = new Date(gridEnd);
+  const therapiesAll = getAllTherapies();
+  const nextTherapy = therapiesAll[currentTherapyIdx + 1];
+  const nextTherapyStart = nextTherapy ? parseDate(nextTherapy.dataInizio) : null;
+  // Add extra week only if next therapy starts more than 7 days after this one ends
+  // or there is no next therapy
+  const shouldAddExtraWeek = !nextTherapyStart ||
+    nextTherapyStart > new Date(gridEnd.getTime() + 7*24*60*60*1000);
+  if(shouldAddExtraWeek) {
+    gridEndExtended.setDate(gridEndExtended.getDate() + 7);
+  }
+
+  let cur = new Date(gridStart);
+  while(cur <= gridEndExtended) {
+    const dateStr = formatDate(cur);
+    const inTherapy = daysSet.has(dateStr);
+    const isToday = dateStr===today;
+    const isControl = dateStr===controlDate;
+    const isTaken = taken[dateStr];
+    const alarm = alarms[dateStr];
+    const takenTime = takenTimes[dateStr];
+    const isExtraWeek = cur > gridEnd && shouldAddExtraWeek;
+    // If next therapy starts on this day, don't show as extra week
+    const isNextTherapyDay = nextTherapyStart && formatDate(cur) === formatDate(nextTherapyStart);
+
+    const el = document.createElement('div');
+
+    if(!inTherapy && !isControl && !isExtraWeek) {
+      // Inside grid range but not therapy — fully transparent
+      el.className='cal-day';
+      el.style.cssText='background:transparent;border-color:transparent;min-height:90px';
+      el.innerHTML=`<div class="cal-day-num" style="color:rgba(125,133,144,0.15)">${cur.getDate()}</div>`;
+    } else if(isExtraWeek && !isControl) {
+      // Extra week — repeat dose from same weekday of previous week
+      const prevWeekDate = new Date(cur);
+      prevWeekDate.setDate(prevWeekDate.getDate() - 7);
+      const prevWeekStr = formatDate(prevWeekDate);
+      const extraDose = getDayDoseFromTherapy(t, prevWeekStr);
+      const extraAlarm = alarms[dateStr] || alarms[prevWeekStr]; // use this day alarm or copy from prev week
+
+      el.className='cal-day'+(isToday?' today':'')+(isTaken?' taken':'');
+      el.style.cssText='border-color:rgba(255,255,255,0.3)';
+      let inner=`<div class="cal-day-num" style="color:var(--muted)">${cur.getDate()}</div>`;
+      inner+=`<div onclick="openModal('${dateStr}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0;opacity:0.8">
+        ${drawDoseSVG(extraDose, t.doseUnitaMg||5, 44)}
+      </div>`;
+      if(extraAlarm) inner+=`<div class="dose-time-badge">🔔 ${extraAlarm}</div>`;
+      if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
+      else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
+      el.innerHTML=inner;
+      el.onclick=()=>openModal(dateStr);
+      addLongPressHandlers(el, dateStr);
+    } else {
+      el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
+      let inner=`<div class="cal-day-num">${cur.getDate()}</div>`;
+      if(inTherapy) {
+        const dose=getDayDoseFromTherapy(t,dateStr);
+        inner+=`<div onclick="openModal('${dateStr}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
+          ${drawDoseSVG(dose,t.doseUnitaMg||5,44)}
+        </div>`;
+        if(alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
+        if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
+        else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
+      }
+      if(isControl) inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
+      el.innerHTML=inner;
+      if(inTherapy) {
+        el.onclick=()=>openModal(dateStr);
+        addLongPressHandlers(el, dateStr);
+      }
+    }
+    grid.appendChild(el);
+    cur.setDate(cur.getDate()+1);
+  }
+}
+
+
+function renderList(data) {
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const t = therapies[currentTherapyIdx];
+  const days = getTherapyDays(t);
+  const alarms = data.alarms||{}, taken = data.taken||{}, takenTimes = data.takenTimes||{};
+  const today = formatDate(new Date());
+  const wd = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+
+  // Update list header
+  const titleEl = document.getElementById('listTherapyTitle');
+  const counterEl = document.getElementById('listTherapyCounter');
+  if(titleEl) titleEl.textContent = `${t.dataInizio||'—'} → ${t.dataFine||'—'}`;
+  if(counterEl) counterEl.textContent = `Piano ${currentTherapyIdx+1} di ${therapies.length}`;
+
+  // Sort days
+  let sortedDates = [...days];
+  if(!listSortAsc) sortedDates = [...sortedDates].reverse();
+
+  const list = document.getElementById('dayList');
+  list.innerHTML='';
+
+  sortedDates.forEach(dateStr => {
+    const d = parseDate(dateStr);
+    const isTaken = taken[dateStr];
+    const alarm = alarms[dateStr];
+    const takenTime = takenTimes[dateStr];
+    const isControl = dateStr===t.dataControllo;
+    const isToday = dateStr===today;
+    const dose = getDayDoseFromTherapy(t, dateStr);
+    const isSpecial = dose!==1;
+
+    const item = document.createElement('div');
+    item.className='day-item'+(isTaken?' taken':'')+(isControl?' control-day':'')+(isToday?' today-item':'');
+    if(isToday) item.setAttribute('data-today','true');
+
+    item.innerHTML=`
+      <div class="day-date">
+        <div>${dateStr} ${isToday?'🔵':''}</div>
+        <div class="day-weekday">${wd[d.getDay()]}</div>
+      </div>
+      <div class="day-dose" style="${isSpecial?'border-color:#f0883e;color:white':'border-color:#3fb950;color:white'}">${dosePillLabel(dose,t.doseUnitaMg||5)}</div>
+      ${isControl?'<span class="control-tag">📋 Controllo</span>':''}
+      <div class="day-alarm">
+        <input type="time" class="alarm-input" value="${alarm||'17:30'}" data-date="${dateStr}"
+          onchange="setAlarmDirect('${dateStr}',this.value)">
+        <button class="btn-alarm${alarm?' active':''}" onclick="toggleAlarmFromList('${dateStr}')">
+          ${alarm?'🔔 Attivo':'🔕 Off'}
+        </button>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;margin-left:auto">
+        ${takenTime?`<div class="day-taken-time">✅ ${takenTime}</div>`:''}
+        <button class="btn-taken${isTaken?' taken':''}" onclick="toggleTaken('${dateStr}')">
+          ${isTaken?'✅ Preso':'○ Segna'}
+        </button>
+      </div>`;
+    list.appendChild(item);
+  });
+
+  // Auto-scroll to today
+  requestAnimationFrame(() => {
+    const todayEl = list.querySelector('[data-today="true"]');
+    if(todayEl) todayEl.scrollIntoView({behavior:'smooth', block:'center'});
+  });
+}
+
+
+function prevTherapy() {
+  const therapies = getAllTherapies();
+  if(currentTherapyIdx > 0) {
+    currentTherapyIdx--;
+    renderTerapiaTab();
+  }
+}
+
+function nextTherapy() {
+  const therapies = getAllTherapies();
+  if(currentTherapyIdx < therapies.length-1) {
+    currentTherapyIdx++;
+    renderTerapiaTab();
+  }
+}
+
+// Keep old names as aliases for any remaining references
+function prevMonth() { prevTherapy(); }
+function nextMonth() { nextTherapy(); }
+
+// ---- SWIPE SUPPORT ----
+function initSwipe() {
+  const area = document.getElementById('terapiaContent');
+  if(!area) return;
+  let startX=0, startY=0, startTime=0;
+
+  area.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+  }, { passive:true });
+
+  area.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    const dt = Date.now() - startTime;
+
+    // Valid swipe: fast, horizontal, more than 60px
+    if(dt < 400 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5) {
+      if(dx < 0) nextTherapy();  // swipe left → next
+      else        prevTherapy(); // swipe right → prev
+    }
+  }, { passive:true });
+}
+
+function setView(v) {
+  currentView=v;
+  document.getElementById('calView').style.display=v==='cal'?'block':'none';
+  document.getElementById('listView').style.display=v==='list'?'block':'none';
+  document.getElementById('calViewBtn').classList.toggle('active',v==='cal');
+  document.getElementById('listViewBtn').classList.toggle('active',v==='list');
+  const data=loadData();
+  if(v==='cal') renderCalendar(data);
+  else showPlanIndex(); // Always show plan index when switching to list
+}
+
+function showPlanIndex() {
+  document.getElementById('planIndex').style.display='block';
+  document.getElementById('planDays').style.display='none';
+  renderPlanIndex();
+}
+
+function showPlanDays(idx) {
+  // Click on plan → open calendar for that plan
+  currentTherapyIdx = idx;
+  setView('cal');
+}
+
+function renderPlanIndex() {
+  const therapies = getAllTherapies();
+  const data = loadData();
+  const container = document.getElementById('planIndexList');
+  container.innerHTML='';
+  const today = formatDate(new Date());
+
+  therapies.forEach((t, idx) => {
+    const days = getTherapyDays(t);
+    const takenCount = days.filter(d=>data.taken&&data.taken[d]).length;
+    const pct = days.length>0?Math.round(takenCount/days.length*100):0;
+    const isActive = days.includes(today);
+    const isCurrent = idx===currentTherapyIdx;
+
+    const card = document.createElement('div');
+    card.className='card';
+    card.style.cssText=`cursor:pointer;border-color:${isActive?'var(--accent2)':isCurrent?'var(--accent)':'var(--border)'};transition:all .2s`;
+    card.onclick=()=>{ showPlanDays(idx); };
+    card.innerHTML=`
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:4px">
+            ${isActive?'<span style="color:var(--accent2);margin-right:6px">●</span>':''}
+            Piano ${idx+1} — ${t.dataInizio||'—'} → ${t.dataFine||'—'}
+          </div>
+          <div style="font-size:12px;color:var(--muted)">${t.farmaco||'—'} · ${days.length} giorni · ${takenCount}/${days.length} assunzioni</div>
+          <div style="margin-top:8px;background:var(--border);border-radius:4px;height:4px;overflow:hidden">
+            <div style="height:100%;border-radius:4px;background:${pct>=70?'var(--accent2)':'var(--warn)'};width:${pct}%"></div>
+          </div>
+        </div>
+        <div style="font-size:20px;color:var(--muted);padding:0 8px">›</div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+// ===================================================
+// MODAL (single day alarm)
+// ===================================================
+function openModal(dateStr) {
+  selectedDayKey=dateStr;
+  const data=loadData();
+  document.getElementById('modalTitle').textContent=`⏰ Orario per il ${dateStr}`;
+  document.getElementById('modalTime').value=data.alarms?.[dateStr]||data.defaultAlarmTime||'17:30';
+  document.getElementById('dayModal').classList.add('active');
+}
+function closeModal() { document.getElementById('dayModal').classList.remove('active'); selectedDayKey=null; }
+function saveAlarm() {
+  if(!selectedDayKey) return;
+  const time=document.getElementById('modalTime').value;
+  appData=loadData();
+  if(!appData.alarms) appData.alarms={};
+  if(!appData.alarmTimes) appData.alarmTimes={};
+  appData.alarms[selectedDayKey]     = time;
+  appData.alarmTimes[selectedDayKey] = Date.now();
+  saveData(appData);
+  scheduleAlarm(selectedDayKey, time); closeModal(); renderTerapiaTab();
+  fbAutoSync();
+  // Sync alarms to Firestore for push notifications
+  if(_fbUser && _fbDb) { navigator.serviceWorker?.ready.then(()=>fbRegisterFCM()); }
+}
+function setAlarmDirect(dateStr, time) {
+  appData=loadData();
+  if(!appData.alarms) appData.alarms={};
+  if(!appData.alarmTimes) appData.alarmTimes={};
+  appData.alarms[dateStr]     = time;
+  appData.alarmTimes[dateStr] = Date.now();
+  saveData(appData);
+  scheduleAlarm(dateStr, time);
+}
+function toggleAlarmFromList(dateStr) {
+  appData=loadData(); if(!appData.alarms) appData.alarms={};
+  if(!appData.alarmTimes) appData.alarmTimes={};
+  if(appData.alarms[dateStr]) {
+    delete appData.alarms[dateStr];
+    delete appData.alarmTimes[dateStr];
+  } else {
+    const t=document.querySelector(`input[data-date="${dateStr}"]`);
+    const time=t?t.value:(appData.defaultAlarmTime||'17:30');
+    appData.alarms[dateStr]     = time;
+    appData.alarmTimes[dateStr] = Date.now();
+    scheduleAlarm(dateStr,time);
+  }
+  saveData(appData); renderList(appData);
+}
+function toggleTaken(dateStr) {
+  appData=loadData();
+  if(!appData.taken) appData.taken={};
+  if(!appData.takenEditTimes) appData.takenEditTimes={};
+  const nowTs = Date.now();
+  if(appData.taken[dateStr]===true) {
+    // Remove
+    appData.taken[dateStr] = false;
+    appData.takenEditTimes[dateStr] = nowTs;
+    if(appData.takenTimes) delete appData.takenTimes[dateStr];
+  } else {
+    // Mark as taken
+    appData.taken[dateStr] = true;
+    appData.takenEditTimes[dateStr] = nowTs;
+    if(!appData.takenTimes) appData.takenTimes={};
+    appData.takenTimes[dateStr] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  }
+  saveData(appData); renderTerapiaTab();
+  saveBackupToFolder(true);
+  fbAutoSync();
+}
+
+// ===================================================
+// ALARM ENGINE
+// ===================================================
+const activeAlarmTimers={};
+let currentAlarmDate=null;
+let alarmAudioCtx=null;
+let alarmOscillators=[];
+let alarmInterval=null;
+
+function scheduleAlarm(dateStr, time) {
+  const data = loadData();
+  if(data.taken && data.taken[dateStr]===true) return;
+  if(window.isCapacitor) {
+    scheduleNativeAlarm(dateStr, time);
+    return;
+  }
+  scheduleAlarmTimeout(dateStr, time);
+}
+
+function scheduleAlarmTimeout(dateStr, time) {
+  if(activeAlarmTimers[dateStr]) clearTimeout(activeAlarmTimers[dateStr]);
+  const [h,m]=time.split(':').map(Number);
+  const [dd,mm,yyyy]=dateStr.split('/').map(Number);
+  const alarmTime=new Date(yyyy,mm-1,dd,h,m,0);
+  const now=new Date(), diff=alarmTime-now;
+  // Only schedule future alarms within 7 days; skip already-taken days
+  const data=loadData();
+  if(data.taken&&data.taken[dateStr]) return; // already taken, no alarm
+  if(diff<0||diff>7*24*60*60*1000) return;
+  activeAlarmTimers[dateStr]=setTimeout(()=>fireAlarm(dateStr,time),diff);
+}
+
+function fireAlarm(dateStr, time) {
+  currentAlarmDate=dateStr;
+  startAlarmSound();
+  document.getElementById('alarmSub').textContent=`${dateStr} — orario programmato: ${time}`;
+  document.getElementById('alarmToast').classList.add('show');
+  if(typeof Notification !== 'undefined' && Notification.permission==='granted') new Notification('TAO Monitor — Assunzione farmaco',{body:`Ora di prendere il Coumadin! (${dateStr} alle ${time})`});
+}
+
+function startAlarmSound() {
+  stopAlarmSound();
+  try {
+    alarmAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    playBeepSequence();
+    alarmInterval=setInterval(playBeepSequence,4000);
+  } catch(e) { console.warn('Audio error:',e); }
+}
+
+function playBeepSequence() {
+  if(!alarmAudioCtx) return;
+  // Two-tone alarm: high + mid frequency for better audibility
+  const pattern = [
+    {t:0,    freq:1046, dur:0.18},
+    {t:0.22, freq:880,  dur:0.18},
+    {t:0.44, freq:1046, dur:0.18},
+    {t:0.66, freq:880,  dur:0.18},
+    {t:0.88, freq:1318, dur:0.28},
+  ];
+  pattern.forEach(({t, freq, dur})=>{
+    // Main oscillator (square wave - more penetrating)
+    const osc=alarmAudioCtx.createOscillator();
+    const gain=alarmAudioCtx.createGain();
+    // Distortion for extra punch
+    const wave=alarmAudioCtx.createWaveShaper();
+    wave.curve=makeDistortionCurve(80);
+    osc.connect(wave); wave.connect(gain); gain.connect(alarmAudioCtx.destination);
+    osc.frequency.value=freq;
+    osc.type='square';
+    gain.gain.setValueAtTime(0, alarmAudioCtx.currentTime+t);
+    gain.gain.linearRampToValueAtTime(0.85, alarmAudioCtx.currentTime+t+0.02);
+    gain.gain.setValueAtTime(0.85, alarmAudioCtx.currentTime+t+dur-0.03);
+    gain.gain.linearRampToValueAtTime(0, alarmAudioCtx.currentTime+t+dur);
+    osc.start(alarmAudioCtx.currentTime+t);
+    osc.stop(alarmAudioCtx.currentTime+t+dur+0.01);
+    alarmOscillators.push(osc);
+  });
+}
+
+function makeDistortionCurve(amount) {
+  const n=256, curve=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const x=i*2/n-1;
+    curve[i]=(Math.PI+amount)*x/(Math.PI+amount*Math.abs(x));
+  }
+  return curve;
+}
+
+function stopAlarmSound() {
+  if(alarmInterval) { clearInterval(alarmInterval); alarmInterval=null; }
+  alarmOscillators.forEach(o=>{ try{o.stop();}catch(e){} });
+  alarmOscillators=[];
+  if(alarmAudioCtx) { try{alarmAudioCtx.close();}catch(e){} alarmAudioCtx=null; }
+}
+
+function confirmAlarm() {
+  stopAlarmSound();
+  if(currentAlarmDate) {
+    appData=loadData();
+    if(!appData.taken) appData.taken={};
+    if(!appData.takenTimes) appData.takenTimes={};
+    appData.taken[currentAlarmDate]=true;
+    if(!appData.takenEditTimes) appData.takenEditTimes={};
+    appData.takenEditTimes[currentAlarmDate]=Date.now();
+    appData.takenTimes[currentAlarmDate]=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    saveData(appData);
+  }
+  document.getElementById('alarmToast').classList.remove('show');
+  currentAlarmDate=null;
+  renderTerapiaTab();
+  // Auto backup + Drive sync after dose confirmed
+  saveBackupToFolder(true);
+  fbAutoSync();
+}
+
+function snoozeAlarm(minutes) {
+  stopAlarmSound();
+  document.getElementById('alarmToast').classList.remove('show');
+  const dateToSnooze = currentAlarmDate;
+  currentAlarmDate = null;
+
+  // Calculate new alarm time
+  const snoozeDate = new Date(Date.now() + minutes * 60 * 1000);
+  const newTimeStr = snoozeDate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+
+  // Schedule native alarm if in Capacitor
+  if(window.isCapacitor) {
+    scheduleNativeAlarm(dateToSnooze, newTimeStr);
+    console.log(`[TAO] Snooze nativo: ${dateToSnooze} alle ${newTimeStr}`);
+  }
+
+  // Also schedule local setTimeout as fallback (if app stays open)
+  setTimeout(() => {
+    fireAlarm(dateToSnooze, newTimeStr);
+  }, minutes * 60 * 1000);
+}
+
+function closeAlarm() {
+  stopAlarmSound();
+  document.getElementById('alarmToast').classList.remove('show');
+  currentAlarmDate=null;
+}
+
+function requestNotifPermission() {
+  if(typeof Notification === 'undefined') return; // Not available in Capacitor
+  Notification.requestPermission().then(p=>{ if(p==='granted') document.getElementById('notifBtn').style.display='none'; });
+}
+
+// Test sound button
+function testAlarmSound() { playBeepSequence(); }
+
+// ===================================================
+// DOSE SVG RENDERER
+// ===================================================
+
+function doseToText(dose) {
+  const map = {
+    0.25: 'Un quarto',
+    0.5:  'Mezza',
+    0.75: 'Tre quarti',
+    1.0:  'Una',
+    1.25: 'Una e un quarto',
+    1.5:  'Una e mezza',
+    1.75: 'Una e tre quarti',
+    2.0:  'Due',
+    2.25: 'Due e un quarto',
+    2.5:  'Due e mezza',
+    2.75: 'Due e tre quarti',
+    3.0:  'Tre',
+  };
+  const rounded = Math.round(dose * 4) / 4;
+  return map[rounded] || `${dose} cpr`;
+}
+
+function drawDoseSVG(dose, unitMg, size=52) {
+  const mg = Math.round(dose * (unitMg || 5) * 100) / 100;
+  const wholes = Math.floor(dose);
+  const frac = Math.round((dose - wholes) * 4); // quarters: 0,1,2,3
+  const isSpecial = (dose !== 1.0);
+
+  // Always white fill, border color depends on dose type
+  const colorOn    = 'white';
+  const colorOff   = 'rgba(255,255,255,0.12)';
+  const colorBorder = isSpecial ? '#f0883e' : '#3fb950';
+  const colorLine  = isSpecial ? 'rgba(240,136,62,0.6)' : 'rgba(63,185,80,0.6)';
+
+  const r = size / 2 - 3;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  function pt(angleDeg, radius) {
+    const rad = (angleDeg - 90) * Math.PI / 180;
+    return [cx + radius * Math.cos(rad), cy + radius * Math.sin(rad)];
+  }
+
+  // Full circle: white fill + dark dividing lines + colored border
+  function fullCircle(ox) {
+    const disk = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${colorOn}" stroke="${colorBorder}" stroke-width="2"/>`;
+    const divLines = [0, 90, 180, 270].map(angle => {
+      const [x, y] = pt(angle, r);
+      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(2)}" y2="${y.toFixed(2)}"
+        stroke="${colorBorder}" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>`;
+    }).join('');
+    const ring = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${colorBorder}" stroke-width="2"/>`;
+    return `<g transform="translate(${ox},0)">${disk}${divLines}${ring}</g>`;
+  }
+
+  // Fractional spicchi: white fill, colored border, no outer arc
+  function fracSpicchi(ox, nQuarters) {
+    const slices = [];
+    for(let q = 0; q < nQuarters; q++) {
+      const [x1,y1] = pt(q*90, r);
+      const [x2,y2] = pt(q*90+90, r);
+      slices.push(
+        `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 0,1 ${x2.toFixed(2)},${y2.toFixed(2)} Z"
+          fill="${colorOn}" stroke="${colorBorder}" stroke-width="1.5" stroke-linejoin="round"/>`
+      );
+    }
+    return `<g transform="translate(${ox},0)">${slices.join('')}</g>`;
+  }
+
+  const gap = 6;
+  const totalCols = wholes + (frac > 0 ? 1 : 0);
+  const totalW = totalCols > 0 ? totalCols * size + (totalCols - 1) * gap : size;
+
+  let groups = [];
+  for(let w = 0; w < wholes; w++) {
+    groups.push(fullCircle(w * (size + gap)));
+  }
+  if(frac > 0) {
+    groups.push(fracSpicchi(wholes * (size + gap), frac));
+  }
+
+  const label = doseToText(dose);
+
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:2px">
+    <svg width="${totalW}" height="${size}" viewBox="0 0 ${totalW} ${size}" style="overflow:visible">
+      ${groups.join('')}
+    </svg>
+    <div style="font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;color:white;line-height:1.2;text-align:center;max-width:80px">${label}</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:rgba(255,255,255,0.7);line-height:1">${mg}mg</div>
+  </div>`;
+}
+
+// ===================================================
+// DAY DETAIL MODAL (long press)
+// ===================================================
+let _dayDetailKey = null;
+let _longPressTimer = null;
+const LONG_PRESS_MS = 500;
+
+async function openDayDetailModal(dateStr) {
+  _dayDetailKey = dateStr;
+
+  // Always fetch fresh data from Firestore before showing modal
+  if(_fbUser && _fbDb) {
+    try {
+      const { doc, getDoc } = window._firebaseModules;
+      const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+      const snapshot = await getDoc(docRef);
+      if(snapshot.exists()) {
+        const remoteData = snapshot.data();
+        const localData = loadData();
+        // Always merge and use latest data
+        const merged = fbMergeData(remoteData, localData);
+        saveData(merged);
+        appData = merged;
+        _renderDayDetailModal(dateStr, merged);
+        return;
+      }
+    } catch(e) {
+      console.warn('[TAO] Modal sync error:', e);
+    }
+  }
+  // Fallback: use local data
+  _renderDayDetailModal(dateStr, loadData());
+}
+
+function _renderDayDetailModal(dateStr, data) {
+  const therapies = getAllTherapies();
+  const t = therapies[currentTherapyIdx];
+  const taken = data.taken || {};
+  const takenTimes = data.takenTimes || {};
+  const alarms = data.alarms || {};
+
+  // Title
+  document.getElementById('dayDetailTitle').textContent = `📅 ${dateStr}`;
+
+  // Dose info
+  const dose = getDayDoseFromTherapy(t, dateStr);
+  const mg = Math.round(dose * (t.doseUnitaMg||5) * 100) / 100;
+  document.getElementById('dayDetailDose').textContent = `${doseToText(dose)} — ${mg}mg`;
+
+  // Alarm time
+  document.getElementById('dayDetailTime').value = alarms[dateStr] || data.defaultAlarmTime || '17:30';
+
+  // Taken status
+  const isTaken = taken[dateStr];
+  const takenTime = takenTimes[dateStr];
+  const takenInfo = document.getElementById('dayDetailTakenInfo');
+  const takenBtn = document.getElementById('dayDetailTakenBtn');
+
+  // Explicit check: taken must be truthy (not false/undefined/null)
+  if(isTaken === true) {
+    takenInfo.style.display = 'block';
+    takenInfo.textContent = takenTime ? `✅ Assunto alle ${takenTime}` : '✅ Segnato come preso';
+    takenBtn.textContent = '○ Rimuovi assunzione';
+    takenBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px;border-radius:8px;font-size:14px;cursor:pointer';
+  } else {
+    takenInfo.style.display = 'none';
+    takenBtn.textContent = '✅ Segna come preso';
+    takenBtn.style.cssText = 'width:100%;background:var(--accent2);border:none;color:#0d1117;padding:10px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer';
+  }
+
+  document.getElementById('dayDetailModal').classList.add('active');
+}
+
+function closeDayDetailModal() {
+  document.getElementById('dayDetailModal').classList.remove('active');
+  _dayDetailKey = null;
+}
+
+function showAlarmToast(dateStr, time) {
+  console.log('[TAO] showAlarmToast called:', dateStr, time);
+  currentAlarmDate = dateStr;
+
+  // Update subtitle
+  const sub = document.getElementById('alarmSub');
+  if(sub) sub.textContent = `${dateStr} — orario programmato: ${time}`;
+
+  // Show toast — uses translateY transform, just add 'show' class
+  const toast = document.getElementById('alarmToast');
+  if(toast) {
+    toast.style.zIndex = '99999';
+    toast.classList.add('show');
+    console.log('[TAO] Toast shown, classes:', toast.className);
+  } else {
+    console.warn('[TAO] alarmToast element not found!');
+  }
+
+  // Try to play sound
+  try { startAlarmSound(); } catch(e) { console.warn('[TAO] Sound error:', e); }
+}
+
+function toggleTakenFromAlarm(dateStr) {
+  appData = loadData();
+  if(!appData.taken) appData.taken = {};
+  if(!appData.takenTimes) appData.takenTimes = {};
+  if(!appData.takenEditTimes) appData.takenEditTimes = {};
+  appData.taken[dateStr] = true;
+  appData.takenEditTimes[dateStr] = Date.now();
+  appData.takenTimes[dateStr] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  saveData(appData);
+  fbAutoSync();
+  saveBackupToFolder(true);
+  renderTerapiaTab();
+  showAutoBackupToast('✅ Assunzione confermata dalla notifica');
+}
+
+function toggleTakenFromModal() {
+  if(!_dayDetailKey) return;
+  appData = loadData();
+  if(!appData.taken) appData.taken = {};
+  if(!appData.takenTimes) appData.takenTimes = {};
+  if(!appData.takenEditTimes) appData.takenEditTimes = {};
+  const nowTs = Date.now();
+  if(appData.taken[_dayDetailKey] === true) {
+    // Remove
+    appData.taken[_dayDetailKey] = false;
+    appData.takenEditTimes[_dayDetailKey] = nowTs;
+    delete appData.takenTimes[_dayDetailKey];
+  } else {
+    // Mark as taken
+    appData.taken[_dayDetailKey] = true;
+    appData.takenEditTimes[_dayDetailKey] = nowTs;
+    appData.takenTimes[_dayDetailKey] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  }
+  saveData(appData);
+  fbAutoSync();
+  saveBackupToFolder(true);
+  closeDayDetailModal();
+  renderTerapiaTab();
+}
+
+function saveAlarmFromModal() {
+  if(!_dayDetailKey) return;
+  const time = document.getElementById('dayDetailTime').value;
+  appData = loadData();
+  if(!appData.alarms) appData.alarms = {};
+  if(!appData.alarmTimes) appData.alarmTimes = {};
+  appData.alarms[_dayDetailKey] = time;
+  appData.alarmTimes[_dayDetailKey] = Date.now();
+  saveData(appData);
+  scheduleAlarm(_dayDetailKey, time);
+  fbAutoSync();
+  closeDayDetailModal();
+  renderTerapiaTab();
+}
+
+// Long press handlers for calendar cells
+function addLongPressHandlers(el, dateStr) {
+  // Touch (mobile)
+  el.addEventListener('touchstart', e => {
+    _longPressTimer = setTimeout(() => {
+      e.preventDefault();
+      openDayDetailModal(dateStr);
+    }, LONG_PRESS_MS);
+  }, { passive: true });
+
+  el.addEventListener('touchend', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+
+  el.addEventListener('touchmove', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+
+  // Desktop (mouse)
+  el.addEventListener('mousedown', e => {
+    if(e.button !== 0) return;
+    _longPressTimer = setTimeout(() => {
+      openDayDetailModal(dateStr);
+    }, LONG_PRESS_MS);
+  });
+
+  el.addEventListener('mouseup', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+
+  el.addEventListener('mouseleave', () => {
+    if(_longPressTimer) { clearTimeout(_longPressTimer); _longPressTimer = null; }
+  });
+}
+
+// ===================================================
+// RINGTONE PICKER
+// ===================================================
+const RINGTONE_KEY = 'tao_ringtone_uri';
+const RINGTONE_NAME_KEY = 'tao_ringtone_name';
+
+function initRingtoneUI() {
+  const name = localStorage.getItem(RINGTONE_NAME_KEY);
+  const label = document.getElementById('currentRingtoneLabel');
+  if(label) {
+    label.textContent = name ? `🎵 ${name}` : '🎵 Suoneria sveglia predefinita';
+  }
+  // Show note if not in Capacitor
+  const note = document.getElementById('ringtoneCapacitorOnly');
+  if(note && !window.isCapacitor) {
+    note.style.display = 'inline';
+    const btn = document.getElementById('pickRingtoneBtn');
+    if(btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  }
+}
+
+async function pickRingtone() {
+  if(!window.isCapacitor) {
+    showAutoBackupToast('⚠️ Disponibile solo nell\'app Android');
+    return;
+  }
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+    const result = await AlarmPlugin.pickRingtone();
+    if(result && result.uri) {
+      localStorage.setItem(RINGTONE_KEY, result.uri);
+      localStorage.setItem(RINGTONE_NAME_KEY, result.name || 'Suoneria personalizzata');
+      const label = document.getElementById('currentRingtoneLabel');
+      if(label) label.textContent = `🎵 ${result.name || 'Suoneria personalizzata'}`;
+      showAutoBackupToast('✅ Suoneria salvata');
+    }
+  } catch(e) {
+    console.warn('[TAO] Ringtone picker error:', e);
+    showAutoBackupToast('❌ Errore selezione suoneria');
+  }
+}
+
+function resetRingtone() {
+  localStorage.removeItem(RINGTONE_KEY);
+  localStorage.removeItem(RINGTONE_NAME_KEY);
+  const label = document.getElementById('currentRingtoneLabel');
+  if(label) label.textContent = '🎵 Suoneria sveglia predefinita';
+  showAutoBackupToast('✅ Suoneria ripristinata al default');
+}
+
+function getRingtoneUri() {
+  return localStorage.getItem(RINGTONE_KEY) || null;
+}
+
+// ===================================================
+// HELPERS
+// ===================================================
+function previewAlarm() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('alarmSub').textContent = `Test — ${timeStr}`;
+  document.getElementById('alarmToast').classList.add('show');
+  startAlarmSound();
+}
+function parseDate(s) { if(!s) return new Date(0); const[d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); }
+function formatDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+function inrClass(v,min,max) { if(!min||!max) return ''; if(v>=min&&v<=max) return 'inr-good'; if(v<min*.85||v>max*1.15) return 'inr-bad'; return 'inr-warn'; }
+function getINRStatus(v,min,max) { if(!min||!max) return{cls:'',icon:'—',label:'—'}; if(v>=min&&v<=max) return{cls:'good',icon:'✓',label:'In range'}; if(v<min) return{cls:v<min*.85?'bad':'warn',icon:'↓',label:'Sotto range'}; return{cls:v>max*1.15?'bad':'warn',icon:'↑',label:'Sopra range'}; }
+function showLoading(msg) { document.getElementById('loadingText').textContent=msg; document.getElementById('loadingOverlay').classList.add('active'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
+
+
+
+
+// ===================================================
+// FIREBASE: AUTH + FIRESTORE SYNC + FCM
+// ===================================================
+
+let _fbApp        = null;
+let _fbAuth       = null;
+let _fbDb         = null;
+let _fbMessaging  = null;
+let _fbUser       = null;
+let _fbUnsubscribe = null; // Firestore realtime listener
+let _fbVapidKey   = null;
+let _fbSyncing    = false;
+
+const FB_CONFIG_KEY = 'tao_fb_config';
+const FB_VAPID_KEY  = 'tao_fb_vapid';
+
+// ---- INIT ----
+function initFirebase() {
+  const raw = localStorage.getItem(FB_CONFIG_KEY);
+  const vapid = localStorage.getItem(FB_VAPID_KEY);
+  if(!raw) return;
+  try {
+    const config = JSON.parse(raw);
+    _fbVapidKey = vapid || null;
+
+    // Wait for Firebase modules to load
+    const tryInit = () => {
+      const mods = window._firebaseModules;
+      if(!mods) { setTimeout(tryInit, 200); return; }
+
+      const { initializeApp, getAuth, onAuthStateChanged,
+              getFirestore, getMessaging } = mods;
+
+      _fbApp       = initializeApp(config);
+      _fbAuth      = getAuth(_fbApp);
+      _fbDb        = getFirestore(_fbApp);
+
+      // Firebase Messaging not supported in Capacitor WebView — skip
+      if(!window.isCapacitor) {
+        try {
+          _fbMessaging = getMessaging(_fbApp);
+          fbListenMessages();
+          const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
+          navigator.serviceWorker?.getRegistrations().then(regs => {
+            regs.forEach(reg => {
+              if(reg.active) reg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+            });
+          });
+        } catch(e) { console.warn('[FB] Messaging init:', e); }
+      } else {
+        console.log('[FB] Messaging disabled in Capacitor — using native alarms');
+      }
+
+      // Listen for auth state
+      onAuthStateChanged(_fbAuth, user => {
+        if(user) {
+          _fbUser = user;
+          showFbLoggedIn(user.email);
+          fbStartRealtimeSync();
+          fbSyncNow(true);
+          fbRegisterFCM();
+        } else {
+          _fbUser = null;
+          showFbLoggedOut();
+          if(_fbUnsubscribe) { _fbUnsubscribe(); _fbUnsubscribe = null; }
+        }
+      });
+    };
+
+    if(window._firebaseModules) tryInit();
+    else window.addEventListener('firebase-ready', tryInit);
+
+  } catch(e) {
+    console.error('[FB] Init error:', e);
+  }
+
+  // Listen for messages from Service Worker (alarm actions)
+  navigator.serviceWorker?.addEventListener('message', event => {
+    const msg = event.data;
+    if(!msg) return;
+    if(msg.type === 'DOSE_CONFIRMED' && msg.date) {
+      appData = loadData();
+      if(!appData.taken) appData.taken = {};
+      if(!appData.takenTimes) appData.takenTimes = {};
+      appData.taken[msg.date] = true;
+      appData.takenTimes[msg.date] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      saveData(appData);
+      renderTerapiaTab();
+      fbAutoSync();
+    }
+    if(msg.type === 'SNOOZE_ALARM' && msg.date) {
+      snoozeAlarm(msg.minutes || 15);
+    }
+  });
+}
+
+function saveFirebaseConfig() {
+  const raw   = document.getElementById('fbConfigInput').value.trim();
+  const vapid = document.getElementById('fbVapidInput').value.trim();
+  const status = document.getElementById('fbConfigStatus');
+
+  try {
+    const config = JSON.parse(raw);
+    if(!config.apiKey || !config.projectId) throw new Error('Config incompleta');
+    localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(config));
+    if(vapid) localStorage.setItem(FB_VAPID_KEY, vapid);
+    status.style.display = 'block';
+    status.style.color = 'var(--accent2)';
+    status.textContent = '✅ Configurazione salvata. Accedi con email e password.';
+    initFirebase();
+  } catch(e) {
+    status.style.display = 'block';
+    status.style.color = 'var(--danger)';
+    status.textContent = '❌ JSON non valido: ' + e.message;
+  }
+}
+
+// ---- AUTH ----
+async function fbSignIn() {
+  const email = document.getElementById('fbEmail').value.trim();
+  const pwd   = document.getElementById('fbPassword').value;
+  const errEl = document.getElementById('fbAuthError');
+  errEl.style.display = 'none';
+
+  if(!_fbAuth) { errEl.style.display='block'; errEl.textContent='Configura prima Firebase.'; return; }
+
+  try {
+    const { signInWithEmailAndPassword } = window._firebaseModules;
+    await signInWithEmailAndPassword(_fbAuth, email, pwd);
+  } catch(e) {
+    errEl.style.display = 'block';
+    errEl.textContent = fbErrorMsg(e.code);
+  }
+}
+
+async function fbRegister() {
+  const email = document.getElementById('fbEmail').value.trim();
+  const pwd   = document.getElementById('fbPassword').value;
+  const errEl = document.getElementById('fbAuthError');
+  errEl.style.display = 'none';
+
+  if(!_fbAuth) { errEl.style.display='block'; errEl.textContent='Configura prima Firebase.'; return; }
+  if(pwd.length < 6) { errEl.style.display='block'; errEl.textContent='Password minimo 6 caratteri.'; return; }
+
+  try {
+    const { createUserWithEmailAndPassword } = window._firebaseModules;
+    await createUserWithEmailAndPassword(_fbAuth, email, pwd);
+  } catch(e) {
+    errEl.style.display = 'block';
+    errEl.textContent = fbErrorMsg(e.code);
+  }
+}
+
+async function fbSignOut() {
+  if(!_fbAuth) return;
+  const { signOut } = window._firebaseModules;
+  await signOut(_fbAuth);
+}
+
+function fbErrorMsg(code) {
+  const msgs = {
+    'auth/user-not-found':      'Utente non trovato. Registrati prima.',
+    'auth/wrong-password':      'Password errata.',
+    'auth/invalid-email':       'Email non valida.',
+    'auth/email-already-in-use':'Email già registrata. Accedi invece di registrarti.',
+    'auth/weak-password':       'Password troppo debole (minimo 6 caratteri).',
+    'auth/invalid-credential':  'Credenziali non valide.',
+    'auth/network-request-failed': 'Errore di rete. Controlla la connessione.',
+  };
+  return msgs[code] || 'Errore: ' + code;
+}
+
+// ---- UI ----
+function showFbLoggedIn(email) {
+  document.getElementById('fbLoggedOut').style.display = 'none';
+  document.getElementById('fbLoggedIn').style.display  = 'block';
+  document.getElementById('fbUserEmail').textContent   = email;
+  setFbSyncStatus('✅ Connesso — sincronizzazione attiva', 'ok');
+}
+
+function showFbLoggedOut() {
+  document.getElementById('fbLoggedOut').style.display = 'block';
+  document.getElementById('fbLoggedIn').style.display  = 'none';
+}
+
+function setFbSyncStatus(msg, type) {
+  const colors = { ok:'var(--accent2)', warn:'var(--warn)', err:'var(--danger)', info:'var(--muted)' };
+  const el = document.getElementById('fbSyncStatus');
+  if(el) { el.textContent = msg; el.style.color = colors[type]||colors.info; }
+}
+
+// ---- FIRESTORE SYNC ----
+function fbStartRealtimeSync() {
+  if(!_fbUser || !_fbDb || _fbUnsubscribe) return;
+  const { doc, onSnapshot } = window._firebaseModules;
+  const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+
+  _fbUnsubscribe = onSnapshot(docRef, snapshot => {
+    if(!snapshot.exists()) return;
+    const remoteData = snapshot.data();
+    const localData  = loadData();
+    const remoteTime = remoteData._syncTime || 0;
+    const localTime  = localData._syncTime  || 0;
+
+    if(remoteTime > localTime) {
+      // Remote is newer: update local silently
+      const merged = fbMergeData(remoteData, localData);
+      saveData(merged);
+      appData = merged;
+      calInitialized = false;
+      renderCurrentTab();
+      setFbSyncStatus(
+        `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
+      );
+      showAutoBackupToast('☁️ Dati aggiornati dal cloud');
+
+      // If day detail modal is open, refresh it with new data
+      if(_dayDetailKey && document.getElementById('dayDetailModal').classList.contains('active')) {
+        _renderDayDetailModal(_dayDetailKey, merged);
+      }
+
+      // Reschedule all alarms after sync (in case alarms were set on another device)
+      Object.entries(merged.alarms||{}).forEach(([date, time]) => {
+        if(!merged.taken||merged.taken[date]!==true) {
+          scheduleAlarm(date, time);
+        }
+      });
+    }
+  }, err => {
+    console.error('[FB] Realtime sync error:', err);
+    setFbSyncStatus('⚠️ Errore sincronizzazione: ' + err.message, 'warn');
+  });
+}
+
+function fbMergeData(remote, local) {
+  const merged = Object.assign({}, remote);
+
+  // taken + takenTimes: vince il timestamp più recente per ogni giorno
+  // Usiamo takenEditTime per sapere l'ultima modifica di ogni giorno
+  const remoteTaken     = remote.taken          || {};
+  const localTaken      = local.taken           || {};
+  const remoteTakenTs   = remote.takenEditTimes || {};
+  const localTakenTs    = local.takenEditTimes  || {};
+  const remoteTakenTime = remote.takenTimes     || {};
+  const localTakenTime  = local.takenTimes      || {};
+
+  const mergedTaken     = Object.assign({}, remoteTaken);
+  const mergedTakenTs   = Object.assign({}, remoteTakenTs);
+  const mergedTakenTime = Object.assign({}, remoteTakenTime);
+
+  // For each date modified locally, check if local is more recent
+  const allDates = new Set([...Object.keys(localTaken), ...Object.keys(localTakenTs)]);
+  for(const date of allDates) {
+    const localTs  = localTakenTs[date]  || 0;
+    const remoteTs = remoteTakenTs[date] || 0;
+    if(localTs >= remoteTs) {
+      // Local modification is more recent — use it (even if false/removal)
+      mergedTaken[date]     = localTaken[date];
+      mergedTakenTs[date]   = localTs;
+      if(localTakenTime[date]) mergedTakenTime[date] = localTakenTime[date];
+      else delete mergedTakenTime[date];
+    }
+  }
+
+  merged.taken          = mergedTaken;
+  merged.takenEditTimes = mergedTakenTs;
+  merged.takenTimes     = mergedTakenTime;
+
+  // Alarms: vince il timestamp più recente per ogni giorno
+  const remoteAlarms  = remote.alarms       || {};
+  const localAlarms   = local.alarms        || {};
+  const remoteATs     = remote.alarmTimes   || {}; // timestamp ultima modifica
+  const localATs      = local.alarmTimes    || {};
+
+  const mergedAlarms  = Object.assign({}, remoteAlarms);
+  const mergedATs     = Object.assign({}, remoteATs);
+
+  for(const date of Object.keys(localAlarms)) {
+    const localTs  = localATs[date]  || 0;
+    const remoteTs = remoteATs[date] || 0;
+    if(localTs >= remoteTs) {
+      // Modifica locale più recente: usa locale
+      mergedAlarms[date] = localAlarms[date];
+      mergedATs[date]    = localTs;
+    }
+    // altrimenti mantieni remoto (già in mergedAlarms)
+  }
+
+  merged.alarms     = mergedAlarms;
+  merged.alarmTimes = mergedATs;
+  return merged;
+}
+
+async function fbSyncNow(silent=false) {
+  if(!_fbUser || !_fbDb || _fbSyncing) return;
+  _fbSyncing = true;
+  if(!silent) setFbSyncStatus('🔄 Sincronizzazione in corso…', 'info');
+
+  try {
+    const { doc, getDoc, setDoc } = window._firebaseModules;
+    const docRef    = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+    const snapshot  = await getDoc(docRef);
+    const localData = loadData();
+    const localTime = localData._syncTime || 0;
+
+    if(snapshot.exists()) {
+      const remoteData = snapshot.data();
+      const remoteTime = remoteData._syncTime || 0;
+
+      if(remoteTime > localTime) {
+        const merged = fbMergeData(remoteData, localData);
+        merged._syncTime = remoteTime;
+        saveData(merged);
+        appData = merged;
+        calInitialized = false;
+        renderCurrentTab();
+        setFbSyncStatus(`✅ Aggiornato — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok');
+      } else if(localTime >= remoteTime) {
+        await fbUploadData(localData);
+        setFbSyncStatus(`✅ Cloud aggiornato — ${new Date(localTime).toLocaleString('it-IT')}`, 'ok');
+      }
+    } else {
+      await fbUploadData(localData);
+      setFbSyncStatus('✅ Primo sync completato.', 'ok');
+    }
+  } catch(e) {
+    console.error('[FB] Sync error:', e);
+    setFbSyncStatus('❌ Errore: ' + e.message, 'err');
+  }
+  _fbSyncing = false;
+}
+
+async function fbUploadData(data) {
+  const { doc, setDoc } = window._firebaseModules;
+  data._syncTime = Date.now();
+  saveData(data);
+  const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+  await setDoc(docRef, data);
+}
+
+async function fbForceUpload() {
+  if(!_fbUser) { alert('Accedi prima.'); return; }
+  setFbSyncStatus('⬆ Caricamento…', 'info');
+  await fbUploadData(loadData());
+  setFbSyncStatus('✅ Dati locali caricati sul cloud.', 'ok');
+}
+
+async function fbForceDownload() {
+  if(!_fbUser) { alert('Accedi prima.'); return; }
+  const { doc, getDoc } = window._firebaseModules;
+  setFbSyncStatus('⬇ Download…', 'info');
+  const docRef   = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+  const snapshot = await getDoc(docRef);
+  if(!snapshot.exists()) { setFbSyncStatus('⚠️ Nessun dato sul cloud.', 'warn'); return; }
+  const data = snapshot.data();
+  saveData(data);
+  appData = data;
+  calInitialized = false;
+  renderCurrentTab();
+  setFbSyncStatus('✅ Dati scaricati dal cloud.', 'ok');
+}
+
+// Auto-sync: called after every data change
+async function fbAutoSync() {
+  if(!_fbUser || !_fbDb || _fbSyncing) return;
+  try {
+    await fbUploadData(loadData());
+    showAutoBackupToast('☁️ Cloud sincronizzato');
+  } catch(e) {
+    console.warn('[FB] Auto-sync failed:', e);
+  }
+}
+
+function renderCurrentTab() {
+  const active = document.querySelector('.tab-panel.active');
+  if(!active) return;
+  if(active.id==='tab-inr') renderINRTab();
+  else if(active.id==='tab-terapia') renderTerapiaTab();
+}
+
+// ---- FCM NOTIFICATIONS ----
+async function fbRegisterFCM() {
+  if(!_fbMessaging || !_fbVapidKey || !_fbUser) return;
+  try {
+    const { getToken } = window._firebaseModules;
+    // Skip FCM SW in Capacitor - use native notifications instead
+    let token;
+    if(window.Capacitor) {
+      // Native app - get FCM token via Capacitor Push Notifications
+      token = null; // Will be set by native plugin
+    } else {
+      // Web PWA - register FCM service worker
+      const swReg = await navigator.serviceWorker.register(
+        '/firebase-messaging-sw.js',
+        { scope: '/' }
+      );
+      const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
+      if(swReg.active) swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+      else if(swReg.installing) {
+        swReg.installing.addEventListener('statechange', e => {
+          if(e.target.state === 'activated')
+            swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+        });
+      }
+      token = await getToken(_fbMessaging, {
+        vapidKey: _fbVapidKey,
+        serviceWorkerRegistration: swReg
+      });
+    }
+    if(token) {
+      // Save token to Firestore so alarm-checker.js can use it
+      const { doc, setDoc } = window._firebaseModules;
+      await setDoc(
+        doc(_fbDb, 'users', _fbUser.uid, 'fcm', 'token'),
+        { token, updatedAt: new Date().toISOString(), platform: navigator.userAgent.includes('Android') ? 'android' : 'web' }
+      );
+      // Also save alarms with this token
+      await fbSyncAlarmsToFirestore(token);
+      updateFbNotifStatus('✅ Notifiche push attive', 'ok');
+      document.getElementById('fbNotifBtn').style.display = 'none';
+      console.log('[FB] FCM token registered');
+    }
+  } catch(e) {
+    console.warn('[FB] FCM token error:', e);
+    updateFbNotifStatus('⚠️ Notifiche non disponibili: ' + e.message, 'warn');
+  }
+}
+
+async function fbRequestNotifications() {
+  if(typeof Notification === 'undefined') {
+    updateFbNotifStatus('⚠️ Notifiche browser non disponibili in questa versione.', 'warn');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted') {
+    updateFbNotifStatus('❌ Permesso notifiche negato. Abilitalo nelle impostazioni del browser.', 'err');
+    return;
+  }
+  await fbRegisterFCM();
+}
+
+async function fbSyncAlarmsToFirestore(fcmToken) {
+  if(!_fbUser || !_fbDb) return;
+  const { doc, setDoc } = window._firebaseModules;
+  const localData = loadData();
+  const alarms    = localData.alarms || {};
+  const taken     = localData.taken  || {};
+
+  // Write each future alarm to Firestore collection "alarms"
+  // alarm-checker.js reads this collection every minute
+  // Also add extra week alarm entries (copy from prev week if not set)
+  const therapies = getAllTherapies();
+  const extraAlarms = {};
+  therapies.forEach(t => {
+    if(!t.dataFine) return;
+    const lastDay = parseDate(t.dataFine);
+    for(let i=1; i<=7; i++) {
+      const extraDate = new Date(lastDay);
+      extraDate.setDate(extraDate.getDate() + i);
+      const extraStr = formatDate(extraDate);
+      if(!alarms[extraStr]) {
+        const prevWeek = new Date(extraDate);
+        prevWeek.setDate(prevWeek.getDate() - 7);
+        const prevStr = formatDate(prevWeek);
+        if(alarms[prevStr]) extraAlarms[extraStr] = alarms[prevStr];
+      }
+    }
+  });
+  const allAlarms = Object.assign({}, alarms, extraAlarms);
+
+  for(const [dateStr, timeStr] of Object.entries(allAlarms)) {
+    if(taken[dateStr]) continue; // already taken
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const alarmDate = new Date(`${yyyy}-${mm}-${dd}T${timeStr}:00`);
+    if(alarmDate < new Date()) continue; // past alarms skip
+
+    const alarmId = `${_fbUser.uid}_${dateStr.replace(/\//g,'')}_${timeStr.replace(':','')}`;
+    await setDoc(
+      doc(_fbDb, 'alarms', alarmId),
+      { date: dateStr, time: timeStr, fcmToken, userId: _fbUser.uid, sent: false, createdAt: new Date().toISOString() }
+    );
+  }
+  console.log('[FB] Alarms synced to Firestore');
+}
+
+function updateFbNotifStatus(msg, type) {
+  const colors = { ok:'var(--accent2)', warn:'var(--warn)', err:'var(--danger)', info:'var(--muted)' };
+  const el = document.getElementById('fbNotifStatus');
+  if(!el) return;
+  el.style.display = 'block';
+  el.style.color   = colors[type]||colors.info;
+  el.style.background = type==='ok' ? 'rgba(63,185,80,.1)' : 'rgba(240,136,62,.1)';
+  el.style.padding = '8px 12px';
+  el.style.borderRadius = '8px';
+  el.textContent = msg;
+}
+
+// Listen for FCM messages when app is open
+function fbListenMessages() {
+  if(!_fbMessaging) return;
+  const { onMessage } = window._firebaseModules;
+  onMessage(_fbMessaging, payload => {
+    console.log('[FB] Message received:', payload);
+    const data = payload.data || {};
+    if(data.type === 'DOSE_ALARM') {
+      // Show in-app alarm toast
+      currentAlarmDate = data.date;
+      document.getElementById('alarmSub').textContent =
+        `${data.date} — orario programmato: ${data.time}`;
+      document.getElementById('alarmToast').classList.add('show');
+      startAlarmSound();
+    }
+  });
+}
+
+// ===================================================
+// STRUMENTI: BACKUP & PDF REPORT
+// ===================================================
+
+function initStrumenti() {
+  initFirebase();
+  const data = loadData();
+  const controls = data.controls || [];
+  if(!controls.length) return;
+
+  // Set default date range = all data
+  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  const first = sorted[0].data.split('/').reverse().join('-');
+  const last  = sorted[sorted.length-1].data.split('/').reverse().join('-');
+  document.getElementById('reportDateFrom').value = first;
+  document.getElementById('reportDateTo').value   = last;
+}
+
+function setReportRange(months) {
+  const data = loadData();
+  const controls = data.controls || [];
+  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  if(!sorted.length) return;
+
+  const toDate = new Date();
+  let fromDate;
+  if(months === 0) {
+    fromDate = parseDate(sorted[0].data);
+  } else {
+    fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - months);
+  }
+  document.getElementById('reportDateFrom').value = fromDate.toISOString().split('T')[0];
+  document.getElementById('reportDateTo').value   = toDate.toISOString().split('T')[0];
+}
+
+// ---- BACKUP FOLDER (File System Access API) ----
+let _backupDirHandle = null; // remembered for session
+
+async function pickBackupFolder() {
+  if(!('showDirectoryPicker' in window)) {
+    showBackupNotice('⚠️ Il tuo browser non supporta la scelta cartella. Usa Chrome su Android o desktop.', 'warn');
+    return false;
+  }
+  try {
+    _backupDirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
+    showBackupNotice(`✅ Cartella selezionata: "${_backupDirHandle.name}". I backup automatici verranno salvati qui.`, 'ok');
+    return true;
+  } catch(e) {
+    if(e.name !== 'AbortError') showBackupNotice('❌ Errore selezione cartella: ' + e.message, 'err');
+    return false;
+  }
+}
+
+function showBackupNotice(msg, type) {
+  const colors = { ok: 'var(--accent2)', warn: 'var(--warn)', err: 'var(--danger)', info: 'var(--muted)' };
+  // Show in strumenti tab if visible, otherwise console
+  const el = document.getElementById('backupFolderStatus');
+  if(el) { el.textContent = msg; el.style.color = colors[type]||colors.info; el.style.display='block'; }
+  console.log('[TAO Backup]', msg);
+}
+
+async function saveBackupToFolder(silent=false) {
+  const data = loadData();
+  const json = JSON.stringify(data, null, 2);
+  const now  = new Date();
+  const ts   = now.toISOString().slice(0,16).replace('T','_').replace(':','-');
+  const fname = `tao-backup-${ts}.json`;
+
+  if(_backupDirHandle) {
+    try {
+      const fh = await _backupDirHandle.getFileHandle(fname, { create: true });
+      const writable = await fh.createWritable();
+      await writable.write(json);
+      await writable.close();
+      if(!silent) showBackupNotice(`✅ Backup salvato: ${fname}`, 'ok');
+      showAutoBackupToast(fname);
+      return true;
+    } catch(e) {
+      // Permission might have expired, fallback to download
+      console.warn('Backup folder write failed:', e);
+      _backupDirHandle = null;
+    }
+  }
+
+  // No folder set or failed: show notice
+  if(!silent) {
+    showBackupNotice('⚠️ Nessuna cartella selezionata. Scegli una cartella per i backup automatici.', 'warn');
+  } else {
+    // Auto backup: show small toast asking to set folder
+    showAutoBackupPromptToast();
+  }
+  return false;
+}
+
+function showAutoBackupToast(fname) {
+  const toast = document.getElementById('autoBackupToast');
+  const msg   = document.getElementById('autoBackupMsg');
+  if(!toast) return;
+  msg.textContent = `💾 Backup salvato: ${fname}`;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function showAutoBackupPromptToast() {
+  const toast = document.getElementById('autoBackupToast');
+  const msg   = document.getElementById('autoBackupMsg');
+  if(!toast) return;
+  msg.innerHTML = '📁 <strong>Scegli una cartella</strong> per i backup automatici → scheda Strumenti';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
+// ---- BACKUP EXPORT (manual fallback) ----
+function exportBackup() {
+  const data = loadData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `tao-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- BACKUP IMPORT ----
+function importBackup(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const msg = document.getElementById('importBackupMsg');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Validate it looks like TAO data
+      if(!parsed.controls && !parsed.therapies) {
+        throw new Error('File non valido: non sembra un backup TAO Monitor');
+      }
+      if(!confirm(`Ripristinare il backup? Verranno sovrascritti i dati attuali.
+
+Controlli: ${(parsed.controls||[]).length}
+Terapie: ${(parsed.therapies||[]).length}`)) {
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      appData = parsed;
+      msg.style.display = 'block';
+      msg.style.color = 'var(--accent2)';
+      msg.textContent = `✅ Backup ripristinato: ${(parsed.controls||[]).length} controlli, ${(parsed.therapies||[]).length} terapie.`;
+      // Update badge
+      const th = parsed.therapies||[];
+      if(th.length) updatePatientBadge(th[th.length-1].paziente);
+      initAlarms();
+// Init Drive if already authenticated from previous session
+setTimeout(initFirebase, 1000);
+    } catch(err) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--danger)';
+      msg.textContent = '❌ Errore: ' + err.message;
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ---- PDF REPORT ----
+async function generatePDFReport() {
+  const msgEl = document.getElementById('reportMsg');
+  msgEl.style.display = 'block';
+  msgEl.style.color = 'var(--muted)';
+  msgEl.textContent = 'Generazione report in corso…';
+
+  const fromStr = document.getElementById('reportDateFrom').value;
+  const toStr   = document.getElementById('reportDateTo').value;
+  if(!fromStr || !toStr) {
+    msgEl.style.color = 'var(--danger)';
+    msgEl.textContent = '❌ Seleziona un periodo valido.';
+    return;
+  }
+
+  const fromDate = new Date(fromStr);
+  const toDate   = new Date(toStr);
+  toDate.setHours(23,59,59);
+
+  const data = loadData();
+  const allControls = (data.controls||[]).sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  const filtered = allControls.filter(c => {
+    const d = parseDate(c.data);
+    return d >= fromDate && d <= toDate;
+  });
+
+  if(!filtered.length) {
+    msgEl.style.color = 'var(--danger)';
+    msgEl.textContent = '❌ Nessun controllo nel periodo selezionato.';
+    return;
+  }
+
+  const th = data.therapies||[];
+  const paziente = th.length ? th[th.length-1].paziente : {};
+  const farmaco  = th.length ? th[th.length-1].farmaco : 'COUMADIN';
+
+  // Stats
+  const rangeMin = filtered[0].rangeMin || 2.0;
+  const rangeMax = filtered[0].rangeMax || 3.0;
+  const target   = filtered[0].target   || 2.5;
+  const avgINR   = (filtered.reduce((s,c)=>s+c.inr,0)/filtered.length).toFixed(2);
+  const inRange  = filtered.filter(c=>c.inr>=rangeMin&&c.inr<=rangeMax).length;
+  const pctRange = Math.round(inRange/filtered.length*100);
+  const latestTIR = filtered[filtered.length-1].tempoInRange;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const pw = 210, ph = 297;
+  const margin = 15;
+  const usableW = pw - margin*2;
+  let y = margin;
+
+  // ---- HEADER ----
+  doc.setFillColor(22, 27, 34);
+  doc.rect(0, 0, pw, 28, 'F');
+  doc.setTextColor(230, 237, 243);
+  doc.setFontSize(18);
+  doc.setFont('helvetica','bold');
+  doc.text('TAO Monitor — Report INR', margin, 12);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(125, 133, 144);
+  doc.text(`Generato il ${formatDate(new Date())}`, margin, 19);
+  doc.text(`Periodo: ${fromStr.split('-').reverse().join('/')} — ${toStr.split('-').reverse().join('/')}`, margin, 24);
+  y = 35;
+
+  // ---- PATIENT INFO BOX ----
+  doc.setFillColor(28, 35, 51);
+  doc.roundedRect(margin, y, usableW, 22, 3, 3, 'F');
+  doc.setTextColor(88, 166, 255);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','bold');
+  doc.text('PAZIENTE', margin+4, y+7);
+  doc.setTextColor(230, 237, 243);
+  doc.setFontSize(13);
+  doc.text(paziente.nome || '—', margin+4, y+14);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(125, 133, 144);
+  doc.text(`Nato il ${paziente.dataNascita||'—'}`, margin+4, y+20);
+  doc.text(`Farmaco: ${farmaco}`, margin+80, y+14);
+  doc.text(`Range terapeutico: ${rangeMin} – ${rangeMax}   Target: ${target}`, margin+80, y+20);
+  y += 28;
+
+  // ---- STATS BOXES ----
+  const statBoxW = (usableW - 9) / 4;
+  const stats = [
+    { label:'Controlli', value: String(filtered.length), color:[88,166,255] },
+    { label:'INR Medio', value: avgINR, color: parseFloat(avgINR)>=rangeMin&&parseFloat(avgINR)<=rangeMax?[63,185,80]:[240,136,62] },
+    { label:'% In range', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
+    { label:'Tempo in range', value: latestTIR ? latestTIR+'%' : '—', color: latestTIR&&latestTIR>=70?[63,185,80]:[125,133,144] },
+  ];
+  stats.forEach((s,i) => {
+    const bx = margin + i*(statBoxW+3);
+    doc.setFillColor(22, 27, 34);
+    doc.roundedRect(bx, y, statBoxW, 20, 2, 2, 'F');
+    doc.setDrawColor(48,54,61);
+    doc.roundedRect(bx, y, statBoxW, 20, 2, 2, 'S');
+    doc.setTextColor(...s.color);
+    doc.setFontSize(16);
+    doc.setFont('helvetica','bold');
+    doc.text(s.value, bx + statBoxW/2, y+13, {align:'center'});
+    doc.setTextColor(125,133,144);
+    doc.setFontSize(7);
+    doc.setFont('helvetica','normal');
+    doc.text(s.label.toUpperCase(), bx + statBoxW/2, y+19, {align:'center'});
+  });
+  y += 26;
+
+  // ---- INR CHART via canvas ----
+  msgEl.textContent = 'Generazione grafico…';
+  try {
+    // Temporarily render an offscreen chart
+    const chartDiv = document.getElementById('pdfPreviewArea');
+    chartDiv.style.display = 'block';
+    chartDiv.style.position = 'fixed';
+    chartDiv.style.left = '-9999px';
+    chartDiv.style.top = '0';
+    chartDiv.style.width = '800px';
+    chartDiv.style.height = '260px';
+    chartDiv.style.background = '#0d1117';
+    chartDiv.innerHTML = '<canvas id="pdfChartCanvas" width="800" height="260"></canvas>';
+
+    const ctx2 = document.getElementById('pdfChartCanvas').getContext('2d');
+    const labels2 = filtered.map(c=>c.data);
+    const vals2   = filtered.map(c=>c.inr);
+
+    const pdfChart = new Chart(ctx2, {
+      type:'line',
+      data:{labels:labels2, datasets:[
+        {label:'INR', data:vals2,
+          borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.1)',
+          pointBackgroundColor:vals2.map(v=>v>=rangeMin&&v<=rangeMax?'#3fb950':v<rangeMin*0.8||v>rangeMax*1.2?'#ff7b72':'#f0883e'),
+          pointRadius:5, borderWidth:2, tension:0.3, fill:false},
+        {label:'Min', data:Array(labels2.length).fill(rangeMin),
+          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
+        {label:'Max', data:Array(labels2.length).fill(rangeMax),
+          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5,
+          fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
+        {label:'Target', data:Array(labels2.length).fill(target),
+          borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
+      ]},
+      options:{
+        animation:false,
+        responsive:false,
+        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
+        scales:{
+          x:{ticks:{color:'#7d8590',maxRotation:45,maxTicksLimit:12},grid:{color:'rgba(48,54,61,0.8)'}},
+          y:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,0.8)'},
+            suggestedMin:Math.min(...vals2,rangeMin)-0.5,
+            suggestedMax:Math.max(...vals2,rangeMax)+0.5}
+        }
+      }
+    });
+
+    await new Promise(r => setTimeout(r, 300)); // let chart render
+
+    const imgData = chartDiv.querySelector('canvas').toDataURL('image/png');
+    pdfChart.destroy();
+    chartDiv.style.display = 'none';
+    chartDiv.innerHTML = '';
+
+    // Add chart title
+    doc.setFillColor(22,27,34);
+    doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
+    doc.setTextColor(88,166,255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','bold');
+    doc.text('ANDAMENTO INR NEL TEMPO', margin+3, y+4.5);
+    y += 8;
+
+    // Chart image
+    const chartH = 65;
+    doc.addImage(imgData, 'PNG', margin, y, usableW, chartH);
+    y += chartH + 8;
+  } catch(chartErr) {
+    console.warn('Chart render error:', chartErr);
+    y += 4;
+  }
+
+  // ---- CONTROLS TABLE ----
+  doc.setFillColor(22,27,34);
+  doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
+  doc.setTextColor(88,166,255);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','bold');
+  doc.text('DETTAGLIO CONTROLLI', margin+3, y+4.5);
+  y += 9;
+
+  // Table header
+  const cols = [
+    {label:'Data',         w:28},
+    {label:'INR',          w:18},
+    {label:'Range',        w:28},
+    {label:'Target',       w:18},
+    {label:'Dose sett.',   w:28},
+    {label:'Stato',        w:30},
+    {label:'Tempo range',  w:30},
+  ];
+  const tableW = cols.reduce((s,col)=>s+col.w,0);
+
+  doc.setFillColor(28,35,51);
+  doc.rect(margin, y, tableW, 7, 'F');
+  doc.setTextColor(125,133,144);
+  doc.setFontSize(7);
+  doc.setFont('helvetica','bold');
+  let tx = margin+2;
+  cols.forEach(col => {
+    doc.text(col.label.toUpperCase(), tx, y+5);
+    tx += col.w;
+  });
+  y += 7;
+
+  // Table rows
+  doc.setFont('helvetica','normal');
+  [...filtered].reverse().forEach((ctrl, i) => {
+    if(y > ph - 25) {
+      doc.addPage();
+      y = margin;
+    }
+    const rowColor = i%2===0 ? [22,27,34] : [28,35,51];
+    doc.setFillColor(...rowColor);
+    doc.rect(margin, y, tableW, 7, 'F');
+
+    const inr = ctrl.inr;
+    const inRng = inr>=rangeMin&&inr<=rangeMax;
+    const stato = inRng ? 'In range' : inr<rangeMin ? 'Sotto range' : 'Sopra range';
+    const statoColor = inRng ? [63,185,80] : inr<rangeMin*0.85||inr>rangeMax*1.15 ? [255,123,114] : [240,136,62];
+
+    const rowData = [
+      ctrl.data,
+      String(inr),
+      `${rangeMin} – ${rangeMax}`,
+      String(target),
+      ctrl.doseSettimanale ? ctrl.doseSettimanale+' mg' : '—',
+      stato,
+      ctrl.tempoInRange ? ctrl.tempoInRange+'%' : '—',
+    ];
+
+    tx = margin+2;
+    rowData.forEach((val, ci) => {
+      if(ci === 5) doc.setTextColor(...statoColor);
+      else if(ci === 1) {
+        doc.setTextColor(...(inRng?[63,185,80]:inr<rangeMin*0.85||inr>rangeMax*1.15?[255,123,114]:[240,136,62]));
+      }
+      else doc.setTextColor(200,210,220);
+      doc.setFontSize(8);
+      doc.text(String(val), tx, y+5);
+      tx += cols[ci].w;
+    });
+    y += 7;
+  });
+
+  // ---- FOOTER ----
+  doc.setTextColor(60,70,80);
+  doc.setFontSize(7);
+  doc.setFont('helvetica','normal');
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.text(`TAO Monitor — Report generato il ${formatDate(new Date())} — Pagina ${p}/${pageCount}`, pw/2, ph-8, {align:'center'});
+    doc.setDrawColor(48,54,61);
+    doc.line(margin, ph-11, pw-margin, ph-11);
+  }
+
+  // Save
+  const fname = `TAO-Report-${fromStr}-${toStr}.pdf`;
+  doc.save(fname);
+
+  msgEl.style.color = 'var(--accent2)';
+  msgEl.textContent = `✅ Report salvato: ${fname}`;
+}
+
+// ===================================================
+// INIT
+// ===================================================
+// ---- CAPACITOR NATIVE ALARMS ----
+async function scheduleNativeAlarm(dateStr, time) {
+  if(!window.isCapacitor) return;
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+
+    // Check if alarm time is in the future before scheduling
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const [hh,min] = time.split(':');
+    const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
+    if(alarmDate <= new Date()) {
+      console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
+      return; // Skip past alarms silently
+    }
+
+    const alarmId = parseInt(`${yyyy}${mm}${dd}`);
+    const therapies = getAllTherapies();
+    const t = therapies[currentTherapyIdx];
+    const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
+    const doseText = doseToText(dose);
+
+    await AlarmPlugin.scheduleAlarm({
+      date: dateStr,
+      time: time,
+      alarmId: alarmId,
+      dose: doseText
+    });
+    console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
+  } catch(e) {
+    console.warn('[CAP] Native alarm error:', e.message || e);
+    // Don't fallback to setTimeout in Capacitor — just log
+  }
+}
+
+async function cancelNativeAlarm(dateStr) {
+  if(!window.isCapacitor) return;
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const alarmId = parseInt(`${yyyy}${mm}${dd}`);
+    await AlarmPlugin.cancelAlarm({ alarmId });
+  } catch(e) {
+    console.warn('[CAP] Cancel alarm error:', e);
+  }
+}
+
+function initCapacitor() {
+  if(!window.isCapacitor) return;
+  console.log('[CAP] Running in Capacitor native app');
+
+  // Hide native splash screen immediately
+  try {
+    const { SplashScreen } = window.Capacitor.Plugins;
+    if(SplashScreen) {
+      SplashScreen.hide({ fadeOutDuration: 300 });
+      console.log('[CAP] Splash hidden');
+    }
+  } catch(e) {
+    console.warn('[CAP] SplashScreen error:', e);
+  }
+
+  // Handle alarm action from notification (confirm/snooze)
+  window.Capacitor.Plugins.App?.addListener('appUrlOpen', data => {
+    console.log('[CAP] App opened with:', data);
+  });
+
+  // Check if app was opened from alarm notification
+  const urlParams = new URLSearchParams(window.location.search);
+  const alarmDate = urlParams.get('alarmDate');
+  const alarmAction = urlParams.get('alarmAction');
+  if(alarmDate && alarmAction === 'confirm') {
+    setTimeout(() => {
+      appData = loadData();
+      if(!appData.taken) appData.taken = {};
+      if(!appData.takenTimes) appData.takenTimes = {};
+      if(!appData.takenEditTimes) appData.takenEditTimes = {};
+      appData.taken[alarmDate] = true;
+      appData.takenEditTimes[alarmDate] = Date.now();
+      appData.takenTimes[alarmDate] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      saveData(appData);
+      fbAutoSync();
+      renderTerapiaTab();
+    }, 1500);
+  }
+}
+
+function initAlarms() {
+  const data=loadData();
+  Object.entries(data.alarms||{}).forEach(([date,time])=>scheduleAlarm(date,time));
+  if(typeof Notification !== 'undefined' && Notification.permission==='default') document.getElementById('notifBtn').style.display='block';
+  const th=data.therapies&&data.therapies.length?data.therapies:(data.therapy?[data.therapy]:[]);
+  if(th.length) updatePatientBadge(th[th.length-1].paziente);
+  // First launch: ask default time if we have therapies but no defaultAlarmTime
+  if(th.length && !data.defaultAlarmTime) {
+    setTimeout(()=>askDefaultAlarmTime(th[th.length-1]),800);
+  }
+}
+// ===================================================
+// SMART STARTUP
+// ===================================================
+function lockLandscapeOnMobile() {
+  const w = window.screen.width, h = window.screen.height;
+  const isSmartphone = Math.min(w,h) < 600; // phones have short side < 600px
+  if(!isSmartphone) return;
+  if(screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(()=>{});
+  }
+}
+
+function hideSplash() {
+  const splash = document.getElementById('splashScreen');
+  if(!splash) return;
+  splash.style.opacity = '0';
+  splash.style.transform = 'scale(1.05)';
+  document.body.classList.remove('splash-active');
+  setTimeout(() => { splash.style.display='none'; }, 500);
+}
+
+function openStartupTab() {
+  const data = loadData();
+  const hasTherapy = (data.therapies&&data.therapies.length>0) || data.therapy;
+  if(hasTherapy) {
+    switchTab('terapia');
+    setTimeout(() => setView('cal'), 150);
+  } else {
+    switchTab('upload');
+  }
+}
+
+// Run startup sequence
+lockLandscapeOnMobile();
+initAlarms();
+initSwipe();
+initCapacitor();
+initRingtoneUI();
+
+// Hide splash immediately in Capacitor, after 1.2s in browser
+const splashDelay = window.isCapacitor ? 100 : 1200;
+setTimeout(() => {
+  hideSplash();
+  openStartupTab();
+}, splashDelay);
+
+setTimeout(initFirebase, 800);
+
+</script>
+<script>
+// Service Worker disabled in Capacitor APK
+// Alarms handled natively via AlarmPlugin
+if('serviceWorker' in navigator && !window.Capacitor) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('[TAO] SW registrato:', reg.scope))
+      .catch(err => console.warn('[TAO] SW failed:', err));
+  });
+}
+</script>
+
+</body>
+</html>
