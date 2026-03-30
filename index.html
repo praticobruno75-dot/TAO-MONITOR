@@ -1574,10 +1574,11 @@ function renderCalendar(data) {
     } else {
       el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
       let inner=`<div class="cal-day-num">${cur.getDate()}</div>`;
-      if(inTherapy) {
-        const dose=getDayDoseFromTherapy(t,dateStr);
-        inner+=`<div onclick="openModal('${dateStr}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
-          ${drawDoseSVG(dose,t.doseUnitaMg||5,44)}
+      // Get dose for this day (works for both therapy days and control-only days)
+      const dayDose = getDayDoseFromTherapy(t, dateStr);
+      if(inTherapy || isControl) {
+        inner+=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
+          ${drawDoseSVG(dayDose, t.doseUnitaMg||5, 44)}
         </div>`;
         if(alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
         if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
@@ -1585,15 +1586,13 @@ function renderCalendar(data) {
       }
       if(isControl) {
         inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
-        if(!inTherapy && alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
       }
       el.innerHTML=inner;
       if(inTherapy || isControl) {
-        if(inTherapy) {
-          // Therapy days: click opens alarm modal, long press opens detail
+        if(inTherapy && !isControl) {
           el.onclick=()=>openModal(dateStr);
         } else {
-          // Control-only days: click AND long press open detail modal
+          // Control day (with or without therapy): open detail modal
           el.onclick=()=>openDayDetailModal(dateStr);
         }
         addLongPressHandlers(el, dateStr);
@@ -3621,6 +3620,29 @@ function initCapacitor() {
 
 function initAlarms() {
   const data=loadData();
+
+  // Detect timezone offset change (DST) and reschedule if needed
+  const currentOffset = new Date().getTimezoneOffset();
+  const savedOffset = parseInt(localStorage.getItem('tao_tz_offset') || currentOffset);
+  if(currentOffset !== savedOffset) {
+    console.log(`[TAO] Timezone changed: ${savedOffset} → ${currentOffset}. Rescheduling alarms.`);
+    localStorage.setItem('tao_tz_offset', currentOffset);
+    // Force reschedule all future alarms with new timezone
+    setTimeout(() => {
+      const d = loadData();
+      const today = formatDate(new Date());
+      Object.entries(d.alarms||{}).forEach(([date, time]) => {
+        if(date >= today && !(d.taken||{})[date]) {
+          scheduleAlarm(date, time);
+          console.log(`[TAO] Rescheduled: ${date} ${time}`);
+        }
+      });
+      showAutoBackupToast('🕐 Ora legale: allarmi aggiornati');
+    }, 2000);
+  } else {
+    localStorage.setItem('tao_tz_offset', currentOffset);
+  }
+
   Object.entries(data.alarms||{}).forEach(([date,time])=>scheduleAlarm(date,time));
   if(typeof Notification !== 'undefined' && Notification.permission==='default') document.getElementById('notifBtn').style.display='block';
   const th=data.therapies&&data.therapies.length?data.therapies:(data.therapy?[data.therapy]:[]);
