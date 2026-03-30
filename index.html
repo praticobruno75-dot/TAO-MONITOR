@@ -1583,10 +1583,19 @@ function renderCalendar(data) {
         if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
         else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
       }
-      if(isControl) inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
+      if(isControl) {
+        inner+=`<div class="cal-control-badge">📋 Controllo</div>`;
+        if(!inTherapy && alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
+      }
       el.innerHTML=inner;
-      if(inTherapy) {
-        el.onclick=()=>openModal(dateStr);
+      if(inTherapy || isControl) {
+        if(inTherapy) {
+          // Therapy days: click opens alarm modal, long press opens detail
+          el.onclick=()=>openModal(dateStr);
+        } else {
+          // Control-only days: click AND long press open detail modal
+          el.onclick=()=>openDayDetailModal(dateStr);
+        }
         addLongPressHandlers(el, dateStr);
       }
     }
