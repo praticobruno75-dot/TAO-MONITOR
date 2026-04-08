@@ -1233,6 +1233,148 @@ function setINRRange(months) {
 }
 
 function renderINRChart(sorted) {
+  inrAllData = sorted;
+  // Use current range filter
+  let data = sorted;
+  if(inrRangeMonths > 0) {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - inrRangeMonths);
+    data = sorted.filter(d => parseDate(d.data) >= cutoff);
+  }
+  if(!data.length) data = sorted;
+  _renderINRChartData(data);
+}
+
+function _renderINRChartData(data) {
+  if(!data.length) return;
+
+  const labels = data.map(d => d.data);
+  const vals   = data.map(d => d.inr);
+  const rMin   = data[0]?.rangeMin || 2;
+  const rMax   = data[0]?.rangeMax || 3;
+  const tgt    = data[0]?.target   || 2.5;
+
+  // Update info label
+  const infoEl = document.getElementById('inrRangeInfo');
+  if(infoEl) infoEl.textContent =
+    `${data.length} controlli · dal ${data[0].data} al ${data[data.length-1].data}`;
+
+  // Destroy previous chart
+  if(inrChartInst) { inrChartInst.destroy(); inrChartInst = null; }
+
+  // Set dynamic canvas width
+  const MIN_PX_PER_POINT = 40;
+  const wrapEl = document.getElementById('inrChartWrap');
+  const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
+  const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
+  const inrCanvas = document.getElementById('inrChart');
+  if(inrCanvas) {
+    inrCanvas.style.width = chartWidth + 'px';
+    inrCanvas.width = chartWidth;
+    inrCanvas.height = 280;
+  }
+
+  const ctx = inrCanvas.getContext('2d');
+
+  inrChartInst = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'INR', data:vals,
+        borderColor:'#58a6ff',
+        backgroundColor:'rgba(88,166,255,.08)',
+        pointBackgroundColor: vals.map(v =>
+          v>=rMin&&v<=rMax ? '#3fb950' : v<rMin*.8||v>rMax*1.2 ? '#ff7b72' : '#f0883e'),
+        pointBorderColor:'#0d1117',
+        pointBorderWidth:1.5,
+        pointRadius: vals.length > 20 ? 4 : 7,
+        pointHoverRadius:10,
+        borderWidth:2, tension:.3, fill:false },
+      { label:'Range min', data:Array(labels.length).fill(rMin),
+        borderColor:'rgba(63,185,80,.5)', borderDash:[5,5],
+        pointRadius:0, borderWidth:1.5, fill:false },
+      { label:'Range max', data:Array(labels.length).fill(rMax),
+        borderColor:'rgba(63,185,80,.5)', borderDash:[5,5],
+        pointRadius:0, borderWidth:1.5,
+        fill:'-1', backgroundColor:'rgba(63,185,80,.06)' },
+      { label:'Target', data:Array(labels.length).fill(tgt),
+        borderColor:'rgba(240,136,62,.6)', borderDash:[3,3],
+        pointRadius:0, borderWidth:1, fill:false },
+    ]},
+    options: {
+      responsive: false,
+      maintainAspectRatio: false,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { labels: { color:'#7d8590', font:{ family:'DM Sans' } } },
+        tooltip: {
+          backgroundColor:'rgba(22,27,34,.95)',
+          borderColor:'rgba(48,54,61,.8)',
+          borderWidth:1,
+          titleColor:'#e6edf3',
+          bodyColor:'#7d8590',
+          padding:12,
+          callbacks: {
+            label: ctx => {
+              if(ctx.dataset.label==='INR') {
+                const v = ctx.parsed.y;
+                const status = v>=rMin&&v<=rMax ? '✓ In range' : v<rMin ? '↓ Sotto range' : '↑ Sopra range';
+                return ` INR: ${v}  ${status}`;
+              }
+              return null;
+            }
+          }
+        },
+        zoom: {
+          zoom: { wheel:{enabled:true, speed:0.1}, pinch:{enabled:true}, mode:'x' },
+          pan:  { enabled:true, mode:'x', threshold:5 },
+          limits: { x:{ minRange:1 } }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color:'#7d8590', maxRotation:45, maxTicksLimit: vals.length>12 ? 12 : undefined },
+          grid:  { color:'rgba(48,54,61,.6)' }
+        },
+        y: {
+          ticks: { color:'#7d8590' },
+          grid:  { color:'rgba(48,54,61,.6)' },
+          suggestedMin: Math.min(...vals, rMin) - 0.3,
+          suggestedMax: Math.max(...vals, rMax) + 0.3
+        }
+      }
+    }
+  });
+
+  // Double click to reset zoom
+  inrCanvas.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
+}
+
+
+function setINRRange(months) {
+  inrRangeMonths = months;
+
+  // Update button styles
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  const labels = { 0:'Tutto', 3:'3 mesi', 6:'6 mesi', 12:'1 anno' };
+  document.querySelectorAll('.range-btn').forEach(b => {
+    if(b.textContent.trim() === (labels[months]||'')) b.classList.add('active');
+  });
+
+  if(!inrAllData || !inrAllData.length) return;
+
+  // Filter data
+  let filtered = inrAllData;
+  if(months > 0) {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    filtered = inrAllData.filter(d => parseDate(d.data) >= cutoff);
+    if(!filtered.length) filtered = inrAllData;
+  }
+
+  _renderINRChartData(filtered);
+}
+
+function renderINRChart(sorted) {
   inrAllData = sorted; // always keep full dataset
   const ctx=document.getElementById('inrChart').getContext('2d');
   if(inrChartInst) inrChartInst.destroy();
