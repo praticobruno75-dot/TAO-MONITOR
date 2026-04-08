@@ -1324,10 +1324,7 @@ function _renderINRChartData(data) {
             }
           }
         },
-        zoom: {
-          zoom: { wheel:{enabled:false}, pinch:{enabled:false}, mode:'x' },
-          pan:  { enabled:false },
-        }
+
       },
       scales: {
         x: {
@@ -1344,14 +1341,29 @@ function _renderINRChartData(data) {
     }
   });
 
-  // Allow touch/mouse scroll to pass through to wrapper div
-  inrCanvas.style.touchAction = 'pan-x';
-  inrCanvas.style.pointerEvents = 'none';
-
-  // Re-enable pointer events for dblclick via wrapper
+  // Native scroll only - no zoom plugin
+  if(inrCanvas) {
+    inrCanvas.style.touchAction = 'pan-x';
+  }
   if(wrapEl) {
     wrapEl.style.touchAction = 'pan-x';
-    wrapEl.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
+    wrapEl.style.cursor = 'grab';
+    // Mouse drag scroll
+    let isDown = false, startX, scrollLeft;
+    wrapEl.onmousedown = e => {
+      isDown = true;
+      startX = e.pageX - wrapEl.offsetLeft;
+      scrollLeft = wrapEl.scrollLeft;
+      wrapEl.style.cursor = 'grabbing';
+    };
+    wrapEl.onmouseleave = () => { isDown = false; wrapEl.style.cursor = 'grab'; };
+    wrapEl.onmouseup   = () => { isDown = false; wrapEl.style.cursor = 'grab'; };
+    wrapEl.onmousemove = e => {
+      if(!isDown) return;
+      e.preventDefault();
+      const x = e.pageX - wrapEl.offsetLeft;
+      wrapEl.scrollLeft = scrollLeft - (x - startX);
+    };
   }
 
   // Scroll to rightmost (most recent) by default
