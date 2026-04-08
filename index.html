@@ -1279,36 +1279,16 @@ function _renderINRChartData(data) {
   const wrapEl = document.getElementById('inrChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
   const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
-  const needsScroll = chartWidth > wrapWidth;
 
-  // Rebuild inner div and canvas
-  const innerDiv = document.getElementById('inrChartInner');
-  if(innerDiv) {
-    innerDiv.innerHTML = '';
-    if(needsScroll) {
-      innerDiv.style.cssText = `width:${chartWidth}px;min-width:${chartWidth}px;height:280px`;
-    } else {
-      innerDiv.style.cssText = `width:100%;height:280px`;
-    }
-  }
+  // Create OFFSCREEN canvas - Chart.js cannot resize it
+  const offscreen = document.createElement('canvas');
+  offscreen.width = chartWidth;
+  offscreen.height = 280;
+  // Do NOT attach to DOM - Chart.js has no ResizeObserver on detached canvases
 
-  // Create canvas with explicit pixel dimensions
-  const canvas = document.createElement('canvas');
-  canvas.id = 'inrChart';
-  canvas.style.cssText = `display:block;height:280px`;
-  if(needsScroll) {
-    canvas.style.width = chartWidth + 'px';
-    canvas.width = chartWidth;
-  } else {
-    canvas.style.width = '100%';
-    canvas.width = wrapWidth;
-  }
-  canvas.height = 280;
-  if(innerDiv) innerDiv.appendChild(canvas);
+  const ctx = offscreen.getContext('2d');
 
-  const ctx = canvas.getContext('2d');
-
-  inrChartInst = new Chart(ctx, {
+  const tempChart = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets: [
       { label:'INR', data:vals,
@@ -1319,7 +1299,7 @@ function _renderINRChartData(data) {
         pointBorderColor:'#0d1117',
         pointBorderWidth:1.5,
         pointRadius: vals.length > 20 ? 4 : 7,
-        pointHoverRadius:10,
+        pointHoverRadius: 0,
         borderWidth:2, tension:.3, fill:false },
       { label:'Range min', data:Array(labels.length).fill(rMin),
         borderColor:'rgba(63,185,80,.5)', borderDash:[5,5],
@@ -1333,35 +1313,48 @@ function _renderINRChartData(data) {
         pointRadius:0, borderWidth:1, fill:false },
     ]},
     options: {
-      responsive: needsScroll ? false : true,
+      responsive: false,
       maintainAspectRatio: false,
-      resizeDelay: 0,
-      interaction: { mode:'index', intersect:false },
-      plugins: {
-        legend: { labels: { color:'#7d8590', font:{ family:'DM Sans' } } },
-        tooltip: {
-          backgroundColor:'rgba(22,27,34,.95)',
-          borderColor:'rgba(48,54,61,.8)',
-          borderWidth:1,
-          titleColor:'#e6edf3',
-          bodyColor:'#7d8590',
-          padding:12,
-          callbacks: {
-            label: c => {
-              if(c.dataset.label==='INR') {
-                const v = c.parsed.y;
-                const s = v>=rMin&&v<=rMax ? '✓ In range' : v<rMin ? '↓ Sotto range' : '↑ Sopra range';
-                return ` INR: ${v}  ${s}`;
-              }
-              return null;
+      animation: {
+        onComplete: () => {
+          // Once rendered, export to image and place in scrollable div
+          const imgData = offscreen.toDataURL('image/png');
+          tempChart.destroy();
+
+          const innerDiv = document.getElementById('inrChartInner');
+          if(innerDiv) {
+            innerDiv.innerHTML = '';
+            innerDiv.style.cssText = `width:${chartWidth}px;min-width:${chartWidth}px;height:280px;overflow:visible`;
+
+            const img = document.createElement('img');
+            img.src = imgData;
+            img.width = chartWidth;
+            img.height = 280;
+            img.style.cssText = `display:block;width:${chartWidth}px;height:280px`;
+            img.draggable = false;
+            innerDiv.appendChild(img);
+
+            // Also keep interactive canvas for tooltips (overlay)
+            const canvas = document.createElement('canvas');
+            canvas.id = 'inrChart';
+            canvas.width = chartWidth;
+            canvas.height = 280;
+            canvas.style.cssText = `position:absolute;top:0;left:0;width:${chartWidth}px;height:280px;opacity:0`;
+            innerDiv.style.position = 'relative';
+            innerDiv.appendChild(canvas);
+
+            // Scroll to most recent (right)
+            if(wrapEl) {
+              wrapEl.scrollLeft = wrapEl.scrollWidth;
+              console.log('[TAO] img scrollWidth:', wrapEl.scrollWidth, 'clientWidth:', wrapEl.clientWidth);
             }
           }
-        },
-        zoom: {
-          zoom: { wheel:{enabled:true, speed:0.1}, pinch:{enabled:true}, mode:'x' },
-          pan:  { enabled:false },
-          limits: { x:{ minRange:1 } }
         }
+      },
+      plugins: {
+        legend: { labels: { color:'#7d8590', font:{ family:'DM Sans' } } },
+        tooltip: { enabled: false },
+        zoom: { zoom:{enabled:false}, pan:{enabled:false} }
       },
       scales: {
         x: {
@@ -1378,19 +1371,12 @@ function _renderINRChartData(data) {
     }
   });
 
-  // Touch scroll for mobile
-  canvas.style.touchAction = 'pan-x';
-  if(wrapEl) wrapEl.style.touchAction = 'pan-x';
+  inrChartInst = tempChart;
 
-  // Double click to reset zoom
-  if(wrapEl) wrapEl.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
-
-  // Scroll to rightmost (most recent data) when scrollable
-  if(needsScroll && wrapEl) {
-    setTimeout(() => {
-      wrapEl.scrollLeft = wrapEl.scrollWidth;
-      console.log('[TAO] scrollWidth:', wrapEl.scrollWidth, 'clientWidth:', wrapEl.clientWidth, 'chartWidth:', chartWidth);
-    }, 100);
+  // Touch scroll
+  if(wrapEl) {
+    wrapEl.style.touchAction = 'pan-x';
+    wrapEl.ondblclick = null; // no zoom reset needed
   }
 }
 
