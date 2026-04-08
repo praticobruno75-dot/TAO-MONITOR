@@ -93,7 +93,7 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 .inr-bad{color:var(--danger)}
 .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--card-radius);padding:24px;margin-bottom:24px}
 .chart-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:20px}
-.chart-wrap{position:relative;height:380px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.chart-wrap::-webkit-scrollbar{height:6px}.chart-wrap::-webkit-scrollbar-track{background:transparent}.chart-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}.chart-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}.chart-wrap canvas{min-width:100%;height:340px!important}
+.chart-wrap{position:relative;height:320px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.chart-wrap::-webkit-scrollbar{height:6px}.chart-wrap::-webkit-scrollbar-track{background:transparent}.chart-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}.chart-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}.chart-wrap canvas{min-width:100%;height:340px!important}
 .history-table{width:100%;border-collapse:collapse;font-size:13px}
 .history-table th{text-align:left;padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}
 .history-table td{padding:12px 16px;border-bottom:1px solid rgba(48,54,61,.5);font-family:'DM Mono',monospace;font-size:13px}
@@ -423,12 +423,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <div class="chart-card">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
     <div class="chart-title" style="margin:0">📊 Andamento INR nel tempo</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap" id="inrRangeButtons">
-      <button class="range-btn" onclick="setINRRange(3)">3 mesi</button>
-      <button class="range-btn" onclick="setINRRange(6)">6 mesi</button>
-      <button class="range-btn" onclick="setINRRange(12)">1 anno</button>
-      <button class="range-btn active" onclick="setINRRange(0)">Tutto</button>
-    </div>
+    
   </div>
   <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-align:right" id="inrRangeInfo"></div>
   <!-- Navigation arrows above chart -->
@@ -1288,10 +1283,10 @@ function _renderINRChartData(data) {
   const MIN_PX_PER_POINT = 60;
   const wrapEl = document.getElementById('inrChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
-  const PL = 50, PR = 20, PT = 20, PB = 100; // padding
+  const PL = 50, PR = 20, PT = 20, PB = 70; // padding
   const pointSpacing = Math.max(MIN_PX_PER_POINT, (wrapWidth - PL - PR) / Math.max(labels.length, 1));
   const svgW = PL + PR + pointSpacing * (labels.length - 1 || 1);
-  const svgH = 380;
+  const svgH = 320;
   const chartH = svgH - PT - PB;
 
   // Y scale
@@ -1336,7 +1331,7 @@ function _renderINRChartData(data) {
     // X label every N points
     const step = Math.max(1, Math.floor(labels.length / 10));
     if(i % step === 0 || i === labels.length - 1) {
-      svg += `<text x="${x}" y="${svgH - PT + 5}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(35,${x},${svgH-PT+5})">${labels[i]}</text>`;
+      svg += `<text x="${x}" y="${svgH - PB + 18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${x},${svgH-PB+18})">${labels[i]}</text>`;
     }
   });
 
@@ -1566,7 +1561,7 @@ function renderDoseChart(sorted) {
     // X label
     const step = Math.max(1, Math.floor(labels.length / 10));
     if(i % step === 0 || i === labels.length - 1) {
-      svg += `<text x="${xScale(i)}" y="${svgH-PT+5}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(35,${xScale(i)},${svgH-PT+5})">${labels[i]}</text>`;
+      svg += `<text x="${xScale(i)}" y="${svgH-PB+18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${xScale(i)},${svgH-PB+18})">${labels[i]}</text>`;
     }
   });
 
