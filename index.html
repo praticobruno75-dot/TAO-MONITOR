@@ -1325,9 +1325,8 @@ function _renderINRChartData(data) {
           }
         },
         zoom: {
-          zoom: { wheel:{enabled:true, speed:0.1}, pinch:{enabled:true}, mode:'x' },
-          pan:  { enabled:true, mode:'x', threshold:5 },
-          limits: { x:{ minRange:1 } }
+          zoom: { wheel:{enabled:false}, pinch:{enabled:false}, mode:'x' },
+          pan:  { enabled:false },
         }
       },
       scales: {
@@ -1345,8 +1344,15 @@ function _renderINRChartData(data) {
     }
   });
 
-  // Double click to reset zoom
-  inrCanvas.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
+  // Allow touch/mouse scroll to pass through to wrapper div
+  inrCanvas.style.touchAction = 'pan-x';
+  inrCanvas.style.pointerEvents = 'none';
+
+  // Re-enable pointer events for dblclick via wrapper
+  if(wrapEl) {
+    wrapEl.style.touchAction = 'pan-x';
+    wrapEl.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
+  }
 
   // Scroll to rightmost (most recent) by default
   if(wrapEl) {
