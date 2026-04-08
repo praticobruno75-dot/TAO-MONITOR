@@ -436,7 +436,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <button onclick="scrollChart(-300)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 14px;font-size:14px;cursor:pointer">◀ Indietro</button>
     <button onclick="scrollChart(300)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 14px;font-size:14px;cursor:pointer">Avanti ▶</button>
   </div>
-  <div class="chart-wrap" id="inrChartWrap"><canvas id="inrChart"></canvas></div>
+  <div class="chart-wrap" id="inrChartWrap"><div id="inrChartInner" style="height:280px"><canvas id="inrChart" style="height:280px!important"></canvas></div></div>
   <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7">
     ◀▶ frecce per navigare · Rotella mouse per zoomare · Doppio click per reset
   </div>
@@ -1274,14 +1274,20 @@ function _renderINRChartData(data) {
   // Destroy previous chart
   if(inrChartInst) { inrChartInst.destroy(); inrChartInst = null; }
 
-  // Set dynamic canvas width
+  // Set dynamic width on inner div — Chart.js respects parent div width
   const MIN_PX_PER_POINT = 40;
   const wrapEl = document.getElementById('inrChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
   const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
+  const innerDiv = document.getElementById('inrChartInner');
+  if(innerDiv) {
+    innerDiv.style.width = chartWidth + 'px';
+    innerDiv.style.minWidth = chartWidth + 'px';
+  }
   const inrCanvas = document.getElementById('inrChart');
   if(inrCanvas) {
     inrCanvas.style.width = chartWidth + 'px';
+    inrCanvas.style.minWidth = chartWidth + 'px';
     inrCanvas.width = chartWidth;
     inrCanvas.height = 280;
   }
