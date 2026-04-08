@@ -1201,7 +1201,7 @@ function renderINRTab() {
     <div class="card"><div class="card-label">Range</div><div class="card-value" style="font-size:20px">${latest.rangeMin||'—'}–${latest.rangeMax||'—'}</div><div class="card-sub">Target: ${latest.target||'—'}</div></div>
     <div class="card"><div class="card-label">INR Medio</div><div class="card-value">${avgINR}</div><div class="card-sub">su ${sorted.length} controlli</div></div>
     <div class="card"><div class="card-label">% In range</div><div class="card-value ${pct>=70?'inr-good':pct>=50?'inr-warn':'inr-bad'}">${pct}%</div><div class="card-sub">${inRange}/${sorted.length} controlli</div></div>`;
-  inrAllData = sorted; renderINRChart(sorted); renderDoseChart(sorted);
+  inrAllData = sorted; inrRangeMonths = 0; renderINRChart(sorted); renderDoseChart(sorted);
   const tbody = document.getElementById('historyBody');
   tbody.innerHTML='';
   [...sorted].reverse().forEach((c,i)=>{
