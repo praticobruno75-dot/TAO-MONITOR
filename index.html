@@ -431,9 +431,14 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     </div>
   </div>
   <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-align:right" id="inrRangeInfo"></div>
-  <div class="chart-wrap" id="inrChartWrap"><canvas id="inrChart"></canvas></div>
+  <div style="position:relative">
+    <div class="chart-wrap" id="inrChartWrap"><canvas id="inrChart"></canvas></div>
+    <!-- Navigation arrows -->
+    <button onclick="scrollChart(-200)" style="position:absolute;left:0;top:50%;transform:translateY(-50%);background:rgba(22,27,34,0.85);border:1px solid var(--border);color:var(--text);border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0">◀</button>
+    <button onclick="scrollChart(200)" style="position:absolute;right:0;top:50%;transform:translateY(-50%);background:rgba(22,27,34,0.85);border:1px solid var(--border);color:var(--text);border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0">▶</button>
+  </div>
   <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7">
-    <span id="chartScrollHint" style="transition:opacity 0.5s">◀ scorri ▶</span> · Rotella per zoomare · Doppio click per reset zoom
+    ◀▶ frecce per navigare · Rotella mouse per zoomare · Doppio click per reset
   </div>
 </div>
       <div class="chart-card"><div class="chart-title">💉 Dosaggio settimanale</div><div class="chart-wrap"><canvas id="doseChart"></canvas></div></div>
@@ -1210,6 +1215,11 @@ function renderINRTab() {
 let inrAllData = []; // store all controls for range filtering
 let inrRangeMonths = 0; // 0 = all
 
+function scrollChart(delta) {
+  const wrap = document.getElementById('inrChartWrap');
+  if(wrap) wrap.scrollBy({ left: delta, behavior: 'smooth' });
+}
+
 function setINRRange(months) {
   inrRangeMonths = months;
   // Update button styles
@@ -1341,30 +1351,12 @@ function _renderINRChartData(data) {
     }
   });
 
-  // Native scroll only - no zoom plugin
-  if(inrCanvas) {
-    inrCanvas.style.touchAction = 'pan-x';
-  }
-  if(wrapEl) {
-    wrapEl.style.touchAction = 'pan-x';
-    wrapEl.style.cursor = 'grab';
-    // Mouse drag scroll
-    let isDown = false, startX, scrollLeft;
-    wrapEl.onmousedown = e => {
-      isDown = true;
-      startX = e.pageX - wrapEl.offsetLeft;
-      scrollLeft = wrapEl.scrollLeft;
-      wrapEl.style.cursor = 'grabbing';
-    };
-    wrapEl.onmouseleave = () => { isDown = false; wrapEl.style.cursor = 'grab'; };
-    wrapEl.onmouseup   = () => { isDown = false; wrapEl.style.cursor = 'grab'; };
-    wrapEl.onmousemove = e => {
-      if(!isDown) return;
-      e.preventDefault();
-      const x = e.pageX - wrapEl.offsetLeft;
-      wrapEl.scrollLeft = scrollLeft - (x - startX);
-    };
-  }
+  // Touch scroll for mobile
+  if(inrCanvas) inrCanvas.style.touchAction = 'pan-x';
+  if(wrapEl) wrapEl.style.touchAction = 'pan-x';
+
+  // Double click to reset zoom
+  if(wrapEl) wrapEl.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
 
   // Scroll to rightmost (most recent) by default
   if(wrapEl) {
@@ -1383,6 +1375,11 @@ function _renderINRChartData(data) {
   }
 }
 
+
+function scrollChart(delta) {
+  const wrap = document.getElementById('inrChartWrap');
+  if(wrap) wrap.scrollBy({ left: delta, behavior: 'smooth' });
+}
 
 function setINRRange(months) {
   inrRangeMonths = months;
@@ -1499,6 +1496,11 @@ function renderINRChart(sorted) {
           limits:{
             x:{minRange:1}
           }
+        },
+        zoom: {
+          zoom: { wheel:{enabled:true, speed:0.1}, pinch:{enabled:true}, mode:'x' },
+          pan:  { enabled:false },
+          limits: { x:{ minRange:1 } }
         }
       },
       scales:{
