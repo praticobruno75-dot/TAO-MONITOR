@@ -1282,7 +1282,11 @@ function _renderINRChartData(data) {
   // Calculate dimensions
   const MIN_PX_PER_POINT = 60;
   const wrapEl = document.getElementById('inrChartWrap');
-  const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
+  // Use offsetWidth but fallback to parentElement or window width
+  let wrapWidth = wrapEl ? wrapEl.offsetWidth : 0;
+  if(!wrapWidth && wrapEl) wrapWidth = wrapEl.parentElement?.offsetWidth || 0;
+  if(!wrapWidth) wrapWidth = Math.min(window.innerWidth - 40, 800);
+  console.log('[TAO] wrapWidth:', wrapWidth, 'labels:', labels.length, 'computed svgW will be:', Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT));
   const PL = 50, PR = 20, PT = 20, PB = 70; // padding
   const pointSpacing = Math.max(MIN_PX_PER_POINT, (wrapWidth - PL - PR) / Math.max(labels.length, 1));
   const svgW = PL + PR + pointSpacing * (labels.length - 1 || 1);
