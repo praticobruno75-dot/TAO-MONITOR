@@ -432,9 +432,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <button onclick="scrollChart(300)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 14px;font-size:14px;cursor:pointer">Avanti ▶</button>
   </div>
   <div class="chart-wrap" id="inrChartWrap"><div id="inrChartInner" style="height:340px"><canvas id="inrChart" style="height:280px!important"></canvas></div></div>
-  <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7">
-    ◀▶ frecce per navigare · Rotella mouse per zoomare · Doppio click per reset
-  </div>
+
 </div>
       <div class="chart-card"><div class="chart-title">💉 Dosaggio settimanale</div><div style="display:flex;justify-content:space-between;margin-bottom:6px">
     <button onclick="scrollDoseChart(-300)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 14px;font-size:14px;cursor:pointer">◀ Indietro</button>
@@ -1295,7 +1293,7 @@ function _renderINRChartData(data) {
   if(!wrapWidth) wrapWidth = wrapEl?.parentElement?.getBoundingClientRect().width || 0;
   if(!wrapWidth) wrapWidth = window.innerWidth - 60;
   console.log('[TAO] wrapWidth:', wrapWidth, 'labels:', labels.length);
-  const PL = 50, PR = 20, PT = 20, PB = 70; // padding
+  const PL = 50, PR = 80, PT = 20, PB = 70; // padding
   const pointSpacing = Math.max(MIN_PX_PER_POINT, (wrapWidth - PL - PR) / Math.max(labels.length, 1));
   const svgW = PL + PR + pointSpacing * (labels.length - 1 || 1);
   const svgH = 320;
@@ -1536,7 +1534,7 @@ function renderDoseChart(sorted) {
   const MIN_PX_PER_POINT = 60;
   const wrapEl = document.getElementById('doseChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
-  const PL = 50, PR = 20, PT = 20, PB = 60;
+  const PL = 50, PR = 80, PT = 20, PB = 60;
   const pointSpacing = Math.max(MIN_PX_PER_POINT, (wrapWidth - PL - PR) / Math.max(labels.length, 1));
   const svgW = PL + PR + pointSpacing * (labels.length - 1 || 1);
   const svgH = 280;
