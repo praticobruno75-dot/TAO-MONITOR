@@ -1281,26 +1281,25 @@ function _renderINRChartData(data) {
   const MIN_PX_PER_POINT = 40;
   const wrapEl = document.getElementById('inrChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
-  const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
+  const chartWidth = Math.max(wrapWidth + 1, labels.length * MIN_PX_PER_POINT);
 
-  // Replace canvas entirely to avoid Chart.js caching
+  // Replace canvas entirely with correct dimensions
   const innerDiv = document.getElementById('inrChartInner');
   if(innerDiv) {
-    innerDiv.innerHTML = '<canvas id="inrChart"></canvas>';
-    innerDiv.style.width = chartWidth + 'px';
-    innerDiv.style.minWidth = chartWidth + 'px';
+    innerDiv.innerHTML = '';
+    innerDiv.style.cssText = `width:${chartWidth}px;min-width:${chartWidth}px;height:280px;position:relative`;
+    const newCanvas = document.createElement('canvas');
+    newCanvas.id = 'inrChart';
+    newCanvas.width = chartWidth;
+    newCanvas.height = 280;
+    newCanvas.style.cssText = `width:${chartWidth}px;height:280px;display:block`;
+    innerDiv.appendChild(newCanvas);
   }
 
   const inrCanvas = document.getElementById('inrChart');
-  // Set attributes BEFORE Chart.js touches it
-  inrCanvas.setAttribute('width', chartWidth);
-  inrCanvas.setAttribute('height', 280);
-  inrCanvas.style.width = chartWidth + 'px';
-  inrCanvas.style.height = '280px';
-  inrCanvas.style.display = 'block';
-
   const ctx = inrCanvas.getContext('2d');
 
+  // Temporarily disconnect resize observer to prevent Chart.js from overriding size
   inrChartInst = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets: [
@@ -1328,6 +1327,7 @@ function _renderINRChartData(data) {
     options: {
       responsive: false,
       maintainAspectRatio: false,
+      resizeDelay: 0,
       interaction: { mode:'index', intersect:false },
       plugins: {
         legend: { labels: { color:'#7d8590', font:{ family:'DM Sans' } } },
@@ -1365,6 +1365,19 @@ function _renderINRChartData(data) {
       }
     }
   });
+
+  // Force canvas size after Chart.js renders (it may resize)
+  setTimeout(() => {
+    const cv = document.getElementById('inrChart');
+    const id = document.getElementById('inrChartInner');
+    if(cv && cv.width !== chartWidth) {
+      cv.width = chartWidth;
+      cv.style.width = chartWidth + 'px';
+      if(id) id.style.width = chartWidth + 'px';
+      if(inrChartInst) inrChartInst.resize(chartWidth, 280);
+    }
+    if(wrapEl) console.log('[TAO] After render - scrollWidth:', wrapEl.scrollWidth, 'clientWidth:', wrapEl.clientWidth);
+  }, 100);
 
   // Touch scroll for mobile
   if(inrCanvas) inrCanvas.style.touchAction = 'pan-x';
