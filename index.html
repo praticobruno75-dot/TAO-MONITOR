@@ -431,12 +431,12 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     </div>
   </div>
   <div style="font-size:11px;color:var(--muted);margin-bottom:12px;text-align:right" id="inrRangeInfo"></div>
-  <div style="position:relative">
-    <div class="chart-wrap" id="inrChartWrap"><canvas id="inrChart"></canvas></div>
-    <!-- Navigation arrows -->
-    <button onclick="scrollChart(-200)" style="position:absolute;left:0;top:50%;transform:translateY(-50%);background:rgba(22,27,34,0.85);border:1px solid var(--border);color:var(--text);border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0">◀</button>
-    <button onclick="scrollChart(200)" style="position:absolute;right:0;top:50%;transform:translateY(-50%);background:rgba(22,27,34,0.85);border:1px solid var(--border);color:var(--text);border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;padding:0">▶</button>
+  <!-- Navigation arrows above chart -->
+  <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+    <button onclick="scrollChart(-300)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 14px;font-size:14px;cursor:pointer">◀ Indietro</button>
+    <button onclick="scrollChart(300)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:4px 14px;font-size:14px;cursor:pointer">Avanti ▶</button>
   </div>
+  <div class="chart-wrap" id="inrChartWrap"><canvas id="inrChart"></canvas></div>
   <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;opacity:0.7">
     ◀▶ frecce per navigare · Rotella mouse per zoomare · Doppio click per reset
   </div>
@@ -1217,7 +1217,9 @@ let inrRangeMonths = 0; // 0 = all
 
 function scrollChart(delta) {
   const wrap = document.getElementById('inrChartWrap');
-  if(wrap) wrap.scrollBy({ left: delta, behavior: 'smooth' });
+  if(!wrap) { console.warn('[TAO] inrChartWrap not found'); return; }
+  console.log('[TAO] scroll:', delta, 'scrollWidth:', wrap.scrollWidth, 'clientWidth:', wrap.clientWidth, 'scrollLeft:', wrap.scrollLeft);
+  wrap.scrollLeft += delta;
 }
 
 function setINRRange(months) {
@@ -1378,7 +1380,9 @@ function _renderINRChartData(data) {
 
 function scrollChart(delta) {
   const wrap = document.getElementById('inrChartWrap');
-  if(wrap) wrap.scrollBy({ left: delta, behavior: 'smooth' });
+  if(!wrap) { console.warn('[TAO] inrChartWrap not found'); return; }
+  console.log('[TAO] scroll:', delta, 'scrollWidth:', wrap.scrollWidth, 'clientWidth:', wrap.clientWidth, 'scrollLeft:', wrap.scrollLeft);
+  wrap.scrollLeft += delta;
 }
 
 function setINRRange(months) {
