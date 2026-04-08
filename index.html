@@ -1202,13 +1202,13 @@ function renderINRTab() {
     <div class="card"><div class="card-label">INR Medio</div><div class="card-value">${avgINR}</div><div class="card-sub">su ${sorted.length} controlli</div></div>
     <div class="card"><div class="card-label">% In range</div><div class="card-value ${pct>=70?'inr-good':pct>=50?'inr-warn':'inr-bad'}">${pct}%</div><div class="card-sub">${inRange}/${sorted.length} controlli</div></div>`;
   inrAllData = sorted; inrRangeMonths = 0;
-  console.log('[TAO] renderINRTab: sorted.length=', sorted.length);
-  // Defer render to ensure DOM is visible
-  setTimeout(() => {
-    console.log('[TAO] deferred render, wrapWidth:', document.getElementById('inrChartWrap')?.getBoundingClientRect().width);
-    renderINRChart(sorted);
-    renderDoseChart(sorted);
-  }, 50);
+  // Use requestAnimationFrame to ensure DOM is painted before measuring width
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      _renderINRChartData(sorted);
+      renderDoseChart(sorted);
+    });
+  });
   const tbody = document.getElementById('historyBody');
   tbody.innerHTML='';
   [...sorted].reverse().forEach((c,i)=>{
@@ -1340,11 +1340,8 @@ function _renderINRChartData(data) {
     const color = v>=rMin&&v<=rMax ? '#3fb950' : v<rMin*.8||v>rMax*1.2 ? '#ff7b72' : '#f0883e';
     svg += `<circle cx="${x}" cy="${y}" r="5" fill="${color}" stroke="#0d1117" stroke-width="1.5"/>`;
     svg += `<title>${labels[i]}: ${v}</title>`;
-    // X label every N points
-    const step = Math.max(1, Math.floor(labels.length / 10));
-    if(i % step === 0 || i === labels.length - 1) {
-      svg += `<text x="${x}" y="${svgH - PB + 18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${x},${svgH-PB+18})">${labels[i]}</text>`;
-    }
+    // Show all X labels
+    svg += `<text x="${x}" y="${svgH - PB + 18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${x},${svgH-PB+18})">${labels[i]}</text>`;
   });
 
   // Value labels on points
@@ -1571,10 +1568,7 @@ function renderDoseChart(sorted) {
       svg += `<text x="${xScale(i)}" y="${y-5}" text-anchor="middle" fill="#7d8590" font-size="10" font-family="DM Mono,monospace">${v}</text>`;
     }
     // X label
-    const step = Math.max(1, Math.floor(labels.length / 10));
-    if(i % step === 0 || i === labels.length - 1) {
-      svg += `<text x="${xScale(i)}" y="${svgH-PB+18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${xScale(i)},${svgH-PB+18})">${labels[i]}</text>`;
-    }
+    svg += `<text x="${xScale(i)}" y="${svgH-PB+18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${xScale(i)},${svgH-PB+18})">${labels[i]}</text>`;
   });
 
   svg += `</svg>`;
