@@ -1274,23 +1274,30 @@ function _renderINRChartData(data) {
   // Destroy previous chart
   if(inrChartInst) { inrChartInst.destroy(); inrChartInst = null; }
 
-  // Set dynamic width on inner div — Chart.js respects parent div width
+  // Destroy previous chart first
+  if(inrChartInst) { inrChartInst.destroy(); inrChartInst = null; }
+
+  // Calculate width
   const MIN_PX_PER_POINT = 40;
   const wrapEl = document.getElementById('inrChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
   const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
+
+  // Replace canvas entirely to avoid Chart.js caching
   const innerDiv = document.getElementById('inrChartInner');
   if(innerDiv) {
+    innerDiv.innerHTML = '<canvas id="inrChart"></canvas>';
     innerDiv.style.width = chartWidth + 'px';
     innerDiv.style.minWidth = chartWidth + 'px';
   }
+
   const inrCanvas = document.getElementById('inrChart');
-  if(inrCanvas) {
-    inrCanvas.style.width = chartWidth + 'px';
-    inrCanvas.style.minWidth = chartWidth + 'px';
-    inrCanvas.width = chartWidth;
-    inrCanvas.height = 280;
-  }
+  // Set attributes BEFORE Chart.js touches it
+  inrCanvas.setAttribute('width', chartWidth);
+  inrCanvas.setAttribute('height', 280);
+  inrCanvas.style.width = chartWidth + 'px';
+  inrCanvas.style.height = '280px';
+  inrCanvas.style.display = 'block';
 
   const ctx = inrCanvas.getContext('2d');
 
