@@ -1274,32 +1274,40 @@ function _renderINRChartData(data) {
   // Destroy previous chart
   if(inrChartInst) { inrChartInst.destroy(); inrChartInst = null; }
 
-  // Destroy previous chart first
-  if(inrChartInst) { inrChartInst.destroy(); inrChartInst = null; }
-
-  // Calculate width
+  // Calculate required width
   const MIN_PX_PER_POINT = 40;
   const wrapEl = document.getElementById('inrChartWrap');
   const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
-  const chartWidth = Math.max(wrapWidth + 1, labels.length * MIN_PX_PER_POINT);
+  const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
+  const needsScroll = chartWidth > wrapWidth;
 
-  // Replace canvas entirely with correct dimensions
+  // Rebuild inner div and canvas
   const innerDiv = document.getElementById('inrChartInner');
   if(innerDiv) {
     innerDiv.innerHTML = '';
-    innerDiv.style.cssText = `width:${chartWidth}px;min-width:${chartWidth}px;height:280px;position:relative`;
-    const newCanvas = document.createElement('canvas');
-    newCanvas.id = 'inrChart';
-    newCanvas.width = chartWidth;
-    newCanvas.height = 280;
-    newCanvas.style.cssText = `width:${chartWidth}px;height:280px;display:block`;
-    innerDiv.appendChild(newCanvas);
+    if(needsScroll) {
+      innerDiv.style.cssText = `width:${chartWidth}px;min-width:${chartWidth}px;height:280px`;
+    } else {
+      innerDiv.style.cssText = `width:100%;height:280px`;
+    }
   }
 
-  const inrCanvas = document.getElementById('inrChart');
-  const ctx = inrCanvas.getContext('2d');
+  // Create canvas with explicit pixel dimensions
+  const canvas = document.createElement('canvas');
+  canvas.id = 'inrChart';
+  canvas.style.cssText = `display:block;height:280px`;
+  if(needsScroll) {
+    canvas.style.width = chartWidth + 'px';
+    canvas.width = chartWidth;
+  } else {
+    canvas.style.width = '100%';
+    canvas.width = wrapWidth;
+  }
+  canvas.height = 280;
+  if(innerDiv) innerDiv.appendChild(canvas);
 
-  // Temporarily disconnect resize observer to prevent Chart.js from overriding size
+  const ctx = canvas.getContext('2d');
+
   inrChartInst = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets: [
@@ -1325,7 +1333,7 @@ function _renderINRChartData(data) {
         pointRadius:0, borderWidth:1, fill:false },
     ]},
     options: {
-      responsive: false,
+      responsive: needsScroll ? false : true,
       maintainAspectRatio: false,
       resizeDelay: 0,
       interaction: { mode:'index', intersect:false },
@@ -1339,17 +1347,21 @@ function _renderINRChartData(data) {
           bodyColor:'#7d8590',
           padding:12,
           callbacks: {
-            label: ctx => {
-              if(ctx.dataset.label==='INR') {
-                const v = ctx.parsed.y;
-                const status = v>=rMin&&v<=rMax ? '✓ In range' : v<rMin ? '↓ Sotto range' : '↑ Sopra range';
-                return ` INR: ${v}  ${status}`;
+            label: c => {
+              if(c.dataset.label==='INR') {
+                const v = c.parsed.y;
+                const s = v>=rMin&&v<=rMax ? '✓ In range' : v<rMin ? '↓ Sotto range' : '↑ Sopra range';
+                return ` INR: ${v}  ${s}`;
               }
               return null;
             }
           }
         },
-
+        zoom: {
+          zoom: { wheel:{enabled:true, speed:0.1}, pinch:{enabled:true}, mode:'x' },
+          pan:  { enabled:false },
+          limits: { x:{ minRange:1 } }
+        }
       },
       scales: {
         x: {
@@ -1366,53 +1378,19 @@ function _renderINRChartData(data) {
     }
   });
 
-  // Disconnect Chart.js internal ResizeObserver to prevent it overriding our width
-  if(inrChartInst && inrChartInst._resizeObserver) {
-    inrChartInst._resizeObserver.disconnect();
-  }
-  // Also check for resizer in newer Chart.js versions
-  if(inrChartInst && inrChartInst.platform && inrChartInst.platform._resizeObserver) {
-    inrChartInst.platform._resizeObserver.disconnect();
-  }
-
-  // Force correct size
-  const cv = document.getElementById('inrChart');
-  const id = document.getElementById('inrChartInner');
-  if(cv) {
-    cv.width = chartWidth;
-    cv.height = 280;
-    cv.style.width = chartWidth + 'px';
-    cv.style.height = '280px';
-  }
-  if(id) {
-    id.style.width = chartWidth + 'px';
-    id.style.minWidth = chartWidth + 'px';
-  }
-  if(inrChartInst) inrChartInst.resize(chartWidth, 280);
-
-  console.log('[TAO] scrollWidth:', wrapEl?.scrollWidth, 'clientWidth:', wrapEl?.clientWidth, 'chartWidth:', chartWidth);
-
   // Touch scroll for mobile
-  if(inrCanvas) inrCanvas.style.touchAction = 'pan-x';
+  canvas.style.touchAction = 'pan-x';
   if(wrapEl) wrapEl.style.touchAction = 'pan-x';
 
   // Double click to reset zoom
   if(wrapEl) wrapEl.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
 
-  // Scroll to rightmost (most recent) by default
-  if(wrapEl) {
+  // Scroll to rightmost (most recent data) when scrollable
+  if(needsScroll && wrapEl) {
     setTimeout(() => {
       wrapEl.scrollLeft = wrapEl.scrollWidth;
-    }, 50);
-  }
-
-  // Hide scroll hint after first scroll
-  if(wrapEl) {
-    wrapEl.addEventListener('scroll', function onFirstScroll() {
-      const hint = document.getElementById('chartScrollHint');
-      if(hint) hint.style.opacity = '0.3';
-      wrapEl.removeEventListener('scroll', onFirstScroll);
-    }, { once: true });
+      console.log('[TAO] scrollWidth:', wrapEl.scrollWidth, 'clientWidth:', wrapEl.clientWidth, 'chartWidth:', chartWidth);
+    }, 100);
   }
 }
 
