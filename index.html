@@ -309,6 +309,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div>
       <div class="alarm-title">Ora del Coumadin!</div>
       <div class="alarm-sub" id="alarmSub"></div>
+      <div id="alarmControlloBanner" style="display:none;font-size:12px;margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(88,166,255,0.1);color:var(--accent);border:1px solid rgba(88,166,255,0.3)"></div>
     </div>
   </div>
   <div class="alarm-actions">
@@ -486,6 +487,8 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   <div class="tab-panel" id="tab-terapia">
     <div id="terapiaEmpty" class="empty-state"><div class="empty-icon">💊</div><div class="empty-title">Nessuna terapia</div><div>Carica un PDF per iniziare</div></div>
     <div id="terapiaContent" style="display:none">
+      <!-- Controllo INR countdown banner -->
+      <div id="controlloBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid;font-size:13px;font-weight:500;margin-bottom:16px;line-height:1.5"></div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div class="section-title" style="margin:0">💊 Piano terapeutico</div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
@@ -780,6 +783,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     </div>
 
     <div class="modal-btns" style="flex-direction:column;gap:8px">
+      <button onclick="openDiarioModal(_dayDetailKey)" class="btn-secondary" style="width:100%;background:rgba(63,185,80,0.1);border-color:rgba(63,185,80,0.3);color:var(--accent2)">🥦 Diario alimentare</button>
       <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%">○ Segna come preso</button>
       <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%">🔔 Salva orario allarme</button>
       <button onclick="closeDayDetailModal()" class="btn-secondary" style="width:100%;color:var(--muted)">Chiudi</button>
@@ -807,6 +811,68 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div id="intPanelAlim"></div>
     <div id="intPanelFarm" style="display:none"></div>
   </div><!-- /tab-interazioni -->
+
+
+  <!-- DIARIO ALIMENTARE MODAL -->
+  <div class="modal-overlay" id="diarioModal">
+    <div class="modal" style="max-width:380px;max-height:85vh;overflow-y:auto">
+      <div class="modal-title">🥦 Diario alimentare</div>
+      <div style="font-size:13px;color:var(--accent2);margin-bottom:14px" id="diarioModalDate"></div>
+      <input type="hidden" id="diarioModalDateInput">
+
+      <!-- Existing entries -->
+      <div id="diarioEntriesList" style="margin-bottom:16px"></div>
+
+      <!-- Add new entry -->
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div class="modal-label" style="margin-bottom:8px">Aggiungi elemento</div>
+        <select id="diarioCatSelect" onchange="onDiarioCatChange(this.value)"
+          class="modal-input" style="width:100%;margin-bottom:8px">
+          <option value="">— categoria —</option>
+          <option value="alimenti_rossi">🔴 Alimenti da evitare</option>
+          <option value="alimenti_gialli">🟡 Alimenti da moderare</option>
+          <option value="integratori">🌿 Integratori</option>
+          <option value="farmaci">💊 Farmaci</option>
+        </select>
+        <select id="diarioItemSelect" class="modal-input" style="width:100%;margin-bottom:8px">
+          <option value="">— scegli elemento —</option>
+        </select>
+        <div id="diarioQtyDiv" style="display:none">
+          <div id="diarioPorzioniDiv" style="margin-bottom:8px">
+            <div class="modal-label" style="margin-bottom:4px">Porzioni</div>
+            <select id="diarioPorzioni" class="modal-input" style="width:100%">
+              <option value="0.5">½ porzione</option>
+              <option value="1" selected>1 porzione</option>
+              <option value="2">2 porzioni</option>
+            </select>
+          </div>
+          <div id="diarioDoseDiv" style="display:none;margin-bottom:8px">
+            <div class="modal-label" style="margin-bottom:4px">Dose / frequenza</div>
+            <input type="text" id="diarioDose" class="modal-input"
+              placeholder="es. 400mg, 1 compressa, 2x" style="width:100%">
+          </div>
+          <button onclick="saveDiarioEntry()" class="btn-primary" style="width:100%;padding:10px">
+            ➕ Aggiungi
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-btns" style="margin-top:16px">
+        <button class="btn-secondary" onclick="closeDiarioModal()">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIARIO REPORT MODAL -->
+  <div class="modal-overlay" id="diarioReportModal">
+    <div class="modal" style="max-width:420px;max-height:85vh;overflow-y:auto">
+      <div class="modal-title" id="diarioReportTitle">📊 Report diario alimentare</div>
+      <div id="diarioReportContent"></div>
+      <div class="modal-btns" style="margin-top:16px">
+        <button class="btn-secondary" onclick="closeDiarioReportModal()">Chiudi</button>
+      </div>
+    </div>
+  </div>
 
 </main>
 
@@ -1936,6 +2002,7 @@ function renderCalendar(data) {
       if(extraAlarm) inner+=`<div class="dose-time-badge">🔔 ${extraAlarm}</div>`;
       if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
       else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
+      if(hasDiarioEntries(dateStr)) inner+=`<div style="font-size:9px;color:var(--accent2);text-align:center">🥦</div>`;
       el.innerHTML=inner;
       el.onclick=()=>openModal(dateStr);
       addLongPressHandlers(el, dateStr);
@@ -2138,7 +2205,14 @@ function renderPlanIndex() {
           </div>
         </div>
         <div style="font-size:20px;color:var(--muted);padding:0 8px">›</div>
-      </div>`;
+      </div>
+      ${!isActive && t.dataInizio && t.dataFine ? `
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <button onclick="event.stopPropagation();generateDiarioReport('${t.dataInizio}','${t.dataFine}',${idx})"
+            style="width:100%;padding:8px;background:rgba(63,185,80,0.08);border:1px solid rgba(63,185,80,0.25);border-radius:8px;color:var(--accent2);font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif">
+            📊 Report diario alimentare
+          </button>
+        </div>` : ''}`;
     container.appendChild(card);
   });
 }
@@ -2253,6 +2327,22 @@ function fireAlarm(dateStr, time) {
   startAlarmSound();
   document.getElementById('alarmSub').textContent=`${dateStr} — orario programmato: ${time}`;
   document.getElementById('alarmToast').classList.add('show');
+
+  // Show controllo countdown in alarm toast
+  const ctrlMsg = getControlloToastMsg();
+  const ctrlBanner = document.getElementById('alarmControlloBanner');
+  if(ctrlBanner) {
+    if(ctrlMsg) {
+      ctrlBanner.textContent = ctrlMsg;
+      ctrlBanner.style.display = 'block';
+      const isWarn = ctrlMsg.startsWith('⚠️');
+      ctrlBanner.style.background = isWarn ? 'rgba(240,136,62,0.1)' : 'rgba(88,166,255,0.1)';
+      ctrlBanner.style.color = isWarn ? 'var(--warn)' : 'var(--accent)';
+      ctrlBanner.style.borderColor = isWarn ? 'rgba(240,136,62,0.3)' : 'rgba(88,166,255,0.3)';
+    } else {
+      ctrlBanner.style.display = 'none';
+    }
+  }
   if(typeof Notification !== 'undefined' && Notification.permission==='granted') new Notification('TAO Monitor — Assunzione farmaco',{body:`Ora di prendere il Coumadin! (${dateStr} alle ${time})`});
 }
 
@@ -2322,6 +2412,8 @@ function confirmAlarm() {
     appData.takenEditTimes[currentAlarmDate]=Date.now();
     appData.takenTimes[currentAlarmDate]=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     saveData(appData);
+    // Cancel any pending snooze alarms for this date
+    cancelNativeAlarm(currentAlarmDate);
   }
   document.getElementById('alarmToast').classList.remove('show');
   currentAlarmDate=null;
@@ -2600,6 +2692,8 @@ function toggleTakenFromModal() {
   } else {
     // Mark as taken
     appData.taken[_dayDetailKey] = true;
+    // Cancel any pending snooze alarms
+    cancelNativeAlarm(_dayDetailKey);
     appData.takenEditTimes[_dayDetailKey] = nowTs;
     appData.takenTimes[_dayDetailKey] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   }
@@ -2713,6 +2807,326 @@ function resetRingtone() {
 
 function getRingtoneUri() {
   return localStorage.getItem(RINGTONE_KEY) || null;
+}
+
+// ===================================================
+// CONTROLLO INR COUNTDOWN
+// ===================================================
+function getControlloCountdown() {
+  const data = loadData();
+  const therapies = getAllTherapies();
+  if(!therapies.length) return null;
+
+  // Get the latest therapy's control date
+  const lastTherapy = therapies[therapies.length - 1];
+  const controlloDate = lastTherapy.dataControllo;
+  if(!controlloDate) return null;
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const ctrlDate = parseDate(controlloDate);
+  ctrlDate.setHours(0,0,0,0);
+  const diffDays = Math.round((ctrlDate - today) / (1000 * 60 * 60 * 24));
+
+  // Only show between -3 and +3 days
+  if(diffDays < -3 || diffDays > 3) return null;
+
+  // Check if a newer plan was loaded after the control date
+  // If there's a therapy that started after the control date, no need to show banner
+  const hasNewerPlan = therapies.some(t => {
+    if(!t.dataInizio) return false;
+    const start = parseDate(t.dataInizio);
+    return start > ctrlDate;
+  });
+  if(hasNewerPlan && diffDays < 0) return null;
+
+  let msg = '';
+  let type = 'info'; // info | warn
+
+  if(diffDays === 3)       { msg = '📋 Tra 3 giorni hai il controllo INR'; type = 'info'; }
+  else if(diffDays === 2)  { msg = '📋 Tra 2 giorni hai il controllo INR'; type = 'info'; }
+  else if(diffDays === 1)  { msg = '📋 Domani hai il controllo INR'; type = 'info'; }
+  else if(diffDays === 0)  { msg = '📋 Oggi è il giorno del controllo INR'; type = 'info'; }
+  else if(diffDays === -1) { msg = '⚠️ Ieri era il controllo INR — hai caricato il nuovo piano?'; type = 'warn'; }
+  else if(diffDays === -2) { msg = '⚠️ Il controllo era 2 giorni fa — nuovo piano non ancora caricato'; type = 'warn'; }
+  else if(diffDays === -3) { msg = '⚠️ Il controllo era 3 giorni fa — ricorda di caricare il nuovo piano'; type = 'warn'; }
+
+  return { msg, type, diffDays, controlloDate };
+}
+
+function showControlloCountdownBanner() {
+  const result = getControlloCountdown();
+  const banner = document.getElementById('controlloBanner');
+  if(!banner) return;
+
+  if(!result) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  banner.style.display = 'block';
+  banner.style.background = result.type === 'warn'
+    ? 'rgba(240,136,62,0.12)' : 'rgba(88,166,255,0.1)';
+  banner.style.borderColor = result.type === 'warn'
+    ? 'rgba(240,136,62,0.4)' : 'rgba(88,166,255,0.3)';
+  banner.style.color = result.type === 'warn'
+    ? 'var(--warn)' : 'var(--accent)';
+  banner.textContent = result.msg;
+}
+
+// Add countdown message to alarm toast
+function getControlloToastMsg() {
+  const result = getControlloCountdown();
+  return result ? result.msg : null;
+}
+
+// ===================================================
+// DIARIO ALIMENTARE
+// ===================================================
+const DIARIO_KEY = 'tao_diario';
+
+const DIARIO_ITEMS = {
+  alimenti_rossi: {
+    label: '🔴 Alimenti da evitare',
+    colore: 'red',
+    items: ['Cavolo riccio / kale','Spinaci','Bietola','Prezzemolo (grandi quantità)','Verze / cavolo verde','Cime di rapa','Crescione','Succo di mirtillo / cranberry','Succo di pompelmo','Superalcolici','Fegato di manzo o pollo','Bevande energetiche']
+  },
+  alimenti_gialli: {
+    label: '🟡 Alimenti da moderare',
+    colore: 'warn',
+    items: ['Broccoli','Cavoletti di Bruxelles','Cavolo / cavolfiore','Lattuga / insalata verde','Asparagi','Radicchio','Cipolla verde / erba cipollina','Avocado','Piselli e fagioli','Olive','Olio di soia / canola','Cereali integrali','Tè verde','Alcool','Caffè','Zenzero','Curcuma','Aglio','Soia / latte di soia']
+  },
+  integratori: {
+    label: '🌿 Integratori',
+    colore: 'warn',
+    items: ['Ginkgo biloba','Aglio concentrato','Omega-3 / olio di pesce','Vitamina E','Mirtillo / cranberry','Erba di San Giovanni','Ginseng','Coenzima Q10','Semi di lino','Vitamina K']
+  },
+  farmaci: {
+    label: '💊 Farmaci',
+    colore: 'red',
+    items: ['Aspirina / acido acetilsalicilico','Ibuprofene / FANS','Paracetamolo (dosi elevate)','Amiodarone','Statine','Omeprazolo / esomeprazolo','SSRI antidepressivi','Rifampicina','Carbamazepina / barbiturici','Antibiotici','Antifungini']
+  }
+};
+
+function loadDiario() {
+  try { return JSON.parse(localStorage.getItem(DIARIO_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function saveDiario(d) {
+  localStorage.setItem(DIARIO_KEY, JSON.stringify(d));
+}
+
+function addDiarioEntry(dateStr, entry) {
+  const d = loadDiario();
+  if(!d[dateStr]) d[dateStr] = [];
+  d[dateStr].push(entry);
+  saveDiario(d);
+}
+
+function removeDiarioEntry(dateStr, idx) {
+  const d = loadDiario();
+  if(d[dateStr]) {
+    d[dateStr].splice(idx, 1);
+    if(!d[dateStr].length) delete d[dateStr];
+  }
+  saveDiario(d);
+}
+
+function getDiarioForPeriod(dateFrom, dateTo) {
+  const d = loadDiario();
+  const result = {};
+  const from = parseDate(dateFrom);
+  const to   = parseDate(dateTo);
+  Object.entries(d).forEach(([dateStr, entries]) => {
+    const dt = new Date(dateStr);
+    if(dt >= from && dt <= to) result[dateStr] = entries;
+  });
+  return result;
+}
+
+// Open diario modal for a date
+function openDiarioModal(dateStr) {
+  const modal = document.getElementById('diarioModal');
+  if(!modal) return;
+  document.getElementById('diarioModalDate').textContent = dateStr;
+  document.getElementById('diarioModalDateInput').value = dateStr;
+  renderDiarioEntries(dateStr);
+  resetDiarioForm();
+  modal.classList.add('active');
+}
+
+function closeDiarioModal() {
+  document.getElementById('diarioModal')?.classList.remove('active');
+}
+
+function renderDiarioEntries(dateStr) {
+  const d = loadDiario();
+  const entries = d[dateStr] || [];
+  const container = document.getElementById('diarioEntriesList');
+  if(!container) return;
+
+  if(!entries.length) {
+    container.innerHTML = '<div style="font-size:12px;color:var(--muted);text-align:center;padding:12px">Nessuna registrazione per questo giorno</div>';
+    return;
+  }
+
+  container.innerHTML = entries.map((e, i) => {
+    const colMap = { red:'rgba(255,123,114,0.15)', warn:'rgba(240,136,62,0.15)', green:'rgba(63,185,80,0.15)' };
+    const cat = Object.values(DIARIO_ITEMS).find(c => c.items.includes(e.nome));
+    const bg = colMap[cat?.colore || 'warn'];
+    const qty = e.tipo === 'alimento' ? e.porzioni + ' porz.' : e.dose || '1x';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:${bg};border-radius:8px;margin-bottom:4px">
+      <span style="font-size:12px;color:var(--text)">${e.nome}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;color:var(--muted)">${qty}</span>
+        <button onclick="removeDiarioEntry('${dateStr}',${i});renderDiarioEntries('${dateStr}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function resetDiarioForm() {
+  const catSel = document.getElementById('diarioCatSelect');
+  const itemSel = document.getElementById('diarioItemSelect');
+  if(catSel) catSel.value = '';
+  if(itemSel) { itemSel.innerHTML = '<option value="">— scegli elemento —</option>'; }
+  const qtyDiv = document.getElementById('diarioQtyDiv');
+  if(qtyDiv) qtyDiv.style.display = 'none';
+}
+
+function onDiarioCatChange(val) {
+  const itemSel = document.getElementById('diarioItemSelect');
+  const qtyDiv  = document.getElementById('diarioQtyDiv');
+  const doseDiv = document.getElementById('diarioDoseDiv');
+  if(!itemSel) return;
+
+  itemSel.innerHTML = '<option value="">— scegli elemento —</option>';
+  if(!val) { qtyDiv.style.display='none'; return; }
+
+  const cat = DIARIO_ITEMS[val];
+  if(!cat) return;
+  cat.items.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item; opt.textContent = item;
+    itemSel.appendChild(opt);
+  });
+  qtyDiv.style.display = 'block';
+
+  // Show dose field for farmaci/integratori, portions for alimenti
+  const isAlimento = val.startsWith('alimenti');
+  document.getElementById('diarioPorzioniDiv').style.display = isAlimento ? 'block' : 'none';
+  doseDiv.style.display = isAlimento ? 'none' : 'block';
+}
+
+function saveDiarioEntry() {
+  const dateStr = document.getElementById('diarioModalDateInput').value;
+  const cat  = document.getElementById('diarioCatSelect').value;
+  const nome = document.getElementById('diarioItemSelect').value;
+  if(!cat || !nome) { return; }
+
+  const isAlimento = cat.startsWith('alimenti');
+  let entry;
+  if(isAlimento) {
+    const porzioni = document.getElementById('diarioPorzioni').value;
+    entry = { tipo: 'alimento', nome, porzioni: parseFloat(porzioni), colore: DIARIO_ITEMS[cat].colore };
+  } else {
+    const dose = document.getElementById('diarioDose').value;
+    entry = { tipo: cat === 'farmaci' ? 'farmaco' : 'integratore', nome, dose: dose || '1x' };
+  }
+
+  addDiarioEntry(dateStr, entry);
+  renderDiarioEntries(dateStr);
+  resetDiarioForm();
+  renderTerapiaTab(); // refresh calendar indicators
+}
+
+// Check if a date has diario entries
+function hasDiarioEntries(dateStr) {
+  const d = loadDiario();
+  return !!(d[dateStr] && d[dateStr].length);
+}
+
+// Generate diario report for a therapy period
+function generateDiarioReport(dataInizio, dataFine, therapyIndex) {
+  const diario = getDiarioForPeriod(dataInizio, dataFine);
+  const modal = document.getElementById('diarioReportModal');
+  if(!modal) return;
+
+  document.getElementById('diarioReportTitle').textContent =
+    `📊 Diario alimentare: ${dataInizio} → ${dataFine}`;
+
+  // Count by week
+  const weeks = {};
+  Object.entries(diario).forEach(([dateStr, entries]) => {
+    const dt = new Date(dateStr);
+    // Week number within period
+    const from = parseDate(dataInizio);
+    const weekNum = Math.floor((dt - from) / (7 * 24 * 60 * 60 * 1000));
+    const weekKey = `Settimana ${weekNum + 1}`;
+    if(!weeks[weekKey]) weeks[weekKey] = { rossi:0, gialli:0, integratori:[], farmaci:[] };
+    entries.forEach(e => {
+      if(e.tipo === 'alimento') {
+        if(e.colore === 'red') weeks[weekKey].rossi += e.porzioni || 1;
+        else weeks[weekKey].gialli += e.porzioni || 1;
+      } else if(e.tipo === 'integratore') weeks[weekKey].integratori.push(e.nome);
+      else if(e.tipo === 'farmaco') weeks[weekKey].farmaci.push(e.nome);
+    });
+  });
+
+  // Total counts
+  let totRossi=0, totGialli=0, totInt=0, totFarm=0;
+  Object.values(weeks).forEach(w => {
+    totRossi += w.rossi; totGialli += w.gialli;
+    totInt += w.integratori.length; totFarm += w.farmaci.length;
+  });
+
+  const container = document.getElementById('diarioReportContent');
+  if(!container) return;
+
+  if(!Object.keys(weeks).length) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Nessuna registrazione nel diario per questo periodo</div>';
+    modal.classList.add('active');
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:22px;font-weight:700;color:#ff7b72">${totRossi}</div>
+        <div style="font-size:11px;color:var(--muted)">Porzioni 🔴</div>
+      </div>
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:22px;font-weight:700;color:#f0883e">${totGialli}</div>
+        <div style="font-size:11px;color:var(--muted)">Porzioni 🟡</div>
+      </div>
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:22px;font-weight:700;color:#3fb950">${totInt}</div>
+        <div style="font-size:11px;color:var(--muted)">Integratori 🌿</div>
+      </div>
+      <div class="card" style="text-align:center;padding:12px">
+        <div style="font-size:22px;font-weight:700;color:#58a6ff">${totFarm}</div>
+        <div style="font-size:11px;color:var(--muted)">Farmaci 💊</div>
+      </div>
+    </div>
+    <div class="section-title">Dettaglio settimanale</div>
+    ${Object.entries(weeks).map(([week, w]) => `
+      <div class="card" style="margin-bottom:8px;padding:10px 14px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px">${week}</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
+          ${w.rossi ? `<span style="color:#ff7b72">🔴 ${w.rossi} porz.</span>` : ''}
+          ${w.gialli ? `<span style="color:#f0883e">🟡 ${w.gialli} porz.</span>` : ''}
+          ${w.integratori.length ? `<span style="color:#3fb950">🌿 ${[...new Set(w.integratori)].join(', ')}</span>` : ''}
+          ${w.farmaci.length ? `<span style="color:#58a6ff">💊 ${[...new Set(w.farmaci)].join(', ')}</span>` : ''}
+          ${!w.rossi && !w.gialli && !w.integratori.length && !w.farmaci.length ? '<span>Nessuna registrazione</span>' : ''}
+        </div>
+      </div>`).join('')}`;
+
+  modal.classList.add('active');
+}
+
+function closeDiarioReportModal() {
+  document.getElementById('diarioReportModal')?.classList.remove('active');
 }
 
 // ===================================================
@@ -4173,7 +4587,17 @@ async function cancelNativeAlarm(dateStr) {
     if(!AlarmPlugin) return;
     const [dd,mm,yyyy] = dateStr.split('/');
     const alarmId = parseInt(`${yyyy}${mm}${dd}`);
+    // Cancel main alarm
     await AlarmPlugin.cancelAlarm({ alarmId });
+    // Cancel snooze alarms (snooze uses different IDs: hashCode + minutes)
+    // Cancel IDs in range around the main alarm ID
+    const snoozeIds = [alarmId + 300, alarmId + 315, alarmId + 330,
+                       alarmId + 345, alarmId + 360, alarmId + 375,
+                       alarmId + 390, alarmId + 999];
+    for(const sid of snoozeIds) {
+      try { await AlarmPlugin.cancelAlarm({ alarmId: sid }); } catch(e) {}
+    }
+    console.log('[CAP] Cancelled alarm and snooze alarms for:', dateStr);
   } catch(e) {
     console.warn('[CAP] Cancel alarm error:', e);
   }
@@ -4217,6 +4641,21 @@ function initCapacitor() {
       renderTerapiaTab();
     }, 1500);
   }
+}
+
+function saveControlloDateForNative() {
+  // Save control date to native SharedPreferences for AlarmActivity countdown
+  if(!window.isCapacitor) return;
+  try {
+    const therapies = getAllTherapies();
+    if(!therapies.length) return;
+    const lastTherapy = therapies[therapies.length-1];
+    if(!lastTherapy.dataControllo) return;
+    const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+    if(AlarmPlugin?.saveControlloDate) {
+      AlarmPlugin.saveControlloDate({ date: lastTherapy.dataControllo });
+    }
+  } catch(e) { console.warn('[TAO] saveControlloDate error:', e); }
 }
 
 function initAlarms() {
@@ -4314,7 +4753,7 @@ initCapacitor();
 initRingtoneUI();
 initBatteryOptUI();
 // Re-render terapia after short delay to ensure data is loaded
-setTimeout(() => { renderTerapiaTab(); }, 800);
+setTimeout(() => { renderTerapiaTab(); showControlloCountdownBanner(); saveControlloDateForNative(); }, 800);
 
 // Hide splash immediately in Capacitor, after 1.2s in browser
 const splashDelay = window.isCapacitor ? 100 : 1200;
