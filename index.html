@@ -1251,9 +1251,47 @@ function scrollDoseChart(delta) {
   const wrap = document.getElementById('doseChartWrap');
   if(!wrap) return;
   wrap.scrollLeft += delta;
+  syncChartScroll('dose');
 }
 
 function scrollChart(delta) {
+  const wrap = document.getElementById('inrChartWrap');
+  if(!wrap) return;
+  wrap.scrollLeft += delta;
+  syncChartScroll('inr');
+}
+
+let _syncingScroll = false;
+function syncChartScroll(source) {
+  if(_syncingScroll) return;
+  _syncingScroll = true;
+  const inrWrap  = document.getElementById('inrChartWrap');
+  const doseWrap = document.getElementById('doseChartWrap');
+  if(!inrWrap || !doseWrap) { _syncingScroll = false; return; }
+
+  // Calculate scroll ratio (charts may have different widths)
+  const inrMax  = inrWrap.scrollWidth  - inrWrap.clientWidth;
+  const doseMax = doseWrap.scrollWidth - doseWrap.clientWidth;
+
+  if(source === 'inr' && inrMax > 0) {
+    const ratio = inrWrap.scrollLeft / inrMax;
+    doseWrap.scrollLeft = ratio * doseMax;
+  } else if(source === 'dose' && doseMax > 0) {
+    const ratio = doseWrap.scrollLeft / doseMax;
+    inrWrap.scrollLeft = ratio * inrMax;
+  }
+  _syncingScroll = false;
+}
+
+function initChartScrollSync() {
+  const inrWrap  = document.getElementById('inrChartWrap');
+  const doseWrap = document.getElementById('doseChartWrap');
+  if(!inrWrap || !doseWrap) return;
+  inrWrap.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
+  doseWrap.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
+}
+
+function scrollChart_old(delta) {
   const wrap = document.getElementById('inrChartWrap');
   if(!wrap) { console.warn('[TAO] inrChartWrap not found'); return; }
   console.log('[TAO] scroll:', delta, 'scrollWidth:', wrap.scrollWidth, 'clientWidth:', wrap.clientWidth, 'scrollLeft:', wrap.scrollLeft);
@@ -1402,9 +1440,47 @@ function scrollDoseChart(delta) {
   const wrap = document.getElementById('doseChartWrap');
   if(!wrap) return;
   wrap.scrollLeft += delta;
+  syncChartScroll('dose');
 }
 
 function scrollChart(delta) {
+  const wrap = document.getElementById('inrChartWrap');
+  if(!wrap) return;
+  wrap.scrollLeft += delta;
+  syncChartScroll('inr');
+}
+
+
+function syncChartScroll(source) {
+  if(_syncingScroll) return;
+  _syncingScroll = true;
+  const inrWrap  = document.getElementById('inrChartWrap');
+  const doseWrap = document.getElementById('doseChartWrap');
+  if(!inrWrap || !doseWrap) { _syncingScroll = false; return; }
+
+  // Calculate scroll ratio (charts may have different widths)
+  const inrMax  = inrWrap.scrollWidth  - inrWrap.clientWidth;
+  const doseMax = doseWrap.scrollWidth - doseWrap.clientWidth;
+
+  if(source === 'inr' && inrMax > 0) {
+    const ratio = inrWrap.scrollLeft / inrMax;
+    doseWrap.scrollLeft = ratio * doseMax;
+  } else if(source === 'dose' && doseMax > 0) {
+    const ratio = doseWrap.scrollLeft / doseMax;
+    inrWrap.scrollLeft = ratio * inrMax;
+  }
+  _syncingScroll = false;
+}
+
+function initChartScrollSync() {
+  const inrWrap  = document.getElementById('inrChartWrap');
+  const doseWrap = document.getElementById('doseChartWrap');
+  if(!inrWrap || !doseWrap) return;
+  inrWrap.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
+  doseWrap.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
+}
+
+function scrollChart_old(delta) {
   const wrap = document.getElementById('inrChartWrap');
   if(!wrap) { console.warn('[TAO] inrChartWrap not found'); return; }
   console.log('[TAO] scroll:', delta, 'scrollWidth:', wrap.scrollWidth, 'clientWidth:', wrap.clientWidth, 'scrollLeft:', wrap.scrollLeft);
@@ -1572,7 +1648,7 @@ function renderDoseChart(sorted) {
   const dMax = Math.max(...doses) + 5;
   const yScale = v => PT + chartH - (v - dMin) / (dMax - dMin) * chartH;
   const xScale = i => PL + i * pointSpacing;
-  const barW = Math.min(pointSpacing * 0.6, 30);
+  const barW = Math.min(pointSpacing * 0.6, 36);
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="display:block;background:#0d1117">`;
 
@@ -1584,15 +1660,25 @@ function renderDoseChart(sorted) {
     svg += `<text x="${PL-4}" y="${y+4}" text-anchor="end" fill="#7d8590" font-size="11" font-family="DM Mono,monospace">${v}</text>`;
   });
 
-  // Bars
+  // Bars with mg label inside (or above if bar too short)
   doses.forEach((v, i) => {
     const x = xScale(i) - barW/2;
     const y = yScale(v);
     const h = yScale(dMin) - y;
+    const label = v ? v+' mg' : '';
+
     svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="rgba(88,166,255,0.25)" stroke="#58a6ff" stroke-width="1.5" rx="4"/>`;
-    if(doses.length <= 20) {
-      svg += `<text x="${xScale(i)}" y="${y-5}" text-anchor="middle" fill="#7d8590" font-size="10" font-family="DM Mono,monospace">${v}</text>`;
+
+    if(label) {
+      if(h >= 20) {
+        // Inside bar - vertically centered
+        svg += `<text x="${xScale(i)}" y="${y + h/2 + 4}" text-anchor="middle" fill="#e6edf3" font-size="11" font-weight="600" font-family="DM Mono,monospace">${label}</text>`;
+      } else {
+        // Above bar - not enough space inside
+        svg += `<text x="${xScale(i)}" y="${y - 4}" text-anchor="middle" fill="#7d8590" font-size="10" font-family="DM Mono,monospace">${label}</text>`;
+      }
     }
+
     // X label
     svg += `<text x="${xScale(i)}" y="${svgH-PB+18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${xScale(i)},${svgH-PB+18})">${labels[i]}</text>`;
   });
@@ -1607,9 +1693,14 @@ function renderDoseChart(sorted) {
 
   if(wrapEl) {
     wrapEl.style.touchAction = 'pan-x';
-    setTimeout(() => { wrapEl.scrollLeft = wrapEl.scrollWidth; }, 50);
+    setTimeout(() => {
+      wrapEl.scrollLeft = wrapEl.scrollWidth;
+      // Sync with INR chart scroll
+      syncChartScroll('dose');
+    }, 60);
   }
 }
+
 
 function deleteControl(idx) {
   if(!confirm('Eliminare?')) return;
