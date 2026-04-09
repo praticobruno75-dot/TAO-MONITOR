@@ -3778,6 +3778,18 @@ async function generatePDFReport() {
   const inRange  = filtered.filter(c=>c.inr>=rangeMin&&c.inr<=rangeMax).length;
   const ttrData  = calcRosendaalTTR(filtered);
   const pctRange = ttrData.ttr;
+
+  // Calculate progressive Rosendaal TTR for each control (cumulative from start)
+  filtered.forEach((ctrl, i) => {
+    if(i === 0) {
+      ctrl.ttrRosendaal = null; // Not enough data for first point
+    } else {
+      const subset = filtered.slice(0, i + 1);
+      const r = calcRosendaalTTR(subset);
+      ctrl.ttrRosendaal = r.ttr;
+    }
+  });
+
   const latestTIR = ttrData.ttr;
 
   const { jsPDF } = window.jspdf;
@@ -3824,8 +3836,8 @@ async function generatePDFReport() {
   const stats = [
     { label:'Controlli', value: String(filtered.length), color:[88,166,255] },
     { label:'INR Medio', value: avgINR, color: parseFloat(avgINR)>=rangeMin&&parseFloat(avgINR)<=rangeMax?[63,185,80]:[240,136,62] },
-    { label:'% In range', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
     { label:'TTR Rosendaal', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
+    { label:'Giorni in range', value: ttrData.daysInRange+'/'+ttrData.totalDays, color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
   ];
   stats.forEach((s,i) => {
     const bx = margin + i*(statBoxW+3);
@@ -3971,7 +3983,7 @@ async function generatePDFReport() {
       String(target),
       ctrl.doseSettimanale ? ctrl.doseSettimanale+' mg' : '—',
       stato,
-      ctrl.tempoInRange ? ctrl.tempoInRange+'%' : '—',
+      ctrl.ttrRosendaal !== undefined ? ctrl.ttrRosendaal+'%' : '—',
     ];
 
     tx = margin+2;
