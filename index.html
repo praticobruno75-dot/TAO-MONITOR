@@ -391,6 +391,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   <button class="tab-btn" onclick="switchTab(&apos;inr&apos;)">📈 Storico INR</button>
   <button class="tab-btn" onclick="switchTab(&apos;terapia&apos;)">💊 Terapia</button>
   <button class="tab-btn" onclick="switchTab(&apos;strumenti&apos;)">🛠 Strumenti</button>
+  <button class="tab-btn" onclick="switchTab(&apos;interazioni&apos;)">⚠️ Interazioni</button>
 </nav>
 
 <main>
@@ -786,6 +787,27 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   </div>
 </div>
 
+
+  <!-- INTERAZIONI TAB -->
+  <div class="tab-panel" id="tab-interazioni">
+    <h2 style="font-family:'DM Serif Display',serif;font-size:20px;margin-bottom:4px">⚠️ Interazioni con il Coumadin</h2>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:20px;line-height:1.6">
+      Informazioni di riferimento. Consulta sempre il tuo medico o il centro TAO prima di modificare dieta o farmaci.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <button id="intTabAlimBtn" onclick="switchIntTab('alim')"
+        style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#0d1117;font-weight:600;font-size:13px;cursor:pointer">
+        🥦 Alimenti &amp; Integratori
+      </button>
+      <button id="intTabFarmBtn" onclick="switchIntTab('farm')"
+        style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer">
+        💊 Farmaci
+      </button>
+    </div>
+    <div id="intPanelAlim"></div>
+    <div id="intPanelFarm" style="display:none"></div>
+  </div><!-- /tab-interazioni -->
+
 </main>
 
 <script>
@@ -985,13 +1007,14 @@ let appData = loadData();
 // ===================================================
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['upload','inr','terapia','strumenti'][i] === name);
+    b.classList.toggle('active', ['upload','inr','terapia','strumenti','interazioni'][i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if(name==='inr') renderINRTab();
   if(name==='terapia') renderTerapiaTab();
   if(name==='strumenti') initStrumenti();
+  if(name==='interazioni') { renderInterazioniAlim(); }
 }
 
 // ===================================================
@@ -2578,6 +2601,149 @@ function resetRingtone() {
 
 function getRingtoneUri() {
   return localStorage.getItem(RINGTONE_KEY) || null;
+}
+
+// ===================================================
+// INTERAZIONI TAB
+// ===================================================
+function renderInterazioniAlim() {
+  const p = document.getElementById('intPanelAlim');
+  if(!p || p.dataset.rendered) return;
+  p.dataset.rendered = '1';
+  p.innerHTML = `
+    <div style="background:rgba(240,136,62,0.12);border:1px solid rgba(240,136,62,0.4);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7;color:var(--text)">
+      ⚠️ <strong>Effetto cumulativo:</strong> Consumare più alimenti 🟡 nello stesso pasto somma l'effetto sulla vitamina K.
+      Non combinare più di <strong>2 alimenti gialli</strong> nello stesso pasto.
+      La chiave è la <strong>costanza</strong> — non eliminare, ma mantenere quantità regolari nel tempo.
+    </div>
+
+    <div class="section-title" style="color:var(--danger)">🔴 Evitare o ridurre drasticamente</div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Alto contenuto di vitamina K — riducono l'effetto del Coumadin</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${renderFoodItems(['Cavolo riccio / kale','Spinaci','Bietola','Prezzemolo (solo come ornamento è ok)','Verze / cavolo verde','Basilico, salvia, origano (grandi quantità)','Cime di rapa','Crescione','Succo di mirtillo / cranberry','Succo di pompelmo','Superalcolici','Fegato di manzo o pollo','Bevande energetiche (Red Bull e simili)'],'red')}
+      </div>
+    </div>
+
+    <div class="section-title" style="color:var(--warn)">🟡 Moderare — consumo regolare e costante</div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Consumare in quantità costanti — le variazioni brusche sono pericolose quanto le eccessive</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${renderFoodItems([['Broccoli','max 80g/giorno'],['Cavoletti di Bruxelles','max 80g/giorno'],['Cavolo cappuccio / cavolfiore','max 100g/giorno'],['Lattuga / insalata verde','max 50g/giorno'],['Asparagi','max 100g/giorno'],['Radicchio','max 80g/giorno'],['Cipolla verde / erba cipollina','max 20g/giorno'],['Avocado','max 50g (¼ frutto)'],['Piselli e fagioli','max 80g/giorno'],['Olive','max 30g (~10 olive)'],['Olio di soia / canola','max 1 cucchiaio (15ml)'],['Cereali integrali','max 80g/giorno'],['Tè verde','max 1 tazza/giorno'],['Alcool','max 1 bicchiere vino o 1 birra'],['Caffè / bevande con caffeina','max 2-3 tazze/giorno'],['Zenzero','max 2g (1 cucchiaino)'],['Curcuma','max 1g (½ cucchiaino)'],['Aglio','max 1 spicchio/giorno'],['Soia / latte di soia','moderare']],'warn')}
+      </div>
+    </div>
+
+    <div class="section-title" style="color:var(--accent2)">🟢 Nessun problema significativo</div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${renderFoodItems(['Carne (tranne fegato), pesce, uova','Frutta fresca (escluso pompelmo)','Pasta e riso bianchi, pane bianco','Patate','Pomodori','Carote','Peperoni','Funghi','Formaggi, latte, latticini','Zucchine','Olio d\'oliva (moderato)'],'green')}
+      </div>
+    </div>
+
+    <div class="section-title">🌿 Integratori e rimedi naturali</div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-size:12px;color:var(--warn);font-weight:600;margin-bottom:8px">⬆️ Aumentano l'effetto (rischio emorragia)</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
+        ${renderFoodItems(['Ginkgo biloba','Aglio (alte dosi)','Zenzero (alte dosi)','Curcuma','Omega-3 / olio di pesce (alte dosi)','Vitamina E (alte dosi)','Mirtillo / cranberry'],'warn')}
+      </div>
+      <div style="font-size:12px;color:var(--danger);font-weight:600;margin-bottom:8px">⬇️ Diminuiscono l'effetto (rischio trombosi)</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${renderFoodItems(['Erba di San Giovanni / Hypericum ⛔ VIETATO con Coumadin','Ginseng','Coenzima Q10','Semi di lino','Multivitaminici con vitamina K'],'warn')}
+      </div>
+    </div>`;
+}
+
+function renderInterazioniFarm() {
+  const p = document.getElementById('intPanelFarm');
+  if(!p || p.dataset.rendered) return;
+  p.dataset.rendered = '1';
+  p.innerHTML = `
+    <div style="background:rgba(255,123,114,0.1);border:1px solid rgba(255,123,114,0.3);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7">
+      ⚠️ <strong>Attenzione:</strong> Qualsiasi nuovo farmaco, anche da banco, va comunicato al medico o al centro TAO <strong>prima</strong> di assumerlo.
+      Anche la <strong>sospensione</strong> di un farmaco può alterare l'INR.
+    </div>
+
+    <div class="section-title" style="color:var(--danger)">🔴 Aumentano l'effetto — rischio emorragia (INR sale)</div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antinfiammatori e antidolorifici</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${renderFoodItems(['Aspirina / acido acetilsalicilico (anche da banco)','Ibuprofene, diclofenac, naprossene (FANS)','Paracetamolo (dosi elevate)'],'red')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antibiotici e antifungini</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${renderFoodItems(['Ciprofloxacina, metronidazolo, eritromicina','Fluconazolo, miconazolo, ketoconazolo','Sulfamidici, cotrimossazolo','Antibiotici a largo spettro in genere'],'red')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Cardiologici</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${renderFoodItems(['Amiodarone (molto potente)','Propafenone','Statine (simvastatina, atorvastatina)'],'red')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Gastrointestinali</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${renderFoodItems(['Omeprazolo, esomeprazolo','Cimetidina','Orlistat'],'red')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Altri</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${renderFoodItems(['SSRI antidepressivi (fluoxetina, sertralina, paroxetina)','Tamossifene','Allopurinolo','Leflunomide'],'red')}
+      </div>
+    </div>
+
+    <div class="section-title" style="color:var(--warn)">🟡 Diminuiscono l'effetto — rischio trombosi (INR scende)</div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antiepilettici</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${renderFoodItems(['Carbamazepina','Barbiturici (fenobarbital)','Fenitoina (effetto variabile)'],'warn')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antibiotici</div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${renderFoodItems(['Rifampicina (molto potente)','Nafcillina, dicloxacillina'],'warn')}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Altri</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${renderFoodItems(['Vitamina K (supplementi)','Colestiramina','Azatioprina / mercaptopurina'],'warn')}
+      </div>
+    </div>`;
+}
+
+function switchIntTab(tab) {
+  const alimBtn = document.getElementById('intTabAlimBtn');
+  const farmBtn = document.getElementById('intTabFarmBtn');
+  const alimPanel = document.getElementById('intPanelAlim');
+  const farmPanel = document.getElementById('intPanelFarm');
+  if(!alimBtn) return;
+
+  if(tab === 'alim') {
+    renderInterazioniAlim();
+    alimPanel.style.display = 'block';
+    farmPanel.style.display = 'none';
+    alimBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#0d1117;font-weight:600;font-size:13px;cursor:pointer';
+    farmBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer';
+  } else {
+    renderInterazioniFarm();
+    farmPanel.style.display = 'block';
+    alimPanel.style.display = 'none';
+    farmBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#0d1117;font-weight:600;font-size:13px;cursor:pointer';
+    alimBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer';
+  }
+}
+
+function renderFoodItems(items, type) {
+  const colors = {
+    red:  { bg: 'rgba(255,123,114,0.1)', border: 'rgba(255,123,114,0.3)', dot: '#ff7b72' },
+    warn: { bg: 'rgba(240,136,62,0.1)',  border: 'rgba(240,136,62,0.3)',  dot: '#f0883e' },
+    green:{ bg: 'rgba(63,185,80,0.1)',   border: 'rgba(63,185,80,0.3)',   dot: '#3fb950' },
+  };
+  const col = colors[type] || colors.warn;
+  return items.map(item => {
+    const name = Array.isArray(item) ? item[0] : item;
+    const qty  = Array.isArray(item) ? item[1] : null;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:${col.bg};border:1px solid ${col.border};border-radius:8px;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${col.dot};flex-shrink:0"></span>
+        <span style="font-size:13px;color:var(--text)">${name}</span>
+      </div>
+      ${qty ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap">${qty}</span>` : ''}
+    </div>`;
+  }).join('');
 }
 
 // ===================================================
