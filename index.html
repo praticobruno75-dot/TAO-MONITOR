@@ -1287,8 +1287,16 @@ function initChartScrollSync() {
   const inrWrap  = document.getElementById('inrChartWrap');
   const doseWrap = document.getElementById('doseChartWrap');
   if(!inrWrap || !doseWrap) return;
-  inrWrap.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
-  doseWrap.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
+  // Remove old listeners by cloning (prevents duplicate listeners)
+  const newInr  = inrWrap.cloneNode(false);
+  const newDose = doseWrap.cloneNode(false);
+  // Move children
+  while(inrWrap.firstChild)  newInr.appendChild(inrWrap.firstChild);
+  while(doseWrap.firstChild) newDose.appendChild(doseWrap.firstChild);
+  inrWrap.parentNode.replaceChild(newInr, inrWrap);
+  doseWrap.parentNode.replaceChild(newDose, doseWrap);
+  newInr.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
+  newDose.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
 }
 
 function scrollChart_old(delta) {
@@ -1430,8 +1438,8 @@ function _renderINRChartData(data) {
     wrapEl.style.touchAction = 'pan-x';
     setTimeout(() => {
       wrapEl.scrollLeft = wrapEl.scrollWidth;
-      console.log('[TAO] SVG scrollWidth:', wrapEl.scrollWidth, 'clientWidth:', wrapEl.clientWidth);
-    }, 50);
+      initChartScrollSync();
+    }, 100);
   }
 }
 
@@ -1476,8 +1484,16 @@ function initChartScrollSync() {
   const inrWrap  = document.getElementById('inrChartWrap');
   const doseWrap = document.getElementById('doseChartWrap');
   if(!inrWrap || !doseWrap) return;
-  inrWrap.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
-  doseWrap.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
+  // Remove old listeners by cloning (prevents duplicate listeners)
+  const newInr  = inrWrap.cloneNode(false);
+  const newDose = doseWrap.cloneNode(false);
+  // Move children
+  while(inrWrap.firstChild)  newInr.appendChild(inrWrap.firstChild);
+  while(doseWrap.firstChild) newDose.appendChild(doseWrap.firstChild);
+  inrWrap.parentNode.replaceChild(newInr, inrWrap);
+  doseWrap.parentNode.replaceChild(newDose, doseWrap);
+  newInr.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
+  newDose.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
 }
 
 function scrollChart_old(delta) {
@@ -1665,7 +1681,7 @@ function renderDoseChart(sorted) {
     const x = xScale(i) - barW/2;
     const y = yScale(v);
     const h = yScale(dMin) - y;
-    const label = v ? v+' mg' : '';
+    const label = v ? String(v) : '';
 
     svg += `<rect x="${x}" y="${y}" width="${barW}" height="${h}" fill="rgba(88,166,255,0.25)" stroke="#58a6ff" stroke-width="1.5" rx="4"/>`;
 
