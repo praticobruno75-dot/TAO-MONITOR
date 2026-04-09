@@ -390,8 +390,8 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   <button class="tab-btn active" onclick="switchTab(&apos;upload&apos;)">📄 Carica PDF</button>
   <button class="tab-btn" onclick="switchTab(&apos;inr&apos;)">📈 Storico INR</button>
   <button class="tab-btn" onclick="switchTab(&apos;terapia&apos;)">💊 Terapia</button>
-  <button class="tab-btn" onclick="switchTab(&apos;strumenti&apos;)">🛠 Strumenti</button>
   <button class="tab-btn" onclick="switchTab(&apos;interazioni&apos;)">⚠️ Interazioni</button>
+  <button class="tab-btn" onclick="switchTab(&apos;strumenti&apos;)">🛠 Strumenti</button>
 </nav>
 
 <main>
@@ -1007,7 +1007,7 @@ let appData = loadData();
 // ===================================================
 function switchTab(name) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    b.classList.toggle('active', ['upload','inr','terapia','strumenti','interazioni'][i] === name);
+    b.classList.toggle('active', ['upload','inr','terapia','interazioni','strumenti'][i] === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
