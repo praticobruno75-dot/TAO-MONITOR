@@ -1215,13 +1215,18 @@ function renderINRTab() {
   const sorted = [...data.controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
   const latest = sorted[sorted.length-1];
   const inRange = sorted.filter(c=>c.rangeMin&&c.rangeMax&&c.inr>=c.rangeMin&&c.inr<=c.rangeMax).length;
-  const pct = sorted.length>0?Math.round(inRange/sorted.length*100):0;
   const avgINR = sorted.length>0?(sorted.reduce((s,c)=>s+c.inr,0)/sorted.length).toFixed(2):'—';
+
+  // Rosendaal TTR calculation
+  const ttrResult = calcRosendaalTTR(sorted);
+  const ttr = ttrResult.ttr;
+  const ttrDaysInRange = ttrResult.daysInRange;
+  const ttrTotalDays = ttrResult.totalDays;
   document.getElementById('inrCards').innerHTML = `
     <div class="card"><div class="card-label">Ultimo INR</div><div class="card-value ${inrClass(latest.inr,latest.rangeMin,latest.rangeMax)}">${latest.inr}</div><div class="card-sub">${latest.data}</div></div>
     <div class="card"><div class="card-label">Range</div><div class="card-value" style="font-size:20px">${latest.rangeMin||'—'}–${latest.rangeMax||'—'}</div><div class="card-sub">Target: ${latest.target||'—'}</div></div>
     <div class="card"><div class="card-label">INR Medio</div><div class="card-value">${avgINR}</div><div class="card-sub">su ${sorted.length} controlli</div></div>
-    <div class="card"><div class="card-label">% In range</div><div class="card-value ${pct>=70?'inr-good':pct>=50?'inr-warn':'inr-bad'}">${pct}%</div><div class="card-sub">${inRange}/${sorted.length} controlli</div></div>`;
+    <div class="card"><div class="card-label">TTR Rosendaal</div><div class="card-value ${ttr>=70?'inr-good':ttr>=50?'inr-warn':'inr-bad'}">${ttr}%</div><div class="card-sub">${ttrDaysInRange}gg in range su ${ttrTotalDays}gg</div></div>`;
   inrAllData = sorted; inrRangeMonths = 0;
   // Use requestAnimationFrame to ensure DOM is painted before measuring width
   requestAnimationFrame(() => {
@@ -2604,6 +2609,83 @@ function getRingtoneUri() {
 }
 
 // ===================================================
+// ROSENDAAL TTR CALCULATION
+// ===================================================
+function calcRosendaalTTR(sorted) {
+  if(!sorted || sorted.length < 2) {
+    return { ttr: 0, daysInRange: 0, totalDays: 0 };
+  }
+
+  let daysInRange = 0;
+  let totalDays = 0;
+
+  for(let i = 0; i < sorted.length - 1; i++) {
+    const curr = sorted[i];
+    const next = sorted[i + 1];
+
+    // Get range for this interval (use current measurement's range)
+    const rMin = curr.rangeMin || 2.0;
+    const rMax = curr.rangeMax || 3.0;
+
+    // Calculate days between measurements
+    const d1 = parseDate(curr.data);
+    const d2 = parseDate(next.data);
+    const intervalDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
+    if(intervalDays <= 0) continue;
+
+    totalDays += intervalDays;
+
+    const inr1 = curr.inr;
+    const inr2 = next.inr;
+
+    // Both in range
+    if(inr1 >= rMin && inr1 <= rMax && inr2 >= rMin && inr2 <= rMax) {
+      daysInRange += intervalDays;
+      continue;
+    }
+
+    // Both out of range (same side)
+    if((inr1 < rMin && inr2 < rMin) || (inr1 > rMax && inr2 > rMax)) {
+      continue; // 0 days in range
+    }
+
+    // Linear interpolation — find crossing points
+    // INR changes linearly from inr1 to inr2 over intervalDays
+    const slope = (inr2 - inr1) / intervalDays;
+
+    let enterDay = 0, exitDay = intervalDays;
+
+    // Find when INR enters range (from below or above)
+    if(inr1 < rMin) {
+      // Entering from below: find day when INR = rMin
+      enterDay = (rMin - inr1) / slope;
+    } else if(inr1 > rMax) {
+      // Entering from above: find day when INR = rMax
+      enterDay = (rMax - inr1) / slope;
+    }
+
+    // Find when INR exits range
+    if(inr2 < rMin) {
+      // Exiting below: find day when INR = rMin
+      exitDay = (rMin - inr1) / slope;
+    } else if(inr2 > rMax) {
+      // Exiting above: find day when INR = rMax
+      exitDay = (rMax - inr1) / slope;
+    }
+
+    const daysIn = Math.max(0, Math.min(exitDay, intervalDays) - Math.max(enterDay, 0));
+    daysInRange += daysIn;
+  }
+
+  const ttr = totalDays > 0 ? Math.round(daysInRange / totalDays * 100) : 0;
+  return {
+    ttr,
+    daysInRange: Math.round(daysInRange),
+    totalDays: Math.round(totalDays)
+  };
+}
+
+// ===================================================
 // INTERAZIONI TAB
 // ===================================================
 function renderInterazioniAlim() {
@@ -3694,8 +3776,9 @@ async function generatePDFReport() {
   const target   = filtered[0].target   || 2.5;
   const avgINR   = (filtered.reduce((s,c)=>s+c.inr,0)/filtered.length).toFixed(2);
   const inRange  = filtered.filter(c=>c.inr>=rangeMin&&c.inr<=rangeMax).length;
-  const pctRange = Math.round(inRange/filtered.length*100);
-  const latestTIR = filtered[filtered.length-1].tempoInRange;
+  const ttrData  = calcRosendaalTTR(filtered);
+  const pctRange = ttrData.ttr;
+  const latestTIR = ttrData.ttr;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
@@ -3742,7 +3825,7 @@ async function generatePDFReport() {
     { label:'Controlli', value: String(filtered.length), color:[88,166,255] },
     { label:'INR Medio', value: avgINR, color: parseFloat(avgINR)>=rangeMin&&parseFloat(avgINR)<=rangeMax?[63,185,80]:[240,136,62] },
     { label:'% In range', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
-    { label:'Tempo in range', value: latestTIR ? latestTIR+'%' : '—', color: latestTIR&&latestTIR>=70?[63,185,80]:[125,133,144] },
+    { label:'TTR Rosendaal', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
   ];
   stats.forEach((s,i) => {
     const bx = margin + i*(statBoxW+3);
