@@ -2923,17 +2923,14 @@ function getDoseGiornaliera() {
   const therapies = getAllTherapies();
   if(!therapies.length) return 1;
   const t = therapies[therapies.length - 1];
-  const doseUnitaMg = t.doseUnitaMg || 5;
-  // Get average daily dose from plan
+  // getDayDoseFromTherapy already returns compresse/giorno (not mg)
   const days = getTherapyDays(t);
   if(!days.length) return 1;
   let totalDose = 0;
   days.forEach(d => {
-    const dose = getDayDoseFromTherapy(t, d) || 0;
-    totalDose += dose;
+    totalDose += getDayDoseFromTherapy(t, d) || 0;
   });
-  const avgDailyMg = totalDose / days.length;
-  return avgDailyMg / doseUnitaMg; // compresse/giorno
+  return totalDose / days.length; // compresse/giorno
 }
 
 function updateScortaDisplay() {
@@ -3239,6 +3236,8 @@ function addDiarioEntry(dateStr, entry) {
   if(!d[dateStr]) d[dateStr] = [];
   d[dateStr].push(entry);
   saveDiario(d);
+  // Sync to Firebase
+  fbAutoSync();
 }
 
 function removeDiarioEntry(dateStr, idx) {
@@ -3248,6 +3247,8 @@ function removeDiarioEntry(dateStr, idx) {
     if(!d[dateStr].length) delete d[dateStr];
   }
   saveDiario(d);
+  // Sync to Firebase
+  fbAutoSync();
 }
 
 function getDiarioForPeriod(dateFrom, dateTo) {
@@ -4059,6 +4060,15 @@ function fbStartRealtimeSync() {
     if(remoteTime > localTime) {
       // Remote is newer: update local silently
       const merged = fbMergeData(remoteData, localData);
+      // Restore diario from remote if present
+      if(remoteData.tao_diario) {
+        const localDiario = loadDiario();
+        const remoteDiario = remoteData.tao_diario;
+        // Merge: combine both, remote wins for same date
+        const mergedDiario = Object.assign({}, localDiario, remoteDiario);
+        localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
+        delete merged.tao_diario;
+      }
       saveData(merged);
       appData = merged;
       calInitialized = false;
@@ -4166,6 +4176,12 @@ async function fbSyncNow(silent=false) {
       if(remoteTime > localTime) {
         const merged = fbMergeData(remoteData, localData);
         merged._syncTime = remoteTime;
+        // Restore diario from remote if present
+        if(remoteData.tao_diario) {
+          const mergedDiario = Object.assign({}, loadDiario(), remoteData.tao_diario);
+          localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
+          delete merged.tao_diario;
+        }
         saveData(merged);
         appData = merged;
         calInitialized = false;
@@ -4190,8 +4206,13 @@ async function fbUploadData(data) {
   const { doc, setDoc } = window._firebaseModules;
   data._syncTime = Date.now();
   saveData(data);
+
+  // Include diario alimentare in sync
+  const diario = loadDiario();
+  const dataWithDiario = Object.assign({}, data, { tao_diario: diario });
+
   const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-  await setDoc(docRef, data);
+  await setDoc(docRef, dataWithDiario);
 }
 
 async function fbForceUpload() {
@@ -4209,6 +4230,11 @@ async function fbForceDownload() {
   const snapshot = await getDoc(docRef);
   if(!snapshot.exists()) { setFbSyncStatus('⚠️ Nessun dato sul cloud.', 'warn'); return; }
   const data = snapshot.data();
+  // Restore diario if present
+  if(data.tao_diario) {
+    localStorage.setItem(DIARIO_KEY, JSON.stringify(data.tao_diario));
+    delete data.tao_diario;
+  }
   saveData(data);
   appData = data;
   calInitialized = false;
