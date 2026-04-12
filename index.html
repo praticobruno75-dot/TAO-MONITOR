@@ -661,19 +661,28 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 
       <!-- Email medico -->
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-        <div class="modal-label" style="margin-bottom:8px">Email medico di base</div>
+        <div class="modal-label" style="margin-bottom:6px">Email medico di base</div>
+        <input type="email" id="medicoEmail" class="modal-input" placeholder="dott@esempio.it" style="width:100%;margin-bottom:10px">
+
+        <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
+        <input type="text" id="medicoOggetto" class="modal-input"
+          placeholder="es. Richiesta ricetta Coumadin" style="width:100%;margin-bottom:10px">
+
+        <div class="modal-label" style="margin-bottom:4px">Testo email</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
+          Puoi usare: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{farmaco}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{giorni}</code>
+        </div>
+        <textarea id="medicoTesto" class="modal-input"
+          placeholder="es. Gentile Dottoressa, sono {nome} (CF: {cf}). Richiedo la prescrizione di {farmaco}. Scorta rimanente: {giorni} giorni. Grazie."
+          style="width:100%;height:100px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
+
         <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input type="email" id="medicoEmail" class="modal-input" placeholder="dott@esempio.it" style="flex:1">
-          <button onclick="saveMedicoEmail()" class="btn-secondary" style="padding:10px 14px">💾</button>
+          <button onclick="saveMedicoConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
+          <button onclick="inviaRichiestaMedico()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
         </div>
-        <div class="modal-label" style="margin-bottom:8px">Nome medico</div>
-        <div style="display:flex;gap:8px;margin-bottom:12px">
-          <input type="text" id="medicoNome" class="modal-input" placeholder="Dott.ssa Nome Cognome" style="flex:1">
-          <button onclick="saveMedicoNome()" class="btn-secondary" style="padding:10px 14px">💾</button>
-        </div>
-        <button onclick="inviaRichiestaMedico()" class="btn-primary" style="width:100%">
-          📧 Richiedi ricetta al medico
-        </button>
       </div>
     </div>
 
@@ -889,6 +898,21 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div id="intPanelFarm" style="display:none"></div>
   </div><!-- /tab-interazioni -->
 
+
+  <!-- SCORTA WARNING POPUP -->
+  <div class="modal-overlay" id="scortaPopup">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div id="scortaPopupIcon" style="font-size:48px;margin-bottom:8px">⚠️</div>
+      <div class="modal-title" id="scortaPopupTitle">Scorta farmaco in esaurimento</div>
+      <div id="scortaPopupMsg" style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6"></div>
+      <button onclick="inviaRichiestaMedico();closeScortaPopup()" class="btn-primary" style="width:100%;margin-bottom:10px;padding:12px">
+        📧 Invia richiesta ricetta al medico
+      </button>
+      <button onclick="closeScortaPopup()" id="scortaPopupClose" class="btn-secondary" style="width:100%;padding:10px">
+        ✕ Chiudi — ricordamelo domani
+      </button>
+    </div>
+  </div>
 
   <!-- DIARIO ALIMENTARE MODAL -->
   <div class="modal-overlay" id="diarioModal">
@@ -1155,7 +1179,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if(name==='inr') renderINRTab();
-  if(name==='terapia') renderTerapiaTab();
+  if(name==='terapia') { renderTerapiaTab(); showScortaPopupIfNeeded(); }
   if(name==='strumenti') initStrumenti();
   if(name==='interazioni') { renderInterazioniAlim(); }
 }
@@ -2990,58 +3014,62 @@ function updateScortaDisplay() {
   }
 }
 
-function saveMedicoEmail() {
-  const email = document.getElementById('medicoEmail').value.trim();
-  if(!email) return;
+function saveMedicoConfig() {
+  const email   = document.getElementById('medicoEmail')?.value.trim() || '';
+  const oggetto = document.getElementById('medicoOggetto')?.value.trim() || '';
+  const testo   = document.getElementById('medicoTesto')?.value.trim() || '';
   const medico = loadMedico();
-  medico.email = email;
+  if(email)   medico.email   = email;
+  if(oggetto) medico.oggetto = oggetto;
+  if(testo)   medico.testo   = testo;
   localStorage.setItem(MEDICO_KEY, JSON.stringify(medico));
-  showAutoBackupToast('✅ Email medico salvata');
+  fbAutoSync();
+  showAutoBackupToast('✅ Configurazione medico salvata');
 }
 
-function saveMedicoNome() {
-  const nome = document.getElementById('medicoNome').value.trim();
-  if(!nome) return;
-  const medico = loadMedico();
-  medico.nome = nome;
-  localStorage.setItem(MEDICO_KEY, JSON.stringify(medico));
-  showAutoBackupToast('✅ Nome medico salvato');
-}
+// Keep backward compat
+function saveMedicoEmail() { saveMedicoConfig(); }
+function saveMedicoNome()  { saveMedicoConfig(); }
 
 function inviaRichiestaMedico() {
   const medico = loadMedico();
   const therapies = getAllTherapies();
   const paz = therapies.length ? therapies[therapies.length-1].paziente : {};
-  const farmaco = therapies.length ? therapies[therapies.length-1].farmaco : 'COUMADIN 5mg';
+  const farmaco = (therapies.length ? therapies[therapies.length-1].farmaco : 'COUMADIN 5mg')
+    .replace(/[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]/g,'').trim();
   const scorta = loadScorta();
   const doseGiornaliera = getDoseGiornaliera();
   const giorniRimanenti = scorta && doseGiornaliera > 0
     ? Math.floor(scorta.compresse / doseGiornaliera) : '?';
-
-  const destinatario = medico.email || '';
-  const nomeMedico = medico.nome || 'Dottore/Dottoressa';
   const nomePaziente = paz.nome || 'Paziente';
   const cf = paz.codiceFiscale || '';
 
-  const oggetto = encodeURIComponent(`Richiesta ricetta ${farmaco} - ${nomePaziente}`);
-  const corpo = encodeURIComponent(
-    `Gentile ${nomeMedico},
+  // Replace variables in custom text
+  function fillVars(text) {
+    return text
+      .replace(/\{nome\}/gi, nomePaziente)
+      .replace(/\{cf\}/gi, cf)
+      .replace(/\{farmaco\}/gi, farmaco)
+      .replace(/\{giorni\}/gi, giorniRimanenti + ' giorni');
+  }
 
-` +
-    `sono ${nomePaziente}${cf ? ' (C.F.: ' + cf + ')' : ''}.
+  const destinatario = medico.email || '';
+  const oggettoRaw = medico.oggetto || `Richiesta ricetta ${farmaco} - ${nomePaziente}`;
+  const testoRaw = medico.testo ||
+    `Gentile Dottore/Dottoressa,
 
-` +
-    `La contatto per richiedere la prescrizione di ${farmaco}.
-` +
-    `Scorta rimanente: circa ${giorniRimanenti} giorni di terapia.
+sono ${nomePaziente}${cf ? ' (C.F.: ' + cf + ')' : ''}.
 
-` +
-    `La ringrazio per la disponibilità.
+La contatto per richiedere la prescrizione di ${farmaco}.
+Scorta rimanente: circa ${giorniRimanenti} giorni di terapia.
 
-` +
-    `Cordiali saluti,
-${nomePaziente}`
-  );
+La ringrazio per la disponibilità.
+
+Cordiali saluti,
+${nomePaziente}`;
+
+  const oggetto = encodeURIComponent(fillVars(oggettoRaw));
+  const corpo   = encodeURIComponent(fillVars(testoRaw));
 
   const mailtoUrl = `mailto:${destinatario}?subject=${oggetto}&body=${corpo}`;
   window.open(mailtoUrl, '_blank');
@@ -3049,12 +3077,64 @@ ${nomePaziente}`
 
 function initScortaDisplay() {
   const medico = loadMedico();
-  if(medico.email) document.getElementById('medicoEmail').value = medico.email;
-  if(medico.nome)  document.getElementById('medicoNome').value  = medico.nome;
+  const emailEl   = document.getElementById('medicoEmail');
+  const oggettoEl = document.getElementById('medicoOggetto');
+  const testoEl   = document.getElementById('medicoTesto');
+  if(emailEl   && medico.email)   emailEl.value   = medico.email;
+  if(oggettoEl && medico.oggetto) oggettoEl.value = medico.oggetto;
+  if(testoEl   && medico.testo)   testoEl.value   = medico.testo;
   updateScortaDisplay();
 }
 
 // Check scorta warning at startup
+function showScortaPopupIfNeeded() {
+  const scorta = loadScorta();
+  if(!scorta) return;
+  const doseGiornaliera = getDoseGiornaliera();
+  const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(scorta.compresse / doseGiornaliera) : 999;
+
+  if(giorniRimanenti > 10) return;
+
+  const isCritical = giorniRimanenti <= 3;
+
+  if(!isCritical) {
+    // ≤10 giorni: show once per day
+    const lastShown = localStorage.getItem('tao_scorta_popup_date');
+    const today = formatDate(new Date());
+    if(lastShown === today) return;
+    localStorage.setItem('tao_scorta_popup_date', today);
+  }
+  // ≤3 giorni: always show
+
+  // Show popup
+  const popup = document.getElementById('scortaPopup');
+  const icon  = document.getElementById('scortaPopupIcon');
+  const title = document.getElementById('scortaPopupTitle');
+  const msg   = document.getElementById('scortaPopupMsg');
+  const closeBtn = document.getElementById('scortaPopupClose');
+  if(!popup) return;
+
+  if(isCritical) {
+    icon.textContent = '⛔';
+    title.textContent = 'Scorta farmaco critica!';
+    title.style.color = 'var(--danger)';
+    msg.textContent = `Rimangono solo ${giorniRimanenti} giorni di terapia. Richiedi immediatamente la ricetta al medico.`;
+    closeBtn.textContent = '✕ Chiudi';
+  } else {
+    icon.textContent = '⚠️';
+    title.textContent = 'Scorta farmaco in esaurimento';
+    title.style.color = 'var(--warn)';
+    msg.textContent = `Rimangono circa ${giorniRimanenti} giorni di terapia. Ricorda di richiedere la ricetta al medico.`;
+    closeBtn.textContent = '✕ Chiudi — ricordamelo domani';
+  }
+
+  popup.classList.add('active');
+}
+
+function closeScortaPopup() {
+  document.getElementById('scortaPopup')?.classList.remove('active');
+}
+
 function showScortaBanner() {
   const banner = document.getElementById('scortaBanner');
   if(!banner) return;
@@ -5057,6 +5137,39 @@ async function cancelNativeAlarm(dateStr) {
   }
 }
 
+async function checkPendingConfirmFromNative() {
+  if(!window.isCapacitor) return;
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+    const result = await AlarmPlugin.checkPendingConfirm();
+    if(!result || !result.confirms) return;
+
+    const confirms = JSON.parse(result.confirms);
+    if(!confirms.length) return;
+
+    appData = loadData();
+    if(!appData.taken) appData.taken = {};
+    if(!appData.takenTimes) appData.takenTimes = {};
+    if(!appData.takenEditTimes) appData.takenEditTimes = {};
+
+    confirms.forEach(entry => {
+      console.log('[TAO] Processing pending confirm:', entry.date, entry.time);
+      appData.taken[entry.date] = true;
+      appData.takenTimes[entry.date] = entry.time || '';
+      appData.takenEditTimes[entry.date] = Date.now();
+    });
+
+    saveData(appData);
+    fbAutoSync();
+    renderTerapiaTab();
+
+    // No toast — assunzioni visibili direttamente nel calendario
+  } catch(e) {
+    console.warn('[TAO] checkPendingConfirm error:', e);
+  }
+}
+
 function initCapacitor() {
   if(!window.isCapacitor) return;
   console.log('[CAP] Running in Capacitor native app');
@@ -5207,7 +5320,7 @@ initCapacitor();
 initRingtoneUI();
 initBatteryOptUI();
 // Re-render terapia after short delay to ensure data is loaded
-setTimeout(() => { renderTerapiaTab(); showControlloCountdownBanner(); saveControlloDateForNative(); checkScortaWarning();
+setTimeout(() => { renderTerapiaTab(); showControlloCountdownBanner(); saveControlloDateForNative(); checkScortaWarning(); showScortaPopupIfNeeded(); checkPendingConfirmFromNative();
     // Sync volume to native
     if(window.isCapacitor) {
       const vol = parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80');
