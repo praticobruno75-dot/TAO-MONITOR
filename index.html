@@ -214,6 +214,12 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 .range-btn.active{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent);font-weight:600}
 @media(max-width:640px){main{padding:16px}header{padding:14px 16px}nav{padding:12px 16px 0;overflow-x:auto}.tab-btn{white-space:nowrap}.cards-grid{grid-template-columns:repeat(2,1fr)}.cal-grid{gap:3px}.cal-day{min-height:90px;padding:6px 4px}.dose-circle{width:44px;height:44px}.dose-circle-num{font-size:13px}}
 
+@keyframes pulseWarn {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.01); }
+}
+.scorta-pulse { animation: pulseWarn 1.8s ease-in-out infinite; }
+
 /* Prevent text selection on long press for interactive elements */
 .cal-day, .cal-day *, .cal-header, .list-item, .plan-card,
 .alarm-btn-confirm, .alarm-snooze-btn, .alarm-btn-close,
@@ -490,7 +496,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <!-- Controllo INR countdown banner -->
       <div id="controlloBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid;font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5"></div>
       <!-- Scorta farmaco warning banner -->
-      <button id="scortaBanner" onclick="inviaRichiestaMedico()" style="display:none;width:100%;padding:14px 16px;border-radius:10px;border:2px solid rgba(240,136,62,0.6);background:rgba(240,136,62,0.15);font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.5;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;color:var(--warn)"></button>
+      <button id="scortaBanner" onclick="inviaRichiestaMedico()" class="scorta-pulse" style="display:none;width:100%;padding:14px 16px;border-radius:10px;border:2px solid rgba(240,136,62,0.6);background:rgba(240,136,62,0.15);font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.5;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;color:var(--warn)"></button>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div class="section-title" style="margin:0">💊 Piano terapeutico</div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
@@ -3214,22 +3220,22 @@ const DIARIO_ITEMS = {
   alimenti_rossi: {
     label: '🔴 Alimenti da evitare',
     colore: 'red',
-    items: ['Cavolo riccio / kale','Spinaci','Bietola','Prezzemolo (grandi quantità)','Verze / cavolo verde','Cime di rapa','Crescione','Succo di mirtillo / cranberry','Succo di pompelmo','Superalcolici','Fegato di manzo o pollo','Bevande energetiche']
+    items: ['Bevande energetiche','Bietola','Cime di rapa','Cavolo riccio / kale','Crescione','Fegato di manzo o pollo','Prezzemolo (grandi quantità)','Spinaci','Succo di mirtillo / cranberry','Succo di pompelmo','Superalcolici','Verze / cavolo verde']
   },
   alimenti_gialli: {
     label: '🟡 Alimenti da moderare',
     colore: 'warn',
-    items: ['Broccoli','Cavoletti di Bruxelles','Cavolo / cavolfiore','Lattuga / insalata verde','Asparagi','Radicchio','Cipolla verde / erba cipollina','Avocado','Piselli e fagioli','Olive','Olio di soia / canola','Cereali integrali','Tè verde','Alcool','Caffè','Zenzero','Curcuma','Aglio','Soia / latte di soia']
+    items: ['Aglio','Alcool','Asparagi','Avocado','Broccoli','Caffè','Cavoletti di Bruxelles','Cavolo / cavolfiore','Cereali integrali','Cipolla verde / erba cipollina','Curcuma','Lattuga / insalata verde','Olio di soia / canola','Olive','Piselli e fagioli','Radicchio','Soia / latte di soia','Tè verde','Zenzero']
   },
   integratori: {
     label: '🌿 Integratori',
     colore: 'warn',
-    items: ['Ginkgo biloba','Aglio concentrato','Omega-3 / olio di pesce','Vitamina E','Mirtillo / cranberry','Erba di San Giovanni','Ginseng','Coenzima Q10','Semi di lino','Vitamina K']
+    items: ['Aglio concentrato','Coenzima Q10','Erba di San Giovanni','Ginkgo biloba','Ginseng','Mirtillo / cranberry','Omega-3 / olio di pesce','Semi di lino','Vitamina E','Vitamina K']
   },
   farmaci: {
     label: '💊 Farmaci',
     colore: 'red',
-    items: ['Aspirina / acido acetilsalicilico','Ibuprofene / FANS','Paracetamolo (dosi elevate)','Amiodarone','Statine','Omeprazolo / esomeprazolo','SSRI antidepressivi','Rifampicina','Carbamazepina / barbiturici','Antibiotici','Antifungini']
+    items: ['Amiodarone','Antibiotici','Antifungini','Aspirina / acido acetilsalicilico','Carbamazepina / barbiturici','Ibuprofene / FANS','Omeprazolo / esomeprazolo','Paracetamolo (dosi elevate)','Rifampicina','SSRI antidepressivi','Statine']
   }
 };
 
@@ -3553,7 +3559,21 @@ function renderInterazioniAlim() {
     <div class="card" style="margin-bottom:16px;padding:12px 16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Alto contenuto di vitamina K — riducono l'effetto del Coumadin</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems(['Cavolo riccio / kale','Spinaci','Bietola','Prezzemolo (solo come ornamento è ok)','Verze / cavolo verde','Basilico, salvia, origano (grandi quantità)','Cime di rapa','Crescione','Succo di mirtillo / cranberry','Succo di pompelmo','Superalcolici','Fegato di manzo o pollo','Bevande energetiche (Red Bull e simili)'],'red')}
+        ${renderFoodItems([
+          ['Basilico, salvia, origano','max 5g/settimana come condimento'],
+          ['Bevande energetiche (Red Bull e simili)','evitare'],
+          ['Bietola','evitare o max 50g/settimana'],
+          ['Cavolo riccio / kale','evitare o max 50g/settimana'],
+          ['Cime di rapa','evitare o max 50g/settimana'],
+          ['Crescione','evitare o max 50g/settimana'],
+          ['Fegato di manzo o pollo','max 100g/settimana'],
+          ['Prezzemolo','solo come ornamento'],
+          ['Spinaci','evitare o max 50g/settimana'],
+          ['Succo di mirtillo / cranberry','evitare'],
+          ['Succo di pompelmo','evitare'],
+          ['Superalcolici','evitare'],
+          ['Verze / cavolo verde','evitare o max 50g/settimana']
+        ],'red')}
       </div>
     </div>
 
@@ -3561,7 +3581,27 @@ function renderInterazioniAlim() {
     <div class="card" style="margin-bottom:16px;padding:12px 16px">
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Consumare in quantità costanti — le variazioni brusche sono pericolose quanto le eccessive</div>
       <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems([['Broccoli','max 80g/giorno'],['Cavoletti di Bruxelles','max 80g/giorno'],['Cavolo cappuccio / cavolfiore','max 100g/giorno'],['Lattuga / insalata verde','max 50g/giorno'],['Asparagi','max 100g/giorno'],['Radicchio','max 80g/giorno'],['Cipolla verde / erba cipollina','max 20g/giorno'],['Avocado','max 50g (¼ frutto)'],['Piselli e fagioli','max 80g/giorno'],['Olive','max 30g (~10 olive)'],['Olio di soia / canola','max 1 cucchiaio (15ml)'],['Cereali integrali','max 80g/giorno'],['Tè verde','max 1 tazza/giorno'],['Alcool','max 1 bicchiere vino o 1 birra'],['Caffè / bevande con caffeina','max 2-3 tazze/giorno'],['Zenzero','max 2g (1 cucchiaino)'],['Curcuma','max 1g (½ cucchiaino)'],['Aglio','max 1 spicchio/giorno'],['Soia / latte di soia','moderare']],'warn')}
+        ${renderFoodItems([
+          ['Aglio','max 1 spicchio/giorno'],
+          ['Alcool','max 1 bicchiere vino o 1 birra'],
+          ['Asparagi','max 100g/giorno'],
+          ['Avocado','max 50g (¼ frutto)'],
+          ['Broccoli','max 80g/giorno'],
+          ['Caffè / bevande con caffeina','max 2-3 tazze/giorno'],
+          ['Cavoletti di Bruxelles','max 80g/giorno'],
+          ['Cavolo cappuccio / cavolfiore','max 100g/giorno'],
+          ['Cereali integrali','max 80g/giorno'],
+          ['Cipolla verde / erba cipollina','max 20g/giorno'],
+          ['Curcuma','max 1g (½ cucchiaino)'],
+          ['Lattuga / insalata verde','max 50g/giorno'],
+          ['Olio di soia / canola','max 1 cucchiaio (15ml)'],
+          ['Olive','max 30g (~10 olive)'],
+          ['Piselli e fagioli','max 80g/giorno'],
+          ['Radicchio','max 80g/giorno'],
+          ['Soia / latte di soia','moderare'],
+          ['Tè verde','max 1 tazza/giorno'],
+          ['Zenzero','max 2g (1 cucchiaino)']
+        ],'warn')}
       </div>
     </div>
 
