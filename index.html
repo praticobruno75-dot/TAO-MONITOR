@@ -488,7 +488,9 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div id="terapiaEmpty" class="empty-state"><div class="empty-icon">💊</div><div class="empty-title">Nessuna terapia</div><div>Carica un PDF per iniziare</div></div>
     <div id="terapiaContent" style="display:none">
       <!-- Controllo INR countdown banner -->
-      <div id="controlloBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid;font-size:13px;font-weight:500;margin-bottom:16px;line-height:1.5"></div>
+      <div id="controlloBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid;font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5"></div>
+      <!-- Scorta farmaco warning banner -->
+      <div id="scortaBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid rgba(240,136,62,0.4);background:rgba(240,136,62,0.1);font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5;cursor:pointer" onclick="switchTab('strumenti')"></div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div class="section-title" style="margin:0">💊 Piano terapeutico</div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
@@ -617,6 +619,70 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
           ↩ Predefinita
         </button>
       </div>
+    </div>
+
+    <!-- SCORTA FARMACO -->
+    <div class="section-title">💊 Scorta farmaco</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Inserisci la scorta attuale di <strong>COUMADIN</strong>. L'app calcolerà automaticamente
+        quando richiedere la ricetta al medico.
+      </div>
+
+      <!-- Scorta display -->
+      <div id="scortaDisplay" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">COMPRESSE DISPONIBILI</div>
+          <div id="scortaCount" style="font-size:28px;font-weight:700;color:var(--accent2)">—</div>
+          <div id="scortaGiorni" style="font-size:11px;color:var(--muted)"></div>
+        </div>
+        <div id="scortaWarning" style="display:none;font-size:13px;color:var(--warn);text-align:right;max-width:160px;line-height:1.5"></div>
+      </div>
+
+      <!-- Input nuova scorta -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="number" id="scortaInput" class="modal-input" placeholder="N. compresse" min="0" step="0.25" style="flex:1">
+        <button onclick="setScorta()" class="btn-primary" style="padding:10px 16px">Imposta</button>
+      </div>
+      <button onclick="addConfezione()" class="btn-secondary" style="width:100%;margin-bottom:8px">
+        📦 Ho ricevuto nuove confezioni
+      </button>
+
+      <!-- Email medico -->
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <div class="modal-label" style="margin-bottom:8px">Email medico di base</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="email" id="medicoEmail" class="modal-input" placeholder="dott@esempio.it" style="flex:1">
+          <button onclick="saveMedicoEmail()" class="btn-secondary" style="padding:10px 14px">💾</button>
+        </div>
+        <div class="modal-label" style="margin-bottom:8px">Nome medico</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" id="medicoNome" class="modal-input" placeholder="Dott.ssa Nome Cognome" style="flex:1">
+          <button onclick="saveMedicoNome()" class="btn-secondary" style="padding:10px 14px">💾</button>
+        </div>
+        <button onclick="inviaRichiestaMedico()" class="btn-primary" style="width:100%">
+          📧 Richiedi ricetta al medico
+        </button>
+      </div>
+    </div>
+
+    <!-- VOLUME SUONERIA -->
+    <div class="section-title">🔊 Volume allarme</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Regola il volume della suoneria dell'allarme farmaco.
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:16px">🔈</span>
+        <input type="range" id="alarmVolumeSlider" min="0" max="100" value="80"
+          oninput="onAlarmVolumeChange(this.value)"
+          style="flex:1;accent-color:var(--accent)">
+        <span style="font-size:16px">🔊</span>
+        <span id="alarmVolumeLabel" style="font-size:14px;font-weight:600;color:var(--accent2);min-width:36px">80%</span>
+      </div>
+      <button onclick="testAlarmVolume()" class="btn-secondary" style="width:100%;margin-top:4px">
+        🔔 Testa volume
+      </button>
     </div>
 
     <div class="section-title">💾 Backup dati</div>
@@ -2810,6 +2876,257 @@ function getRingtoneUri() {
 }
 
 // ===================================================
+// SCORTA FARMACO
+// ===================================================
+const SCORTA_KEY = 'tao_scorta';
+const MEDICO_KEY = 'tao_medico';
+
+function loadScorta() {
+  try { return JSON.parse(localStorage.getItem(SCORTA_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+
+function saveScorta(data) {
+  localStorage.setItem(SCORTA_KEY, JSON.stringify(data));
+}
+
+function loadMedico() {
+  try { return JSON.parse(localStorage.getItem(MEDICO_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function setScorta() {
+  const val = parseFloat(document.getElementById('scortaInput').value);
+  if(isNaN(val) || val < 0) { showAutoBackupToast('⚠️ Inserisci un numero valido'); return; }
+  const scorta = { compresse: val, dataAggiornamento: formatDate(new Date()) };
+  saveScorta(scorta);
+  document.getElementById('scortaInput').value = '';
+  updateScortaDisplay();
+  showAutoBackupToast('✅ Scorta aggiornata: ' + val + ' compresse');
+}
+
+function addConfezione() {
+  // Common Coumadin packages: 30 or 50 tablets
+  const confezione = prompt('Quante compresse hai ricevuto? (es. 30 per una scatola standard)', '30');
+  if(!confezione) return;
+  const n = parseFloat(confezione);
+  if(isNaN(n) || n <= 0) return;
+  const scorta = loadScorta() || { compresse: 0 };
+  scorta.compresse = (scorta.compresse || 0) + n;
+  scorta.dataAggiornamento = formatDate(new Date());
+  saveScorta(scorta);
+  updateScortaDisplay();
+  showAutoBackupToast('✅ Scorta aggiornata: ' + scorta.compresse + ' compresse');
+}
+
+function getDoseGiornaliera() {
+  const therapies = getAllTherapies();
+  if(!therapies.length) return 1;
+  const t = therapies[therapies.length - 1];
+  const doseUnitaMg = t.doseUnitaMg || 5;
+  // Get average daily dose from plan
+  const days = getTherapyDays(t);
+  if(!days.length) return 1;
+  let totalDose = 0;
+  days.forEach(d => {
+    const dose = getDayDoseFromTherapy(t, d) || 0;
+    totalDose += dose;
+  });
+  const avgDailyMg = totalDose / days.length;
+  return avgDailyMg / doseUnitaMg; // compresse/giorno
+}
+
+function updateScortaDisplay() {
+  const scorta = loadScorta();
+  const countEl = document.getElementById('scortaCount');
+  const giornoEl = document.getElementById('scortaGiorni');
+  const warningEl = document.getElementById('scortaWarning');
+  if(!countEl) return;
+
+  if(!scorta || scorta.compresse === undefined) {
+    countEl.textContent = '—';
+    if(giornoEl) giornoEl.textContent = 'Scorta non impostata';
+    if(warningEl) warningEl.style.display = 'none';
+    return;
+  }
+
+  const cpr = scorta.compresse;
+  countEl.textContent = cpr % 1 === 0 ? cpr : cpr.toFixed(2);
+
+  const doseGiornaliera = getDoseGiornaliera();
+  const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(cpr / doseGiornaliera) : 0;
+
+  if(giornoEl) {
+    giornoEl.textContent = `≈ ${giorniRimanenti} giorni rimanenti · agg. ${scorta.dataAggiornamento || '—'}`;
+  }
+
+  // Warning if ≤ 10 days remaining
+  if(warningEl) {
+    if(giorniRimanenti <= 10 && giorniRimanenti >= 0) {
+      warningEl.style.display = 'block';
+      warningEl.style.color = giorniRimanenti <= 3 ? 'var(--danger)' : 'var(--warn)';
+      warningEl.textContent = giorniRimanenti <= 3
+        ? `⛔ Solo ${giorniRimanenti} giorni! Richiedi subito la ricetta`
+        : `⚠️ Scorta per ${giorniRimanenti} giorni — richiedi la ricetta`;
+      countEl.style.color = giorniRimanenti <= 3 ? 'var(--danger)' : 'var(--warn)';
+    } else {
+      warningEl.style.display = 'none';
+      countEl.style.color = 'var(--accent2)';
+    }
+  }
+}
+
+function saveMedicoEmail() {
+  const email = document.getElementById('medicoEmail').value.trim();
+  if(!email) return;
+  const medico = loadMedico();
+  medico.email = email;
+  localStorage.setItem(MEDICO_KEY, JSON.stringify(medico));
+  showAutoBackupToast('✅ Email medico salvata');
+}
+
+function saveMedicoNome() {
+  const nome = document.getElementById('medicoNome').value.trim();
+  if(!nome) return;
+  const medico = loadMedico();
+  medico.nome = nome;
+  localStorage.setItem(MEDICO_KEY, JSON.stringify(medico));
+  showAutoBackupToast('✅ Nome medico salvato');
+}
+
+function inviaRichiestaMedico() {
+  const medico = loadMedico();
+  const therapies = getAllTherapies();
+  const paz = therapies.length ? therapies[therapies.length-1].paziente : {};
+  const farmaco = therapies.length ? therapies[therapies.length-1].farmaco : 'COUMADIN 5mg';
+  const scorta = loadScorta();
+  const doseGiornaliera = getDoseGiornaliera();
+  const giorniRimanenti = scorta && doseGiornaliera > 0
+    ? Math.floor(scorta.compresse / doseGiornaliera) : '?';
+
+  const destinatario = medico.email || '';
+  const nomeMedico = medico.nome || 'Dottore/Dottoressa';
+  const nomePaziente = paz.nome || 'Paziente';
+  const cf = paz.codiceFiscale || '';
+
+  const oggetto = encodeURIComponent(`Richiesta ricetta ${farmaco} - ${nomePaziente}`);
+  const corpo = encodeURIComponent(
+    `Gentile ${nomeMedico},
+
+` +
+    `sono ${nomePaziente}${cf ? ' (C.F.: ' + cf + ')' : ''}.
+
+` +
+    `La contatto per richiedere la prescrizione di ${farmaco}.
+` +
+    `Scorta rimanente: circa ${giorniRimanenti} giorni di terapia.
+
+` +
+    `La ringrazio per la disponibilità.
+
+` +
+    `Cordiali saluti,
+${nomePaziente}`
+  );
+
+  const mailtoUrl = `mailto:${destinatario}?subject=${oggetto}&body=${corpo}`;
+  window.open(mailtoUrl, '_blank');
+}
+
+function initScortaDisplay() {
+  const medico = loadMedico();
+  if(medico.email) document.getElementById('medicoEmail').value = medico.email;
+  if(medico.nome)  document.getElementById('medicoNome').value  = medico.nome;
+  updateScortaDisplay();
+}
+
+// Check scorta warning at startup
+function showScortaBanner() {
+  const banner = document.getElementById('scortaBanner');
+  if(!banner) return;
+  const scorta = loadScorta();
+  if(!scorta) { banner.style.display = 'none'; return; }
+  const doseGiornaliera = getDoseGiornaliera();
+  const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(scorta.compresse / doseGiornaliera) : 999;
+  if(giorniRimanenti <= 10) {
+    banner.style.display = 'block';
+    banner.style.color = giorniRimanenti <= 3 ? 'var(--danger)' : 'var(--warn)';
+    banner.style.borderColor = giorniRimanenti <= 3 ? 'rgba(255,123,114,0.4)' : 'rgba(240,136,62,0.4)';
+    banner.style.background = giorniRimanenti <= 3 ? 'rgba(255,123,114,0.1)' : 'rgba(240,136,62,0.1)';
+    banner.textContent = giorniRimanenti <= 3
+      ? `⛔ Scorta farmaco: solo ${giorniRimanenti} giorni! Tocca per richiedere la ricetta →`
+      : `⚠️ Scorta farmaco: circa ${giorniRimanenti} giorni rimanenti. Tocca per richiedere la ricetta →`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function checkScortaWarning() {
+  const scorta = loadScorta();
+  if(!scorta) return;
+  const doseGiornaliera = getDoseGiornaliera();
+  const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(scorta.compresse / doseGiornaliera) : 999;
+  if(giorniRimanenti <= 10) {
+    setTimeout(() => {
+      showAutoBackupToast(giorniRimanenti <= 3
+        ? `⛔ Scorta farmaco: solo ${giorniRimanenti} giorni!`
+        : `⚠️ Scorta farmaco: ${giorniRimanenti} giorni rimanenti`);
+    }, 3000);
+  }
+}
+
+// ===================================================
+// VOLUME ALLARME
+// ===================================================
+const ALARM_VOLUME_KEY = 'tao_alarm_volume';
+
+function initAlarmVolume() {
+  const vol = parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80');
+  const slider = document.getElementById('alarmVolumeSlider');
+  const label  = document.getElementById('alarmVolumeLabel');
+  if(slider) slider.value = vol;
+  if(label)  label.textContent = vol + '%';
+}
+
+function onAlarmVolumeChange(val) {
+  localStorage.setItem(ALARM_VOLUME_KEY, val);
+  const label = document.getElementById('alarmVolumeLabel');
+  if(label) label.textContent = val + '%';
+  // Save to native SharedPreferences for AlarmActivity
+  if(window.isCapacitor) {
+    try {
+      const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+      if(AlarmPlugin) AlarmPlugin.setAlarmVolume({ volume: parseInt(val) });
+    } catch(e) {}
+  }
+}
+
+function testAlarmVolume() {
+  // Play a short test sound using Web Audio API
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const vol = parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80') / 100;
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = vol;
+    gainNode.connect(ctx.destination);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.2);
+    osc.connect(gainNode);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+    showAutoBackupToast('🔔 Test volume: ' + (vol*100).toFixed(0) + '%');
+  } catch(e) {
+    showAutoBackupToast('⚠️ Test audio non disponibile');
+  }
+}
+
+function getAlarmVolume() {
+  return parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80') / 100;
+}
+
+// ===================================================
 // CONTROLLO INR COUNTDOWN
 // ===================================================
 function getControlloCountdown() {
@@ -4058,6 +4375,8 @@ function fbListenMessages() {
 
 function initStrumenti() {
   initFirebase();
+  initScortaDisplay();
+  initAlarmVolume();
   const data = loadData();
   const controls = data.controls || [];
   if(!controls.length) return;
@@ -4753,7 +5072,15 @@ initCapacitor();
 initRingtoneUI();
 initBatteryOptUI();
 // Re-render terapia after short delay to ensure data is loaded
-setTimeout(() => { renderTerapiaTab(); showControlloCountdownBanner(); saveControlloDateForNative(); }, 800);
+setTimeout(() => { renderTerapiaTab(); showControlloCountdownBanner(); saveControlloDateForNative(); checkScortaWarning();
+    // Sync volume to native
+    if(window.isCapacitor) {
+      const vol = parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80');
+      try {
+        const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+        if(AlarmPlugin) AlarmPlugin.setAlarmVolume({ volume: vol });
+      } catch(e) {}
+    } }, 800);
 
 // Hide splash immediately in Capacitor, after 1.2s in browser
 const splashDelay = window.isCapacitor ? 100 : 1200;
