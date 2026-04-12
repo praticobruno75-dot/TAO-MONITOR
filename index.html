@@ -214,11 +214,16 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 .range-btn.active{background:rgba(88,166,255,.15);border-color:var(--accent);color:var(--accent);font-weight:600}
 @media(max-width:640px){main{padding:16px}header{padding:14px 16px}nav{padding:12px 16px 0;overflow-x:auto}.tab-btn{white-space:nowrap}.cards-grid{grid-template-columns:repeat(2,1fr)}.cal-grid{gap:3px}.cal-day{min-height:90px;padding:6px 4px}.dose-circle{width:44px;height:44px}.dose-circle-num{font-size:13px}}
 
-@keyframes pulseWarn {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.75; transform: scale(1.01); }
+@keyframes pulseOrangeRed {
+  0%, 100% { background: rgba(240,136,62,0.15); border-color: rgba(240,136,62,0.7); color: #f0883e; }
+  50%       { background: rgba(255,123,114,0.15); border-color: rgba(255,123,114,0.7); color: #ff7b72; }
 }
-.scorta-pulse { animation: pulseWarn 1.8s ease-in-out infinite; }
+@keyframes pulseRedOrange {
+  0%, 100% { background: rgba(255,123,114,0.15); border-color: rgba(255,123,114,0.7); color: #ff7b72; }
+  50%       { background: rgba(240,136,62,0.15); border-color: rgba(240,136,62,0.7); color: #f0883e; }
+}
+.scorta-pulse      { animation: pulseOrangeRed 1.8s ease-in-out infinite; }
+.scorta-pulse-crit { animation: pulseRedOrange 1.8s ease-in-out infinite; }
 
 /* Prevent text selection on long press for interactive elements */
 .cal-day, .cal-day *, .cal-header, .list-item, .plan-card,
@@ -2912,6 +2917,7 @@ function setScorta() {
   saveScorta(scorta);
   document.getElementById('scortaInput').value = '';
   updateScortaDisplay();
+  fbAutoSync();
   showAutoBackupToast('✅ Scorta aggiornata: ' + val + ' compresse');
 }
 
@@ -2926,6 +2932,7 @@ function addConfezione() {
   scorta.dataAggiornamento = formatDate(new Date());
   saveScorta(scorta);
   updateScortaDisplay();
+  fbAutoSync();
   showAutoBackupToast('✅ Scorta aggiornata: ' + scorta.compresse + ' compresse');
 }
 
@@ -3058,9 +3065,15 @@ function showScortaBanner() {
   if(giorniRimanenti <= 10) {
     const isCritical = giorniRimanenti <= 3;
     banner.style.display = 'block';
-    banner.style.color = isCritical ? 'var(--danger)' : 'var(--warn)';
-    banner.style.borderColor = isCritical ? 'rgba(255,123,114,0.7)' : 'rgba(240,136,62,0.7)';
-    banner.style.background = isCritical ? 'rgba(255,123,114,0.15)' : 'rgba(240,136,62,0.15)';
+    banner.style.color = '';
+    banner.style.borderColor = '';
+    banner.style.background = '';
+    banner.className = 'scorta-pulse' + (isCritical ? ' scorta-pulse-crit' : '');
+    // Reset inline styles that override animation
+    banner.style.cssText = banner.style.cssText
+      .replace(/color:[^;]+;/g, '')
+      .replace(/border-color:[^;]+;/g, '')
+      .replace(/background:[^;]+;/g, '');
     const icon = isCritical ? '⛔' : '⚠️';
     const days = isCritical ? `solo ${giorniRimanenti} giorni!` : `circa ${giorniRimanenti} giorni`;
     banner.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -4114,11 +4127,26 @@ function fbStartRealtimeSync() {
       // Restore diario from remote if present
       if(remoteData.tao_diario) {
         const localDiario = loadDiario();
-        const remoteDiario = remoteData.tao_diario;
-        // Merge: combine both, remote wins for same date
-        const mergedDiario = Object.assign({}, localDiario, remoteDiario);
+        const mergedDiario = Object.assign({}, localDiario, remoteData.tao_diario);
         localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
         delete merged.tao_diario;
+      }
+      // Restore scorta — remote wins if more recent
+      if(remoteData.tao_scorta) {
+        const localScorta = loadScorta();
+        const remoteScorta = remoteData.tao_scorta;
+        // Use whichever was updated more recently
+        const localDate = localScorta?.dataAggiornamento ? parseDate(localScorta.dataAggiornamento) : new Date(0);
+        const remoteDate = remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento) : new Date(0);
+        if(remoteDate >= localDate) {
+          localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
+        }
+        delete merged.tao_scorta;
+      }
+      // Restore medico
+      if(remoteData.tao_medico) {
+        localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico));
+        delete merged.tao_medico;
       }
       saveData(merged);
       appData = merged;
@@ -4233,6 +4261,20 @@ async function fbSyncNow(silent=false) {
           localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
           delete merged.tao_diario;
         }
+        // Restore scorta
+        if(remoteData.tao_scorta) {
+          const localScorta = loadScorta();
+          const remoteScorta = remoteData.tao_scorta;
+          const localDate = localScorta?.dataAggiornamento ? parseDate(localScorta.dataAggiornamento) : new Date(0);
+          const remoteDate = remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento) : new Date(0);
+          if(remoteDate >= localDate) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
+          delete merged.tao_scorta;
+        }
+        // Restore medico
+        if(remoteData.tao_medico) {
+          localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico));
+          delete merged.tao_medico;
+        }
         saveData(merged);
         appData = merged;
         calInitialized = false;
@@ -4258,12 +4300,18 @@ async function fbUploadData(data) {
   data._syncTime = Date.now();
   saveData(data);
 
-  // Include diario alimentare in sync
+  // Include diario alimentare e scorta in sync
   const diario = loadDiario();
-  const dataWithDiario = Object.assign({}, data, { tao_diario: diario });
+  const scorta = loadScorta();
+  const medico = loadMedico();
+  const dataWithExtras = Object.assign({}, data, {
+    tao_diario: diario,
+    tao_scorta: scorta,
+    tao_medico: medico
+  });
 
   const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-  await setDoc(docRef, dataWithDiario);
+  await setDoc(docRef, dataWithExtras);
 }
 
 async function fbForceUpload() {
@@ -4285,6 +4333,16 @@ async function fbForceDownload() {
   if(data.tao_diario) {
     localStorage.setItem(DIARIO_KEY, JSON.stringify(data.tao_diario));
     delete data.tao_diario;
+  }
+  // Restore scorta if present
+  if(data.tao_scorta) {
+    localStorage.setItem(SCORTA_KEY, JSON.stringify(data.tao_scorta));
+    delete data.tao_scorta;
+  }
+  // Restore medico if present
+  if(data.tao_medico) {
+    localStorage.setItem(MEDICO_KEY, JSON.stringify(data.tao_medico));
+    delete data.tao_medico;
   }
   saveData(data);
   appData = data;
