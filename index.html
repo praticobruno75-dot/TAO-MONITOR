@@ -490,7 +490,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <!-- Controllo INR countdown banner -->
       <div id="controlloBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid;font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5"></div>
       <!-- Scorta farmaco warning banner -->
-      <div id="scortaBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid rgba(240,136,62,0.4);background:rgba(240,136,62,0.1);font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5;cursor:pointer" onclick="switchTab('strumenti')"></div>
+      <button id="scortaBanner" onclick="inviaRichiestaMedico()" style="display:none;width:100%;padding:14px 16px;border-radius:10px;border:2px solid rgba(240,136,62,0.6);background:rgba(240,136,62,0.15);font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.5;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;color:var(--warn)"></button>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div class="section-title" style="margin:0">💊 Piano terapeutico</div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
@@ -1887,6 +1887,10 @@ function renderTerapiaTab() {
   const farmacoDisplay = (t.farmaco||'—').replace(/[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]/g,'').replace(/\s+/g,' ').trim();
   document.getElementById('terapiaFarmaco').textContent = farmacoDisplay;
 
+  // Show banners
+  showControlloCountdownBanner();
+  showScortaBanner();
+
   // Update patient identity box
   const paz = t.paziente || {};
   const identityBox = document.getElementById('patientIdentityBox');
@@ -3046,13 +3050,20 @@ function showScortaBanner() {
   const doseGiornaliera = getDoseGiornaliera();
   const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(scorta.compresse / doseGiornaliera) : 999;
   if(giorniRimanenti <= 10) {
+    const isCritical = giorniRimanenti <= 3;
     banner.style.display = 'block';
-    banner.style.color = giorniRimanenti <= 3 ? 'var(--danger)' : 'var(--warn)';
-    banner.style.borderColor = giorniRimanenti <= 3 ? 'rgba(255,123,114,0.4)' : 'rgba(240,136,62,0.4)';
-    banner.style.background = giorniRimanenti <= 3 ? 'rgba(255,123,114,0.1)' : 'rgba(240,136,62,0.1)';
-    banner.textContent = giorniRimanenti <= 3
-      ? `⛔ Scorta farmaco: solo ${giorniRimanenti} giorni! Tocca per richiedere la ricetta →`
-      : `⚠️ Scorta farmaco: circa ${giorniRimanenti} giorni rimanenti. Tocca per richiedere la ricetta →`;
+    banner.style.color = isCritical ? 'var(--danger)' : 'var(--warn)';
+    banner.style.borderColor = isCritical ? 'rgba(255,123,114,0.7)' : 'rgba(240,136,62,0.7)';
+    banner.style.background = isCritical ? 'rgba(255,123,114,0.15)' : 'rgba(240,136,62,0.15)';
+    const icon = isCritical ? '⛔' : '⚠️';
+    const days = isCritical ? `solo ${giorniRimanenti} giorni!` : `circa ${giorniRimanenti} giorni`;
+    banner.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div>
+        <div style="font-size:14px">${icon} Scorta farmaco: ${days}</div>
+        <div style="font-size:11px;margin-top:3px;opacity:0.8">📧 Tocca per inviare richiesta ricetta al medico</div>
+      </div>
+      <div style="font-size:20px;flex-shrink:0">→</div>
+    </div>`;
   } else {
     banner.style.display = 'none';
   }
