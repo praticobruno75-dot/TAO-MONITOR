@@ -2519,6 +2519,8 @@ function confirmAlarm() {
     saveData(appData);
     // Cancel any pending snooze alarms for this date
     cancelNativeAlarm(currentAlarmDate);
+    // Deduct dose from scorta
+    deductScorta(currentAlarmDate);
   }
   document.getElementById('alarmToast').classList.remove('show');
   currentAlarmDate=null;
@@ -2794,6 +2796,8 @@ function toggleTakenFromModal() {
     appData.taken[_dayDetailKey] = false;
     appData.takenEditTimes[_dayDetailKey] = nowTs;
     delete appData.takenTimes[_dayDetailKey];
+    // Re-add dose to scorta
+    readdScorta(_dayDetailKey);
   } else {
     // Mark as taken
     appData.taken[_dayDetailKey] = true;
@@ -2801,6 +2805,8 @@ function toggleTakenFromModal() {
     cancelNativeAlarm(_dayDetailKey);
     appData.takenEditTimes[_dayDetailKey] = nowTs;
     appData.takenTimes[_dayDetailKey] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    // Deduct dose from scorta
+    deductScorta(_dayDetailKey);
   }
   saveData(appData);
   fbAutoSync();
@@ -3087,6 +3093,45 @@ function initScortaDisplay() {
 }
 
 // Check scorta warning at startup
+function deductScorta(dateStr) {
+  // Deduct one day's dose from scorta when taking confirmed
+  const scorta = loadScorta();
+  if(!scorta || scorta.compresse === undefined) return;
+
+  // Get dose for that day from therapy plan
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const t = therapies.find(th => {
+    const days = getTherapyDays(th);
+    return days.includes(dateStr);
+  }) || therapies[therapies.length-1];
+
+  const dose = getDayDoseFromTherapy(t, dateStr) || getDoseGiornaliera();
+  scorta.compresse = Math.max(0, (scorta.compresse || 0) - dose);
+  scorta.dataAggiornamento = formatDate(new Date());
+  saveScorta(scorta);
+  fbAutoSync();
+}
+
+function readdScorta(dateStr) {
+  // Re-add dose to scorta if assunzione is removed
+  const scorta = loadScorta();
+  if(!scorta || scorta.compresse === undefined) return;
+
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const t = therapies.find(th => {
+    const days = getTherapyDays(th);
+    return days.includes(dateStr);
+  }) || therapies[therapies.length-1];
+
+  const dose = getDayDoseFromTherapy(t, dateStr) || getDoseGiornaliera();
+  scorta.compresse = (scorta.compresse || 0) + dose;
+  scorta.dataAggiornamento = formatDate(new Date());
+  saveScorta(scorta);
+  fbAutoSync();
+}
+
 function showScortaPopupIfNeeded() {
   const scorta = loadScorta();
   if(!scorta) return;
@@ -5158,6 +5203,8 @@ async function checkPendingConfirmFromNative() {
       appData.taken[entry.date] = true;
       appData.takenTimes[entry.date] = entry.time || '';
       appData.takenEditTimes[entry.date] = Date.now();
+      // Deduct dose from scorta
+      deductScorta(entry.date);
     });
 
     saveData(appData);
