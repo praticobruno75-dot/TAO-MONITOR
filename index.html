@@ -2949,7 +2949,7 @@ function loadMedico() {
 async function setScorta() {
   const val = parseFloat(document.getElementById('scortaInput').value);
   if(isNaN(val) || val < 0) { showAutoBackupToast('⚠️ Inserisci un numero valido'); return; }
-  const scorta = { compresse: val, dataAggiornamento: formatDate(new Date()) };
+  const scorta = { compresse: val, dataAggiornamento: formatDate(new Date()), ts: Date.now() };
   saveScorta(scorta);
   document.getElementById('scortaInput').value = '';
   updateScortaDisplay();
@@ -2971,6 +2971,7 @@ async function addConfezione() {
   const scorta = loadScorta() || { compresse: 0 };
   scorta.compresse = (scorta.compresse || 0) + n;
   scorta.dataAggiornamento = formatDate(new Date());
+  scorta.ts = Date.now();
   saveScorta(scorta);
   updateScortaDisplay();
   showScortaBanner();
@@ -3163,6 +3164,7 @@ function deductScorta(dateStr) {
   const dose = getDayDoseFromTherapy(t, dateStr) || getDoseGiornaliera();
   scorta.compresse = Math.max(0, (scorta.compresse || 0) - dose);
   scorta.dataAggiornamento = formatDate(new Date());
+  scorta.ts = Date.now();
   saveScorta(scorta);
   fbAutoSync();
 }
@@ -3182,6 +3184,7 @@ function readdScorta(dateStr) {
   const dose = getDayDoseFromTherapy(t, dateStr) || getDoseGiornaliera();
   scorta.compresse = (scorta.compresse || 0) + dose;
   scorta.dataAggiornamento = formatDate(new Date());
+  scorta.ts = Date.now();
   saveScorta(scorta);
   fbAutoSync();
 }
@@ -4305,15 +4308,15 @@ function fbStartRealtimeSync() {
     const localTime  = localData._syncTime  || 0;
 
     // Always sync scorta, diario, medico independently of _syncTime
-    // Scorta: wins by dataAggiornamento date
+    // Scorta: remote always wins when remote _syncTime is newer
     if(remoteData.tao_scorta) {
-      const localScorta  = loadScorta();
       const remoteScorta = remoteData.tao_scorta;
-      const localDate  = localScorta?.dataAggiornamento  ? parseDate(localScorta.dataAggiornamento)  : new Date(0);
-      const remoteDate = remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento) : new Date(0);
-      if(remoteDate > localDate) {
+      const localScorta  = loadScorta();
+      // Use _syncTime for comparison — more precise than date string
+      const localSyncTime  = localData._syncTime  || 0;
+      const remoteSyncTime = remoteData._syncTime || 0;
+      if(remoteSyncTime >= localSyncTime) {
         localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
-        // Refresh scorta display if strumenti tab is open
         if(document.getElementById('scortaCount')) updateScortaDisplay();
       }
     }
@@ -4453,9 +4456,9 @@ async function fbSyncNow(silent=false) {
         if(remoteData.tao_scorta) {
           const localScorta = loadScorta();
           const remoteScorta = remoteData.tao_scorta;
-          const localDate = localScorta?.dataAggiornamento ? parseDate(localScorta.dataAggiornamento) : new Date(0);
-          const remoteDate = remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento) : new Date(0);
-          if(remoteDate >= localDate) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
+          const localTs  = localScorta?.ts  || (localScorta?.dataAggiornamento  ? parseDate(localScorta.dataAggiornamento).getTime()  : 0);
+          const remoteTs = remoteScorta?.ts || (remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento).getTime() : 0);
+          if(remoteTs >= localTs) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
           delete merged.tao_scorta;
         }
         // Restore medico
