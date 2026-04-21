@@ -2946,18 +2946,23 @@ function loadMedico() {
   catch(e) { return {}; }
 }
 
-function setScorta() {
+async function setScorta() {
   const val = parseFloat(document.getElementById('scortaInput').value);
   if(isNaN(val) || val < 0) { showAutoBackupToast('⚠️ Inserisci un numero valido'); return; }
   const scorta = { compresse: val, dataAggiornamento: formatDate(new Date()) };
   saveScorta(scorta);
   document.getElementById('scortaInput').value = '';
   updateScortaDisplay();
-  fbAutoSync();
-  showAutoBackupToast('✅ Scorta aggiornata: ' + val + ' compresse');
+  showScortaBanner();
+  try {
+    await fbUploadData(loadData());
+    showAutoBackupToast('✅ Scorta aggiornata e sincronizzata');
+  } catch(e) {
+    showAutoBackupToast('✅ Scorta aggiornata: ' + val + ' compresse');
+  }
 }
 
-function addConfezione() {
+async function addConfezione() {
   // Common Coumadin packages: 30 or 50 tablets
   const confezione = prompt('Quante compresse hai ricevuto? (es. 30 per una scatola standard)', '30');
   if(!confezione) return;
@@ -2968,9 +2973,14 @@ function addConfezione() {
   scorta.dataAggiornamento = formatDate(new Date());
   saveScorta(scorta);
   updateScortaDisplay();
+  showScortaBanner();
   clearRichiestaInviata();
-  fbAutoSync();
-  showAutoBackupToast('✅ Scorta aggiornata: ' + scorta.compresse + ' compresse');
+  try {
+    await fbUploadData(loadData());
+    showAutoBackupToast('✅ Scorta aggiornata e sincronizzata');
+  } catch(e) {
+    showAutoBackupToast('✅ Scorta aggiornata: ' + scorta.compresse + ' compresse');
+  }
 }
 
 function getDoseGiornaliera() {
