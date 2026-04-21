@@ -655,6 +655,12 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
         <input type="number" id="scortaInput" class="modal-input" placeholder="N. compresse" min="0" step="0.25" style="flex:1">
         <button onclick="setScorta()" class="btn-primary" style="padding:10px 16px">Imposta</button>
       </div>
+      <!-- Richiesta inviata badge -->
+      <div id="richiestaInviataBadge" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--accent2);font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <span>📧</span>
+        <span id="richiestaInviataText">Richiesta inviata</span>
+      </div>
+
       <button onclick="addConfezione()" class="btn-secondary" style="width:100%;margin-bottom:8px">
         📦 Ho ricevuto nuove confezioni
       </button>
@@ -2962,6 +2968,7 @@ function addConfezione() {
   scorta.dataAggiornamento = formatDate(new Date());
   saveScorta(scorta);
   updateScortaDisplay();
+  clearRichiestaInviata();
   fbAutoSync();
   showAutoBackupToast('✅ Scorta aggiornata: ' + scorta.compresse + ' compresse');
 }
@@ -3079,6 +3086,8 @@ ${nomePaziente}`;
 
   const mailtoUrl = `mailto:${destinatario}?subject=${oggetto}&body=${corpo}`;
   window.open(mailtoUrl, '_blank');
+  // Save richiesta inviata status
+  saveRichiestaInviata();
 }
 
 function initScortaDisplay() {
@@ -3090,9 +3099,44 @@ function initScortaDisplay() {
   if(oggettoEl && medico.oggetto) oggettoEl.value = medico.oggetto;
   if(testoEl   && medico.testo)   testoEl.value   = medico.testo;
   updateScortaDisplay();
+  updateRichiestaInviataBadge();
 }
 
 // Check scorta warning at startup
+function saveRichiestaInviata() {
+  const medico = loadMedico();
+  medico.richiestaInviataData = formatDate(new Date());
+  localStorage.setItem(MEDICO_KEY, JSON.stringify(medico));
+  fbAutoSync();
+  updateRichiestaInviataBadge();
+}
+
+function clearRichiestaInviata() {
+  const medico = loadMedico();
+  delete medico.richiestaInviataData;
+  localStorage.setItem(MEDICO_KEY, JSON.stringify(medico));
+  fbAutoSync();
+  updateRichiestaInviataBadge();
+}
+
+function updateRichiestaInviataBadge() {
+  const badge = document.getElementById('richiestaInviataBadge');
+  const text  = document.getElementById('richiestaInviataText');
+  if(!badge) return;
+  const medico = loadMedico();
+  if(medico.richiestaInviataData) {
+    badge.style.display = 'flex';
+    text.textContent = `Richiesta inviata il ${medico.richiestaInviataData} — in attesa di nuove confezioni`;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function isRichiestaInviata() {
+  const medico = loadMedico();
+  return !!medico.richiestaInviataData;
+}
+
 function deductScorta(dateStr) {
   // Deduct one day's dose from scorta when taking confirmed
   const scorta = loadScorta();
@@ -3135,6 +3179,8 @@ function readdScorta(dateStr) {
 function showScortaPopupIfNeeded() {
   const scorta = loadScorta();
   if(!scorta) return;
+  // Don't show if richiesta already sent
+  if(isRichiestaInviata()) return;
   const doseGiornaliera = getDoseGiornaliera();
   const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(scorta.compresse / doseGiornaliera) : 999;
 
@@ -3185,6 +3231,8 @@ function showScortaBanner() {
   if(!banner) return;
   const scorta = loadScorta();
   if(!scorta) { banner.style.display = 'none'; return; }
+  // Don't show if richiesta already sent
+  if(isRichiestaInviata()) { banner.style.display = 'none'; return; }
   const doseGiornaliera = getDoseGiornaliera();
   const giorniRimanenti = doseGiornaliera > 0 ? Math.floor(scorta.compresse / doseGiornaliera) : 999;
   if(giorniRimanenti <= 10) {
