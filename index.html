@@ -4294,39 +4294,44 @@ function fbStartRealtimeSync() {
     const remoteTime = remoteData._syncTime || 0;
     const localTime  = localData._syncTime  || 0;
 
+    // Always sync scorta, diario, medico independently of _syncTime
+    // Scorta: wins by dataAggiornamento date
+    if(remoteData.tao_scorta) {
+      const localScorta  = loadScorta();
+      const remoteScorta = remoteData.tao_scorta;
+      const localDate  = localScorta?.dataAggiornamento  ? parseDate(localScorta.dataAggiornamento)  : new Date(0);
+      const remoteDate = remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento) : new Date(0);
+      if(remoteDate > localDate) {
+        localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
+        // Refresh scorta display if strumenti tab is open
+        if(document.getElementById('scortaCount')) updateScortaDisplay();
+      }
+    }
+    // Medico: always take remote (last write wins)
+    if(remoteData.tao_medico) {
+      localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico));
+    }
+    // Diario: merge local + remote
+    if(remoteData.tao_diario) {
+      const mergedDiario = Object.assign({}, loadDiario(), remoteData.tao_diario);
+      localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
+    }
+
     if(remoteTime > localTime) {
       // Remote is newer: update local silently
       const merged = fbMergeData(remoteData, localData);
-      // Restore diario from remote if present
-      if(remoteData.tao_diario) {
-        const localDiario = loadDiario();
-        const mergedDiario = Object.assign({}, localDiario, remoteData.tao_diario);
-        localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
-        delete merged.tao_diario;
-      }
-      // Restore scorta — remote wins if more recent
-      if(remoteData.tao_scorta) {
-        const localScorta = loadScorta();
-        const remoteScorta = remoteData.tao_scorta;
-        // Use whichever was updated more recently
-        const localDate = localScorta?.dataAggiornamento ? parseDate(localScorta.dataAggiornamento) : new Date(0);
-        const remoteDate = remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento) : new Date(0);
-        if(remoteDate >= localDate) {
-          localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
-        }
-        delete merged.tao_scorta;
-      }
-      // Restore medico
-      if(remoteData.tao_medico) {
-        localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico));
-        delete merged.tao_medico;
-      }
+      if(remoteData.tao_diario) delete merged.tao_diario;
+      if(remoteData.tao_scorta) delete merged.tao_scorta;
+      if(remoteData.tao_medico) delete merged.tao_medico;
       saveData(merged);
       appData = merged;
       calInitialized = false;
       renderCurrentTab();
       // Always re-render terapia to update progress bar
       renderTerapiaTab();
+      // Refresh scorta display if on strumenti tab
+      updateScortaDisplay();
+      updateRichiestaInviataBadge();
       setFbSyncStatus(
         `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
       );
