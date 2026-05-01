@@ -5228,6 +5228,86 @@ function initBatteryOptUI() {
   }
 }
 
+
+function initEditTimePicker(timeStr) {
+  const parts = (timeStr || '17:30').split(':');
+  let h = parseInt(parts[0]) || 17;
+  let m = parseInt(parts[1]) || 30;
+  const hEl = document.getElementById('etpHour');
+  const mEl = document.getElementById('etpMin');
+  if(hEl) hEl.textContent = String(h).padStart(2,'0');
+  if(mEl) mEl.textContent = String(m).padStart(2,'0');
+}
+
+function adjustEditTime(unit, delta) {
+  const hEl = document.getElementById('etpHour');
+  const mEl = document.getElementById('etpMin');
+  if(!hEl || !mEl) return;
+  let h = parseInt(hEl.textContent) || 0;
+  let m = parseInt(mEl.textContent) || 0;
+  if(unit === 'h') { h = (h + delta + 24) % 24; hEl.textContent = String(h).padStart(2,'0'); }
+  else { m = (m + delta + 60) % 60; mEl.textContent = String(m).padStart(2,'0'); }
+}
+
+function saveTakenTime() {
+  if(!_dayDetailKey) return;
+  const h = document.getElementById('etpHour')?.textContent || '17';
+  const m = document.getElementById('etpMin')?.textContent || '30';
+  const timeStr = h.padStart(2,'0') + ':' + m.padStart(2,'0');
+  appData = loadData();
+  if(!appData.takenTimes) appData.takenTimes = {};
+  appData.takenTimes[_dayDetailKey] = timeStr;
+  if(!appData.takenEditTimes) appData.takenEditTimes = {};
+  appData.takenEditTimes[_dayDetailKey] = Date.now();
+  saveData(appData);
+  fbAutoSync();
+  closeDayDetailModal();
+  renderTerapiaTab();
+  showAutoBackupToast('✅ Orario assunzione salvato: ' + timeStr);
+}
+
+function openBatterySettings() {
+  if(!window.isCapacitor) {
+    showAutoBackupToast('⚠️ Disponibile solo nell\'app Android');
+    return;
+  }
+  try {
+    // Open battery optimization settings via Capacitor
+    const { App } = window.Capacitor.Plugins;
+    // Use Android intent to open battery optimization settings
+    window.Capacitor.Plugins.App?.openUrl({
+      url: 'package:it.taomonitor.app'
+    });
+  } catch(e) {
+    console.warn('[TAO] Battery settings error:', e);
+  }
+
+  // Show manual instructions
+  const status = document.getElementById('batteryOptStatus');
+  if(status) {
+    status.style.display = 'block';
+    status.style.background = 'rgba(88,166,255,0.1)';
+    status.style.color = 'var(--accent)';
+    status.textContent = '📱 Vai in Impostazioni → Batteria → Ottimizzazione batteria → TAO Monitor → Non ottimizzare';
+  }
+}
+
+async function checkBatteryOptimization() {
+  if(!window.isCapacitor) {
+    showAutoBackupToast('⚠️ Disponibile solo nell\'app Android');
+    return;
+  }
+  const status = document.getElementById('batteryOptStatus');
+  if(!status) return;
+
+  // We can't directly check battery optimization from JS
+  // Show a helpful message instead
+  status.style.display = 'block';
+  status.style.background = 'rgba(240,136,62,0.1)';
+  status.style.color = 'var(--warn)';
+  status.textContent = '⚠️ Per verificare: Impostazioni → Batteria → Ottimizzazione batteria → cerca TAO Monitor. Se mostra "Ottimizzata" premi il pulsante sopra per disabilitarla.';
+}
+
 // Run startup sequence
 lockLandscapeOnMobile();
 initAlarms();
