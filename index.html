@@ -611,6 +611,20 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     </div>
 
     <!-- RINGTONE SECTION -->
+    <!-- ALLARME CONTROLLO INR -->
+    <div class="section-title">🩸 Allarme controllo INR</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Imposta un allarme che suona il giorno del controllo INR per ricordarti di andare.
+      </div>
+      <div class="modal-label" style="margin-bottom:8px">Orario allarme controllo</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="time" id="controlloAlarmTime" class="modal-input" value="08:00" style="flex:1">
+        <button onclick="saveControlloAlarmTime()" class="btn-primary" style="padding:10px 16px">💾 Salva</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">L'allarme suonerà solo il giorno del prossimo controllo INR.</div>
+    </div>
+
     <div class="section-title">🔔 Suoneria allarme</div>
     <div class="card" style="margin-bottom:20px">
       <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
@@ -917,6 +931,23 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       </button>
       <button onclick="closeScortaPopup()" id="scortaPopupClose" class="btn-secondary" style="width:100%;padding:10px">
         ✕ Chiudi — ricordamelo domani
+      </button>
+    </div>
+  </div>
+
+  <!-- CONTROLLO INR POPUP -->
+  <div class="modal-overlay" id="controlloPopup">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div style="font-size:48px;margin-bottom:10px">🩸</div>
+      <div class="modal-title" id="controlloPopupTitle">Oggi hai il controllo INR</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.6">
+        Ricordati di presentarti al centro TAO per il controllo anticoagulante.
+      </div>
+      <button onclick="onControlloFatto()" class="btn-primary" style="width:100%;padding:16px;font-size:16px;margin-bottom:10px">
+        Ho fatto il controllo
+      </button>
+      <button onclick="closeControlloPopup()" class="btn-secondary" style="width:100%;padding:14px;font-size:13px">
+        Chiudi — ricordamelo alla prossima apertura
       </button>
     </div>
   </div>
@@ -3200,6 +3231,88 @@ function readdScorta(dateStr) {
   fbAutoSync();
 }
 
+// ===================================================
+// CONTROLLO INR POPUP
+// ===================================================
+const CONTROLLO_ALARM_KEY = 'tao_controllo_alarm_time';
+const CONTROLLO_FATTO_KEY = 'tao_controllo_fatto_date';
+
+function showControlloPopupIfNeeded() {
+  const therapies = getAllTherapies();
+  if(!therapies.length) return;
+  const lastTherapy = therapies[therapies.length-1];
+  const controlloDate = lastTherapy.dataControllo;
+  if(!controlloDate) return;
+
+  const today = formatDate(new Date());
+  if(today !== controlloDate) return;
+
+  // Don't show if already marked as done today
+  const fattDate = localStorage.getItem(CONTROLLO_FATTO_KEY);
+  if(fattDate === today) return;
+
+  // Show popup
+  const popup = document.getElementById('controlloPopup');
+  if(!popup) return;
+  popup.classList.add('active');
+}
+
+function closeControlloPopup() {
+  document.getElementById('controlloPopup')?.classList.remove('active');
+}
+
+function onControlloFatto() {
+  // Mark as done today — won't show again today
+  localStorage.setItem(CONTROLLO_FATTO_KEY, formatDate(new Date()));
+  closeControlloPopup();
+}
+
+function saveControlloAlarmTime() {
+  const timeEl = document.getElementById('controlloAlarmTime');
+  if(!timeEl) return;
+  const time = timeEl.value;
+  localStorage.setItem(CONTROLLO_ALARM_KEY, time);
+
+  // Schedule native alarm for controllo day
+  scheduleControlloAlarm(time);
+  showAutoBackupToast('✅ Allarme controllo impostato alle ' + time);
+}
+
+function scheduleControlloAlarm(time) {
+  if(!window.isCapacitor) return;
+  try {
+    const therapies = getAllTherapies();
+    if(!therapies.length) return;
+    const lastTherapy = therapies[therapies.length-1];
+    const controlloDate = lastTherapy.dataControllo;
+    if(!controlloDate) return;
+
+    const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+    if(!AlarmPlugin) return;
+
+    // Use a special alarm ID for controllo (dateYYYYMMDD + 9999)
+    const [dd,mm,yyyy] = controlloDate.split('/');
+    const alarmId = parseInt(`${yyyy}${mm}${dd}`) + 9999;
+    const [h, m] = time.split(':');
+
+    AlarmPlugin.scheduleAlarm({
+      alarmId,
+      date: controlloDate,
+      hour: parseInt(h),
+      minute: parseInt(m),
+      title: 'Controllo INR oggi',
+      message: 'Ricordati di andare al centro TAO per il controllo anticoagulante'
+    });
+  } catch(e) { console.warn('[TAO] scheduleControlloAlarm error:', e); }
+}
+
+function initControlloAlarmUI() {
+  const timeEl = document.getElementById('controlloAlarmTime');
+  if(!timeEl) return;
+  const saved = localStorage.getItem(CONTROLLO_ALARM_KEY);
+  if(saved) timeEl.value = saved;
+}
+
 function showScortaPopupIfNeeded() {
   const scorta = loadScorta();
   if(!scorta) return;
@@ -4592,6 +4705,7 @@ function fbListenMessages() {
 
 function initStrumenti() {
   initFirebase();
+  initControlloAlarmUI();
   const data = loadData();
   const controls = data.controls || [];
   if(!controls.length) return;
@@ -5522,6 +5636,7 @@ setTimeout(() => {
   saveControlloDateForNative();
   checkScortaWarning();
   showScortaPopupIfNeeded();
+  showControlloPopupIfNeeded();
   checkPendingConfirmFromNative();
   // Sync volume to native
   if(window.isCapacitor) {
