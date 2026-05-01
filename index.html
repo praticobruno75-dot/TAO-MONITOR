@@ -5221,6 +5221,13 @@ function openStartupTab() {
   }
 }
 
+function initBatteryOptUI() {
+  if(!window.isCapacitor) {
+    const btn = document.getElementById('batteryOptBtn');
+    if(btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  }
+}
+
 // Run startup sequence
 lockLandscapeOnMobile();
 initAlarms();
