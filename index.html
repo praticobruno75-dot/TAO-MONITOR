@@ -2294,7 +2294,9 @@ function renderPlanIndex() {
   container.innerHTML='';
   const today = formatDate(new Date());
 
-  therapies.forEach((t, idx) => {
+  // Show most recent plan first
+  [...therapies].reverse().forEach((t, revIdx) => {
+    const idx = therapies.length - 1 - revIdx;
     const days = getTherapyDays(t);
     const takenCount = days.filter(d=>data.taken&&data.taken[d]).length;
     const pct = days.length>0?Math.round(takenCount/days.length*100):0;
@@ -3737,1993 +3739,257 @@ async function exportDiarioReportPDF() {
   const { jsPDF } = window.jspdf;
   if(!jsPDF) { alert('jsPDF non disponibile'); return; }
 
-  const titleEl   = document.getElementById('diarioReportTitle');
-  const contentEl = document.getElementById('diarioReportContent');
-  if(!titleEl || !contentEl) return;
+  // Get data from current report modal title
+  const titleEl = document.getElementById('diarioReportTitle');
+  const titleText = titleEl ? titleEl.textContent.replace('📊 ','') : 'Diario alimentare';
+
+  // Extract period from title "Diario alimentare: DD/MM/YYYY → DD/MM/YYYY"
+  const periodMatch = titleText.match(/(\d{2}\/\d{2}\/\d{4}).*?(\d{2}\/\d{2}\/\d{4})/);
+  const dataInizio = periodMatch ? periodMatch[1] : '';
+  const dataFine   = periodMatch ? periodMatch[2] : '';
+
+  // Get raw diario data
+  const diario = getDiarioForPeriod(dataInizio, dataFine);
 
   const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
   const pageW = 210, pageH = 297, margin = 14;
   const contentW = pageW - margin * 2;
   let y = margin;
 
-  // Colors
-  const COL_RED    = [255,123,114];
-  const COL_ORANGE = [240,136,62];
-  const COL_GREEN  = [63,185,80];
-  const COL_BLUE   = [88,166,255];
-  const COL_DARK   = [13,17,23];
-  const COL_MUTED  = [125,133,144];
-  const COL_BORDER = [48,54,61];
-  const COL_CARD   = [22,27,34];
+  // Colors as RGB arrays
+  const WHITE  = [255,255,255];
+  const MUTED  = [125,133,144];
+  const DARK   = [13,17,23];
+  const CARD   = [22,27,34];
+  const BORDER = [48,54,61];
+  const RED    = [255,123,114];
+  const ORANGE = [240,136,62];
+  const GREEN  = [63,185,80];
+  const BLUE   = [88,166,255];
 
-  function checkNewPage(needed) {
-    if(y + needed > pageH - margin) {
-      doc.addPage();
-      y = margin;
-      return true;
-    }
-    return false;
+  function newPageIfNeeded(needed) {
+    if(y + needed > pageH - 14) { doc.addPage(); y = margin; }
   }
 
-  // Header
-  doc.setFillColor(...COL_DARK);
-  doc.rect(0, 0, pageW, 28, 'F');
-  doc.setTextColor(255,255,255);
-  doc.setFontSize(16);
-  doc.setFont('helvetica','bold');
-  doc.text('TAO Monitor — Diario Alimentare', margin, 12);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(...COL_MUTED);
-  doc.text(titleEl.textContent.replace('📊 ',''), margin, 20);
-  doc.text(`Generato il ${formatDate(new Date())}`, pageW - margin, 20, { align:'right' });
-  y = 36;
+  function drawSectionHeader(label, color) {
+    newPageIfNeeded(8);
+    doc.setFillColor(...color.map(v => Math.round(v * 0.2 + 13)));
+    doc.setTextColor(...color);
+    doc.setFontSize(8);
+    doc.setFont('helvetica','bold');
+    doc.text(label, margin + 3, y);
+    y += 5;
+    doc.setDrawColor(...color);
+    doc.setLineWidth(0.3);
+    doc.line(margin + 3, y, pageW - margin - 3, y);
+    y += 3;
+  }
 
-  // Patient info
+  function drawRow(name, value, color) {
+    newPageIfNeeded(6);
+    doc.setTextColor(210,210,210);
+    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    // Truncate name if too long
+    const maxName = 130;
+    const nameStr = doc.splitTextToSize(name, maxName)[0];
+    doc.text(nameStr, margin + 4, y);
+    doc.setTextColor(...color);
+    doc.setFont('helvetica','bold');
+    doc.text(value, pageW - margin - 2, y, { align: 'right' });
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.15);
+    doc.line(margin + 3, y + 1.5, pageW - margin - 3, y + 1.5);
+    y += 5.5;
+  }
+
+  // ---- HEADER ----
+  doc.setFillColor(...DARK);
+  doc.rect(0, 0, pageW, 26, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(15);
+  doc.setFont('helvetica','bold');
+  doc.text('TAO Monitor — Diario Alimentare', margin, 11);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(...MUTED);
+  doc.text(titleText, margin, 19);
+  doc.text(`Generato il ${formatDate(new Date())}`, pageW - margin, 19, { align: 'right' });
+  y = 33;
+
+  // ---- PATIENT BOX ----
   const therapies = getAllTherapies();
   if(therapies.length) {
     const t = therapies[therapies.length-1];
     const paz = t.paziente || {};
-    doc.setFillColor(...COL_CARD);
-    doc.roundedRect(margin, y, contentW, 14, 2, 2, 'F');
-    doc.setTextColor(...COL_GREEN);
-    doc.setFontSize(8);
+    doc.setFillColor(...CARD);
+    doc.roundedRect(margin, y, contentW, 13, 2, 2, 'F');
+    doc.setTextColor(...GREEN);
+    doc.setFontSize(7);
     doc.setFont('helvetica','bold');
-    doc.text('PAZIENTE', margin+3, y+5);
-    doc.setTextColor(255,255,255);
+    doc.text('PAZIENTE', margin + 3, y + 5);
+    doc.setTextColor(...WHITE);
     doc.setFontSize(10);
-    doc.setFont('helvetica','bold');
-    doc.text(paz.nome || '—', margin+3, y+11);
-    doc.setTextColor(...COL_MUTED);
-    doc.setFontSize(8);
-    doc.setFont('helvetica','normal');
-    if(paz.codiceFiscale) doc.text(paz.codiceFiscale, pageW-margin-3, y+11, { align:'right' });
-    y += 20;
-  }
-
-  // Summary cards
-  const cards = contentEl.querySelectorAll('.card');
-  const summaryCards = [...cards].slice(0,4);
-  if(summaryCards.length === 4) {
-    const cardW = (contentW - 6) / 2;
-    const cardH = 16;
-    const cardColors = [COL_RED, COL_ORANGE, COL_GREEN, COL_BLUE];
-    const cardLabels = ['Porzioni 🔴', 'Porzioni 🟡', 'Integratori 🌿', 'Farmaci 💊'];
-    summaryCards.forEach((card, i) => {
-      const col = i % 2;
-      const row = Math.floor(i / 2);
-      const cx = margin + col * (cardW + 3);
-      const cy = y + row * (cardH + 3);
-      doc.setFillColor(...COL_CARD);
-      doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'F');
-      const val = card.querySelector('div')?.textContent || '0';
-      doc.setTextColor(...cardColors[i]);
-      doc.setFontSize(14);
-      doc.setFont('helvetica','bold');
-      doc.text(val, cx + cardW/2, cy + 9, { align:'center' });
-      doc.setTextColor(...COL_MUTED);
-      doc.setFontSize(7);
+    doc.text(paz.nome || '—', margin + 3, y + 10.5);
+    if(paz.codiceFiscale) {
+      doc.setTextColor(...MUTED);
+      doc.setFontSize(8);
       doc.setFont('helvetica','normal');
-      doc.text(cardLabels[i], cx + cardW/2, cy + 14, { align:'center' });
-    });
-    y += 2 * (cardH + 3) + 6;
+      doc.text(paz.codiceFiscale, pageW - margin - 3, y + 10.5, { align: 'right' });
+    }
+    y += 18;
   }
 
-  // Weekly detail
-  doc.setTextColor(...COL_BLUE);
+  // ---- BUILD DATA FROM RAW DIARIO ----
+  const from = parseDate(dataInizio);
+  const weeks = {};
+  const weekOrder = [];
+
+  const sortedDates = Object.keys(diario).sort((a,b) => parseDate(b) - parseDate(a));
+  sortedDates.forEach(dateStr => {
+    const dt = parseDate(dateStr);
+    const weekNum = Math.max(0, Math.floor((dt - from) / (7*24*60*60*1000)));
+    const weekKey = `Settimana ${weekNum + 1}`;
+    if(!weeks[weekKey]) { weeks[weekKey] = { rossi:[], gialli:[], integratori:[], farmaci:[] }; weekOrder.push(weekKey); }
+    diario[dateStr].forEach(e => {
+      if(e.tipo === 'alimento') {
+        const list = e.colore === 'red' ? weeks[weekKey].rossi : weeks[weekKey].gialli;
+        list.push({ nome: e.nome, porzioni: e.porzioni || 1 });
+      } else if(e.tipo === 'integratore') weeks[weekKey].integratori.push({ nome: e.nome, dose: e.dose || '' });
+      else if(e.tipo === 'farmaco') weeks[weekKey].farmaci.push({ nome: e.nome, dose: e.dose || '' });
+    });
+  });
+
+  // ---- SUMMARY CARDS ----
+  let totRossi=0, totGialli=0, totInt=0, totFarm=0;
+  Object.values(weeks).forEach(w => {
+    totRossi  += w.rossi.reduce((s,e) => s+e.porzioni, 0);
+    totGialli += w.gialli.reduce((s,e) => s+e.porzioni, 0);
+    totInt    += w.integratori.length;
+    totFarm   += w.farmaci.length;
+  });
+
+  const cardW = (contentW - 6) / 2;
+  const cardH = 15;
+  const summaryData = [
+    { label:'Porzioni alimenti evitare', val: totRossi, col: RED },
+    { label:'Porzioni alimenti moderare', val: totGialli, col: ORANGE },
+    { label:'Assunzioni integratori',     val: totInt,   col: GREEN },
+    { label:'Assunzioni farmaci',         val: totFarm,  col: BLUE },
+  ];
+  summaryData.forEach((s, i) => {
+    const cx = margin + (i%2) * (cardW+3);
+    const cy = y + Math.floor(i/2) * (cardH+3);
+    doc.setFillColor(...CARD);
+    doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'F');
+    doc.setTextColor(...s.col);
+    doc.setFontSize(14);
+    doc.setFont('helvetica','bold');
+    doc.text(String(s.val), cx + cardW/2, cy + 8, { align:'center' });
+    doc.setTextColor(...MUTED);
+    doc.setFontSize(7);
+    doc.setFont('helvetica','normal');
+    doc.text(s.label, cx + cardW/2, cy + 13, { align:'center' });
+  });
+  y += 2*(cardH+3) + 8;
+
+  // ---- WEEKLY DETAIL ----
+  doc.setTextColor(...BLUE);
   doc.setFontSize(10);
   doc.setFont('helvetica','bold');
   doc.text('DETTAGLIO SETTIMANALE', margin, y);
   y += 6;
 
-  const weekCards = contentEl.querySelectorAll('.card:not(:nth-child(-n+4))');
-  weekCards.forEach(weekCard => {
-    const title = weekCard.querySelector('div')?.textContent || '';
-    const sections = weekCard.querySelectorAll('div[style*="font-weight:600"]');
+  const uniqueWeeks = [...new Set(weekOrder)];
+  uniqueWeeks.forEach(weekKey => {
+    const w = weeks[weekKey];
+    const hasData = w.rossi.length || w.gialli.length || w.integratori.length || w.farmaci.length;
 
-    const estimatedH = 10 + sections.length * 20;
-    checkNewPage(estimatedH);
+    newPageIfNeeded(12);
 
-    // Week card background
-    doc.setFillColor(...COL_CARD);
-    doc.roundedRect(margin, y, contentW, 8, 2, 2, 'F');
-    doc.setTextColor(255,255,255);
+    // Week header bar
+    doc.setFillColor(...CARD);
+    doc.roundedRect(margin, y, contentW, 7, 1, 1, 'F');
+    doc.setTextColor(...WHITE);
     doc.setFontSize(9);
     doc.setFont('helvetica','bold');
-    doc.text(title, margin+3, y+5.5);
-    y += 11;
+    doc.text(weekKey, margin + 3, y + 5);
+    y += 10;
 
-    // Sections inside week
-    const sectionColors = {
-      '🔴': COL_RED, '🟡': COL_ORANGE, '🌿': COL_GREEN, '💊': COL_BLUE
-    };
+    if(!hasData) {
+      doc.setTextColor(...MUTED);
+      doc.setFontSize(8);
+      doc.setFont('helvetica','normal');
+      doc.text('Nessuna registrazione', margin + 4, y);
+      y += 6;
+      return;
+    }
 
-    weekCard.querySelectorAll('div').forEach(div => {
-      const txt = div.textContent.trim();
-      if(!txt) return;
-
-      // Section header (colored label)
-      const emoji = txt[0];
-      if(['🔴','🟡','🌿','💊'].includes(emoji)) {
-        checkNewPage(8);
-        const col = sectionColors[emoji] || COL_MUTED;
-        doc.setTextColor(...col);
-        doc.setFontSize(8);
-        doc.setFont('helvetica','bold');
-        doc.text(txt.replace(/[🔴🟡🌿💊]/g,'').trim(), margin+2, y);
-        y += 5;
-        return;
-      }
-
-      // Item rows (name + value)
-      const rowDivs = div.querySelectorAll('div[style*="justify-content:space-between"]');
-      rowDivs.forEach(row => {
-        checkNewPage(6);
-        const spans = row.querySelectorAll('span');
-        if(spans.length >= 2) {
-          doc.setTextColor(200,200,200);
-          doc.setFontSize(8);
-          doc.setFont('helvetica','normal');
-          doc.text(spans[0].textContent, margin+4, y);
-          doc.setTextColor(...COL_MUTED);
-          doc.text(spans[1].textContent, pageW-margin-3, y, { align:'right' });
-          // Separator line
-          doc.setDrawColor(...COL_BORDER);
-          doc.setLineWidth(0.2);
-          doc.line(margin+4, y+1, pageW-margin-4, y+1);
-          y += 5.5;
-        }
+    // Group by name
+    function groupByName(items) {
+      const g = {};
+      items.forEach(e => {
+        if(!g[e.nome]) g[e.nome] = { nome:e.nome, count:0, dose:e.dose||'' };
+        g[e.nome].count += e.porzioni || 1;
       });
-    });
+      return Object.values(g);
+    }
+
+    if(w.rossi.length) {
+      drawSectionHeader('Alimenti da evitare (rossi)', RED);
+      groupByName(w.rossi).forEach(g => drawRow(g.nome, `${g.count} porz.`, RED));
+    }
+    if(w.gialli.length) {
+      drawSectionHeader('Alimenti da moderare (gialli)', ORANGE);
+      groupByName(w.gialli).forEach(g => drawRow(g.nome, `${g.count} porz.`, ORANGE));
+    }
+    if(w.integratori.length) {
+      drawSectionHeader('Integratori', GREEN);
+      function groupEvents(items) {
+        const g = {};
+        items.forEach(e => {
+          if(!g[e.nome]) g[e.nome] = { nome:e.nome, count:0, dose:e.dose||'' };
+          g[e.nome].count++;
+        });
+        return Object.values(g);
+      }
+      groupEvents(w.integratori).forEach(g => drawRow(g.nome + (g.dose ? ` (${g.dose})` : ''), `${g.count}x`, GREEN));
+    }
+    if(w.farmaci.length) {
+      drawSectionHeader('Farmaci', BLUE);
+      function groupFarmaci(items) {
+        const g = {};
+        items.forEach(e => {
+          if(!g[e.nome]) g[e.nome] = { nome:e.nome, count:0, dose:e.dose||'' };
+          g[e.nome].count++;
+        });
+        return Object.values(g);
+      }
+      groupFarmaci(w.farmaci).forEach(g => drawRow(g.nome + (g.dose ? ` (${g.dose})` : ''), `${g.count}x`, BLUE));
+    }
     y += 4;
   });
 
-  // Footer
+  // ---- FOOTER ----
   const pageCount = doc.getNumberOfPages();
   for(let i=1; i<=pageCount; i++) {
     doc.setPage(i);
-    doc.setDrawColor(...COL_BORDER);
+    doc.setDrawColor(...BORDER);
     doc.setLineWidth(0.3);
     doc.line(margin, pageH-10, pageW-margin, pageH-10);
-    doc.setTextColor(...COL_MUTED);
+    doc.setTextColor(...MUTED);
     doc.setFontSize(7);
     doc.setFont('helvetica','normal');
-    doc.text(`TAO Monitor — Report diario alimentare — Pagina ${i}/${pageCount}`, pageW/2, pageH-6, { align:'center' });
+    doc.text(`TAO Monitor — Report diario alimentare — Pagina ${i}/${pageCount}`, pageW/2, pageH-5, { align:'center' });
   }
 
-  const fileName = `Diario-Alimentare-${formatDate(new Date()).replace(/\//g,'-')}.pdf`;
-
-  // Android: show inline with share button; Desktop: download
+  const fileName = `Diario-Alimentare-${dataInizio.replace(/\//g,'-')}_${dataFine.replace(/\//g,'-')}.pdf`;
   if(window.isCapacitor) {
-    const pdfBlob = doc.output('blob');
-    const url = URL.createObjectURL(pdfBlob);
+    const url = URL.createObjectURL(doc.output('blob'));
     window.open(url, '_blank');
   } else {
     doc.save(fileName);
   }
 }
 
-// ===================================================
-// ROSENDAAL TTR CALCULATION
-// ===================================================
-function calcRosendaalTTR(sorted) {
-  if(!sorted || sorted.length < 2) {
-    return { ttr: 0, daysInRange: 0, totalDays: 0 };
-  }
-
-  let daysInRange = 0;
-  let totalDays = 0;
-
-  for(let i = 0; i < sorted.length - 1; i++) {
-    const curr = sorted[i];
-    const next = sorted[i + 1];
-
-    // Get range for this interval (use current measurement's range)
-    const rMin = curr.rangeMin || 2.0;
-    const rMax = curr.rangeMax || 3.0;
-
-    // Calculate days between measurements
-    const d1 = parseDate(curr.data);
-    const d2 = parseDate(next.data);
-    const intervalDays = Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
-    if(intervalDays <= 0) continue;
-
-    totalDays += intervalDays;
-
-    const inr1 = curr.inr;
-    const inr2 = next.inr;
-
-    // Both in range
-    if(inr1 >= rMin && inr1 <= rMax && inr2 >= rMin && inr2 <= rMax) {
-      daysInRange += intervalDays;
-      continue;
-    }
-
-    // Both out of range (same side)
-    if((inr1 < rMin && inr2 < rMin) || (inr1 > rMax && inr2 > rMax)) {
-      continue; // 0 days in range
-    }
-
-    // Linear interpolation — find crossing points
-    // INR changes linearly from inr1 to inr2 over intervalDays
-    const slope = (inr2 - inr1) / intervalDays;
-
-    let enterDay = 0, exitDay = intervalDays;
-
-    // Find when INR enters range (from below or above)
-    if(inr1 < rMin) {
-      // Entering from below: find day when INR = rMin
-      enterDay = (rMin - inr1) / slope;
-    } else if(inr1 > rMax) {
-      // Entering from above: find day when INR = rMax
-      enterDay = (rMax - inr1) / slope;
-    }
-
-    // Find when INR exits range
-    if(inr2 < rMin) {
-      // Exiting below: find day when INR = rMin
-      exitDay = (rMin - inr1) / slope;
-    } else if(inr2 > rMax) {
-      // Exiting above: find day when INR = rMax
-      exitDay = (rMax - inr1) / slope;
-    }
-
-    const daysIn = Math.max(0, Math.min(exitDay, intervalDays) - Math.max(enterDay, 0));
-    daysInRange += daysIn;
-  }
-
-  const ttr = totalDays > 0 ? Math.round(daysInRange / totalDays * 100) : 0;
-  return {
-    ttr,
-    daysInRange: Math.round(daysInRange),
-    totalDays: Math.round(totalDays)
-  };
-}
-
-// ===================================================
-// INTERAZIONI TAB
-// ===================================================
-function renderInterazioniAlim() {
-  const p = document.getElementById('intPanelAlim');
-  if(!p || p.dataset.rendered) return;
-  p.dataset.rendered = '1';
-  p.innerHTML = `
-    <div style="background:rgba(240,136,62,0.12);border:1px solid rgba(240,136,62,0.4);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7;color:var(--text)">
-      ⚠️ <strong>Effetto cumulativo:</strong> Consumare più alimenti 🟡 nello stesso pasto somma l'effetto sulla vitamina K.
-      Non combinare più di <strong>2 alimenti gialli</strong> nello stesso pasto.
-      La chiave è la <strong>costanza</strong> — non eliminare, ma mantenere quantità regolari nel tempo.
-    </div>
-
-    <div class="section-title" style="color:var(--danger)">🔴 Evitare o ridurre drasticamente</div>
-    <div class="card" style="margin-bottom:16px;padding:12px 16px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Alto contenuto di vitamina K — riducono l'effetto del Coumadin</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems([
-          ['Basilico, salvia, origano','max 5g/settimana come condimento'],
-          ['Bevande energetiche (Red Bull e simili)','evitare'],
-          ['Bietola','evitare o max 50g/settimana'],
-          ['Cavolo riccio / kale','evitare o max 50g/settimana'],
-          ['Cime di rapa','evitare o max 50g/settimana'],
-          ['Crescione','evitare o max 50g/settimana'],
-          ['Fegato di manzo o pollo','max 100g/settimana'],
-          ['Prezzemolo','solo come ornamento'],
-          ['Spinaci','evitare o max 50g/settimana'],
-          ['Succo di mirtillo / cranberry','evitare'],
-          ['Succo di pompelmo','evitare'],
-          ['Superalcolici','evitare'],
-          ['Verze / cavolo verde','evitare o max 50g/settimana']
-        ],'red')}
-      </div>
-    </div>
-
-    <div class="section-title" style="color:var(--warn)">🟡 Moderare — consumo regolare e costante</div>
-    <div class="card" style="margin-bottom:16px;padding:12px 16px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Consumare in quantità costanti — le variazioni brusche sono pericolose quanto le eccessive</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems([
-          ['Aglio','max 1 spicchio/giorno'],
-          ['Alcool','max 1 bicchiere vino o 1 birra'],
-          ['Asparagi','max 100g/giorno'],
-          ['Avocado','max 50g (¼ frutto)'],
-          ['Broccoli','max 80g/giorno'],
-          ['Caffè / bevande con caffeina','max 2-3 tazze/giorno'],
-          ['Cavoletti di Bruxelles','max 80g/giorno'],
-          ['Cavolo cappuccio / cavolfiore','max 100g/giorno'],
-          ['Cereali integrali','max 80g/giorno'],
-          ['Cipolla verde / erba cipollina','max 20g/giorno'],
-          ['Curcuma','max 1g (½ cucchiaino)'],
-          ['Lattuga / insalata verde','max 50g/giorno'],
-          ['Olio di soia / canola','max 1 cucchiaio (15ml)'],
-          ['Olive','max 30g (~10 olive)'],
-          ['Piselli e fagioli','max 80g/giorno'],
-          ['Radicchio','max 80g/giorno'],
-          ['Soia / latte di soia','moderare'],
-          ['Tè verde','max 1 tazza/giorno'],
-          ['Zenzero','max 2g (1 cucchiaino)']
-        ],'warn')}
-      </div>
-    </div>
-
-    <div class="section-title" style="color:var(--accent2)">🟢 Nessun problema significativo</div>
-    <div class="card" style="margin-bottom:16px;padding:12px 16px">
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems(['Carne (tranne fegato), pesce, uova','Frutta fresca (escluso pompelmo)','Pasta e riso bianchi, pane bianco','Patate','Pomodori','Carote','Peperoni','Funghi','Formaggi, latte, latticini','Zucchine','Olio d\'oliva (moderato)'],'green')}
-      </div>
-    </div>
-
-    <div class="section-title">🌿 Integratori e rimedi naturali</div>
-    <div class="card" style="margin-bottom:16px;padding:12px 16px">
-      <div style="font-size:12px;color:var(--warn);font-weight:600;margin-bottom:8px">⬆️ Aumentano l'effetto (rischio emorragia)</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px">
-        ${renderFoodItems(['Ginkgo biloba','Aglio (alte dosi)','Zenzero (alte dosi)','Curcuma','Omega-3 / olio di pesce (alte dosi)','Vitamina E (alte dosi)','Mirtillo / cranberry'],'warn')}
-      </div>
-      <div style="font-size:12px;color:var(--danger);font-weight:600;margin-bottom:8px">⬇️ Diminuiscono l'effetto (rischio trombosi)</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems(['Erba di San Giovanni / Hypericum ⛔ VIETATO con Coumadin','Ginseng','Coenzima Q10','Semi di lino','Multivitaminici con vitamina K'],'warn')}
-      </div>
-    </div>`;
-}
-
-function renderInterazioniFarm() {
-  const p = document.getElementById('intPanelFarm');
-  if(!p || p.dataset.rendered) return;
-  p.dataset.rendered = '1';
-  p.innerHTML = `
-    <div style="background:rgba(255,123,114,0.1);border:1px solid rgba(255,123,114,0.3);border-radius:10px;padding:14px 16px;margin-bottom:16px;font-size:13px;line-height:1.7">
-      ⚠️ <strong>Attenzione:</strong> Qualsiasi nuovo farmaco, anche da banco, va comunicato al medico o al centro TAO <strong>prima</strong> di assumerlo.
-      Anche la <strong>sospensione</strong> di un farmaco può alterare l'INR.
-    </div>
-
-    <div class="section-title" style="color:var(--danger)">🔴 Aumentano l'effetto — rischio emorragia (INR sale)</div>
-    <div class="card" style="margin-bottom:16px;padding:12px 16px">
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antinfiammatori e antidolorifici</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${renderFoodItems(['Aspirina / acido acetilsalicilico (anche da banco)','Ibuprofene, diclofenac, naprossene (FANS)','Paracetamolo (dosi elevate)'],'red')}
-      </div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antibiotici e antifungini</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${renderFoodItems(['Ciprofloxacina, metronidazolo, eritromicina','Fluconazolo, miconazolo, ketoconazolo','Sulfamidici, cotrimossazolo','Antibiotici a largo spettro in genere'],'red')}
-      </div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Cardiologici</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${renderFoodItems(['Amiodarone (molto potente)','Propafenone','Statine (simvastatina, atorvastatina)'],'red')}
-      </div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Gastrointestinali</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${renderFoodItems(['Omeprazolo, esomeprazolo','Cimetidina','Orlistat'],'red')}
-      </div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Altri</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems(['SSRI antidepressivi (fluoxetina, sertralina, paroxetina)','Tamossifene','Allopurinolo','Leflunomide'],'red')}
-      </div>
-    </div>
-
-    <div class="section-title" style="color:var(--warn)">🟡 Diminuiscono l'effetto — rischio trombosi (INR scende)</div>
-    <div class="card" style="margin-bottom:16px;padding:12px 16px">
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antiepilettici</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${renderFoodItems(['Carbamazepina','Barbiturici (fenobarbital)','Fenitoina (effetto variabile)'],'warn')}
-      </div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Antibiotici</div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
-        ${renderFoodItems(['Rifampicina (molto potente)','Nafcillina, dicloxacillina'],'warn')}
-      </div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px">Altri</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${renderFoodItems(['Vitamina K (supplementi)','Colestiramina','Azatioprina / mercaptopurina'],'warn')}
-      </div>
-    </div>`;
-}
-
-function switchIntTab(tab) {
-  const alimBtn = document.getElementById('intTabAlimBtn');
-  const farmBtn = document.getElementById('intTabFarmBtn');
-  const alimPanel = document.getElementById('intPanelAlim');
-  const farmPanel = document.getElementById('intPanelFarm');
-  if(!alimBtn) return;
-
-  if(tab === 'alim') {
-    renderInterazioniAlim();
-    alimPanel.style.display = 'block';
-    farmPanel.style.display = 'none';
-    alimBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#0d1117;font-weight:600;font-size:13px;cursor:pointer';
-    farmBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer';
-  } else {
-    renderInterazioniFarm();
-    farmPanel.style.display = 'block';
-    alimPanel.style.display = 'none';
-    farmBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#0d1117;font-weight:600;font-size:13px;cursor:pointer';
-    alimBtn.style.cssText = 'flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer';
-  }
-}
-
-function renderFoodItems(items, type) {
-  const colors = {
-    red:  { bg: 'rgba(255,123,114,0.1)', border: 'rgba(255,123,114,0.3)', dot: '#ff7b72' },
-    warn: { bg: 'rgba(240,136,62,0.1)',  border: 'rgba(240,136,62,0.3)',  dot: '#f0883e' },
-    green:{ bg: 'rgba(63,185,80,0.1)',   border: 'rgba(63,185,80,0.3)',   dot: '#3fb950' },
-  };
-  const col = colors[type] || colors.warn;
-  return items.map(item => {
-    const name = Array.isArray(item) ? item[0] : item;
-    const qty  = Array.isArray(item) ? item[1] : null;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:${col.bg};border:1px solid ${col.border};border-radius:8px;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="width:8px;height:8px;border-radius:50%;background:${col.dot};flex-shrink:0"></span>
-        <span style="font-size:13px;color:var(--text)">${name}</span>
-      </div>
-      ${qty ? `<span style="font-size:11px;color:var(--muted);white-space:nowrap">${qty}</span>` : ''}
-    </div>`;
-  }).join('');
-}
-
-// ===================================================
-// BATTERY OPTIMIZATION
-// ===================================================
-function openBatterySettings() {
-  if(!window.isCapacitor) {
-    showAutoBackupToast('⚠️ Disponibile solo nell\'app Android');
-    return;
-  }
-  try {
-    // Open battery optimization settings via Capacitor
-    const { App } = window.Capacitor.Plugins;
-    // Use Android intent to open battery optimization settings
-    window.Capacitor.Plugins.App?.openUrl({
-      url: 'package:it.taomonitor.app'
-    });
-  } catch(e) {
-    console.warn('[TAO] Battery settings error:', e);
-  }
-
-  // Show manual instructions
-  const status = document.getElementById('batteryOptStatus');
-  if(status) {
-    status.style.display = 'block';
-    status.style.background = 'rgba(88,166,255,0.1)';
-    status.style.color = 'var(--accent)';
-    status.textContent = '📱 Vai in Impostazioni → Batteria → Ottimizzazione batteria → TAO Monitor → Non ottimizzare';
-  }
-}
-
-async function checkBatteryOptimization() {
-  if(!window.isCapacitor) {
-    showAutoBackupToast('⚠️ Disponibile solo nell\'app Android');
-    return;
-  }
-  const status = document.getElementById('batteryOptStatus');
-  if(!status) return;
-
-  // We can't directly check battery optimization from JS
-  // Show a helpful message instead
-  status.style.display = 'block';
-  status.style.background = 'rgba(240,136,62,0.1)';
-  status.style.color = 'var(--warn)';
-  status.textContent = '⚠️ Per verificare: Impostazioni → Batteria → Ottimizzazione batteria → cerca TAO Monitor. Se mostra "Ottimizzata" premi il pulsante sopra per disabilitarla.';
-}
-
-function initBatteryOptUI() {
-  // Show battery section only in Capacitor
-  if(!window.isCapacitor) {
-    const btn = document.getElementById('batteryOptBtn');
-    if(btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
-  }
-}
-
-// ===================================================
-// EDIT TAKEN TIME PICKER
-// ===================================================
-function initEditTimePicker(timeStr) {
-  const parts = (timeStr || '17:30').split(':');
-  let h = parseInt(parts[0]) || 17;
-  let m = parseInt(parts[1]) || 30;
-  m = Math.round(m / 5) * 5;
-  if(m >= 60) { m = 0; h = (h + 1) % 24; }
-  const hEl = document.getElementById('etpHour');
-  const mEl = document.getElementById('etpMin');
-  if(hEl) hEl.textContent = String(h).padStart(2,'0');
-  if(mEl) mEl.textContent = String(m).padStart(2,'0');
-}
-
-function adjustEditTime(part, delta) {
-  const hEl = document.getElementById('etpHour');
-  const mEl = document.getElementById('etpMin');
-  if(!hEl || !mEl) return;
-  let h = parseInt(hEl.textContent);
-  let m = parseInt(mEl.textContent);
-  if(part === 'h') {
-    h = (h + delta + 24) % 24;
-  } else {
-    m = m + delta;
-    if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0)   { m = 55; h = (h - 1 + 24) % 24; }
-  }
-  hEl.textContent = String(h).padStart(2,'0');
-  mEl.textContent = String(m).padStart(2,'0');
-}
-
-function saveTakenTime() {
-  const hEl = document.getElementById('etpHour');
-  const mEl = document.getElementById('etpMin');
-  if(!hEl || !mEl || !_dayDetailKey) return;
-  const newTime = `${hEl.textContent}:${mEl.textContent}`;
-  const data = loadData();
-  if(!data.takenTimes) data.takenTimes = {};
-  if(!data.takenEditTimes) data.takenEditTimes = {};
-  data.takenTimes[_dayDetailKey] = newTime;
-  data.takenEditTimes[_dayDetailKey] = Date.now();
-  saveData(data);
-  fbAutoSync();
-  saveBackupToFolder(true);
-  // Update display
-  const takenInfo = document.getElementById('dayDetailTakenInfo');
-  if(takenInfo) takenInfo.textContent = `✅ Assunto alle ${newTime}`;
-  renderTerapiaTab();
-  showAutoBackupToast(`✅ Orario assunzione aggiornato: ${newTime}`);
-}
-
-// ===================================================
-// CUSTOM TIME PICKER
-// ===================================================
-function initTimePicker(elementId, timeStr) {
-  const parts = (timeStr || '17:30').split(':');
-  let h = parseInt(parts[0]) || 17;
-  let m = parseInt(parts[1]) || 30;
-  m = Math.round(m / 5) * 5; // round to nearest 5
-  if(m >= 60) { m = 0; h = (h + 1) % 24; }
-
-  const prefix = elementId === 'modalTime' ? 'tp' : 'dtp';
-  const hourEl = document.getElementById(prefix + 'Hour');
-  const minEl = document.getElementById(prefix + 'Min');
-  if(hourEl) hourEl.textContent = String(h).padStart(2,'0');
-  if(minEl) minEl.textContent = String(m).padStart(2,'0');
-  updateHiddenTime(elementId, prefix);
-}
-
-function updateHiddenTime(inputId, prefix) {
-  const h = document.getElementById(prefix + 'Hour')?.textContent || '17';
-  const m = document.getElementById(prefix + 'Min')?.textContent || '30';
-  const input = document.getElementById(inputId);
-  if(input) input.value = `${h}:${m}`;
-}
-
-function adjustTime(part, delta) {
-  const hourEl = document.getElementById('tpHour');
-  const minEl = document.getElementById('tpMin');
-  if(!hourEl || !minEl) return;
-  let h = parseInt(hourEl.textContent);
-  let m = parseInt(minEl.textContent);
-  if(part === 'h') {
-    h = (h + delta + 24) % 24;
-  } else {
-    m = m + delta;
-    if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0) { m = 55; h = (h - 1 + 24) % 24; }
-  }
-  hourEl.textContent = String(h).padStart(2,'0');
-  minEl.textContent = String(m).padStart(2,'0');
-  updateHiddenTime('modalTime', 'tp');
-}
-
-function adjustDetailTime(part, delta) {
-  const hourEl = document.getElementById('dtpHour');
-  const minEl = document.getElementById('dtpMin');
-  if(!hourEl || !minEl) return;
-  let h = parseInt(hourEl.textContent);
-  let m = parseInt(minEl.textContent);
-  if(part === 'h') {
-    h = (h + delta + 24) % 24;
-  } else {
-    m = m + delta;
-    if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0) { m = 55; h = (h - 1 + 24) % 24; }
-  }
-  hourEl.textContent = String(h).padStart(2,'0');
-  minEl.textContent = String(m).padStart(2,'0');
-  updateHiddenTime('dayDetailTime', 'dtp');
-}
-
-// ===================================================
-// HELPERS
-// ===================================================
-function previewAlarm() {
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('alarmSub').textContent = `Test — ${timeStr}`;
-  document.getElementById('alarmToast').classList.add('show');
-  startAlarmSound();
-}
-function parseDate(s) { if(!s) return new Date(0); const[d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); }
-function formatDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
-function inrClass(v,min,max) { if(!min||!max) return ''; if(v>=min&&v<=max) return 'inr-good'; if(v<min*.85||v>max*1.15) return 'inr-bad'; return 'inr-warn'; }
-function getINRStatus(v,min,max) { if(!min||!max) return{cls:'',icon:'—',label:'—'}; if(v>=min&&v<=max) return{cls:'good',icon:'✓',label:'In range'}; if(v<min) return{cls:v<min*.85?'bad':'warn',icon:'↓',label:'Sotto range'}; return{cls:v>max*1.15?'bad':'warn',icon:'↑',label:'Sopra range'}; }
-function showLoading(msg) { document.getElementById('loadingText').textContent=msg; document.getElementById('loadingOverlay').classList.add('active'); }
-function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
-
-
-
-
-// ===================================================
-// FIREBASE: AUTH + FIRESTORE SYNC + FCM
-// ===================================================
-
-let _fbApp        = null;
-let _fbAuth       = null;
-let _fbDb         = null;
-let _fbMessaging  = null;
-let _fbUser       = null;
-let _fbUnsubscribe = null; // Firestore realtime listener
-let _fbVapidKey   = null;
-let _fbSyncing    = false;
-
-const FB_CONFIG_KEY = 'tao_fb_config';
-const FB_VAPID_KEY  = 'tao_fb_vapid';
-
-// ---- INIT ----
-function initFirebase() {
-  const raw = localStorage.getItem(FB_CONFIG_KEY);
-  const vapid = localStorage.getItem(FB_VAPID_KEY);
-  if(!raw) return;
-  try {
-    const config = JSON.parse(raw);
-    _fbVapidKey = vapid || null;
-
-    // Wait for Firebase modules to load
-    const tryInit = () => {
-      const mods = window._firebaseModules;
-      if(!mods) { setTimeout(tryInit, 200); return; }
-
-      const { initializeApp, getAuth, onAuthStateChanged,
-              getFirestore, getMessaging } = mods;
-
-      _fbApp       = initializeApp(config);
-      _fbAuth      = getAuth(_fbApp);
-      _fbDb        = getFirestore(_fbApp);
-
-      // Firebase Messaging not supported in Capacitor WebView — skip
-      if(!window.isCapacitor) {
-        try {
-          _fbMessaging = getMessaging(_fbApp);
-          fbListenMessages();
-          const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
-          navigator.serviceWorker?.getRegistrations().then(regs => {
-            regs.forEach(reg => {
-              if(reg.active) reg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
-            });
-          });
-        } catch(e) { console.warn('[FB] Messaging init:', e); }
-      } else {
-        console.log('[FB] Messaging disabled in Capacitor — using native alarms');
-      }
-
-      // Listen for auth state
-      onAuthStateChanged(_fbAuth, user => {
-        if(user) {
-          _fbUser = user;
-          showFbLoggedIn(user.email);
-          fbStartRealtimeSync();
-          fbSyncNow(true);
-          fbRegisterFCM();
-        } else {
-          _fbUser = null;
-          showFbLoggedOut();
-          if(_fbUnsubscribe) { _fbUnsubscribe(); _fbUnsubscribe = null; }
-        }
-      });
-    };
-
-    if(window._firebaseModules) tryInit();
-    else window.addEventListener('firebase-ready', tryInit);
-
-  } catch(e) {
-    console.error('[FB] Init error:', e);
-  }
-
-  // Listen for messages from Service Worker (alarm actions)
-  navigator.serviceWorker?.addEventListener('message', event => {
-    const msg = event.data;
-    if(!msg) return;
-    if(msg.type === 'DOSE_CONFIRMED' && msg.date) {
-      appData = loadData();
-      if(!appData.taken) appData.taken = {};
-      if(!appData.takenTimes) appData.takenTimes = {};
-      appData.taken[msg.date] = true;
-      appData.takenTimes[msg.date] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-      saveData(appData);
-      renderTerapiaTab();
-      fbAutoSync();
-    }
-    if(msg.type === 'SNOOZE_ALARM' && msg.date) {
-      snoozeAlarm(msg.minutes || 15);
-    }
-  });
-}
-
-function saveFirebaseConfig() {
-  const raw   = document.getElementById('fbConfigInput').value.trim();
-  const vapid = document.getElementById('fbVapidInput').value.trim();
-  const status = document.getElementById('fbConfigStatus');
-
-  try {
-    const config = JSON.parse(raw);
-    if(!config.apiKey || !config.projectId) throw new Error('Config incompleta');
-    localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(config));
-    if(vapid) localStorage.setItem(FB_VAPID_KEY, vapid);
-    status.style.display = 'block';
-    status.style.color = 'var(--accent2)';
-    status.textContent = '✅ Configurazione salvata. Accedi con email e password.';
-    initFirebase();
-  } catch(e) {
-    status.style.display = 'block';
-    status.style.color = 'var(--danger)';
-    status.textContent = '❌ JSON non valido: ' + e.message;
-  }
-}
-
-// ---- AUTH ----
-async function fbSignIn() {
-  const email = document.getElementById('fbEmail').value.trim();
-  const pwd   = document.getElementById('fbPassword').value;
-  const errEl = document.getElementById('fbAuthError');
-  errEl.style.display = 'none';
-
-  if(!_fbAuth) { errEl.style.display='block'; errEl.textContent='Configura prima Firebase.'; return; }
-
-  try {
-    const { signInWithEmailAndPassword } = window._firebaseModules;
-    await signInWithEmailAndPassword(_fbAuth, email, pwd);
-  } catch(e) {
-    errEl.style.display = 'block';
-    errEl.textContent = fbErrorMsg(e.code);
-  }
-}
-
-async function fbRegister() {
-  const email = document.getElementById('fbEmail').value.trim();
-  const pwd   = document.getElementById('fbPassword').value;
-  const errEl = document.getElementById('fbAuthError');
-  errEl.style.display = 'none';
-
-  if(!_fbAuth) { errEl.style.display='block'; errEl.textContent='Configura prima Firebase.'; return; }
-  if(pwd.length < 6) { errEl.style.display='block'; errEl.textContent='Password minimo 6 caratteri.'; return; }
-
-  try {
-    const { createUserWithEmailAndPassword } = window._firebaseModules;
-    await createUserWithEmailAndPassword(_fbAuth, email, pwd);
-  } catch(e) {
-    errEl.style.display = 'block';
-    errEl.textContent = fbErrorMsg(e.code);
-  }
-}
-
-async function fbSignOut() {
-  if(!_fbAuth) return;
-  const { signOut } = window._firebaseModules;
-  await signOut(_fbAuth);
-}
-
-function fbErrorMsg(code) {
-  const msgs = {
-    'auth/user-not-found':      'Utente non trovato. Registrati prima.',
-    'auth/wrong-password':      'Password errata.',
-    'auth/invalid-email':       'Email non valida.',
-    'auth/email-already-in-use':'Email già registrata. Accedi invece di registrarti.',
-    'auth/weak-password':       'Password troppo debole (minimo 6 caratteri).',
-    'auth/invalid-credential':  'Credenziali non valide.',
-    'auth/network-request-failed': 'Errore di rete. Controlla la connessione.',
-  };
-  return msgs[code] || 'Errore: ' + code;
-}
-
-// ---- UI ----
-function showFbLoggedIn(email) {
-  document.getElementById('fbLoggedOut').style.display = 'none';
-  document.getElementById('fbLoggedIn').style.display  = 'block';
-  document.getElementById('fbUserEmail').textContent   = email;
-  setFbSyncStatus('✅ Connesso — sincronizzazione attiva', 'ok');
-}
-
-function showFbLoggedOut() {
-  document.getElementById('fbLoggedOut').style.display = 'block';
-  document.getElementById('fbLoggedIn').style.display  = 'none';
-}
-
-function setFbSyncStatus(msg, type) {
-  const colors = { ok:'var(--accent2)', warn:'var(--warn)', err:'var(--danger)', info:'var(--muted)' };
-  const el = document.getElementById('fbSyncStatus');
-  if(el) { el.textContent = msg; el.style.color = colors[type]||colors.info; }
-}
-
-// ---- FIRESTORE SYNC ----
-function fbStartRealtimeSync() {
-  if(!_fbUser || !_fbDb || _fbUnsubscribe) return;
-  const { doc, onSnapshot } = window._firebaseModules;
-  const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-
-  _fbUnsubscribe = onSnapshot(docRef, snapshot => {
-    if(!snapshot.exists()) return;
-    const remoteData = snapshot.data();
-    const localData  = loadData();
-    const remoteTime = remoteData._syncTime || 0;
-    const localTime  = localData._syncTime  || 0;
-
-    // Always sync scorta, diario, medico independently of _syncTime
-    // Scorta: remote always wins when remote _syncTime is newer
-    if(remoteData.tao_scorta) {
-      const remoteScorta = remoteData.tao_scorta;
-      const localScorta  = loadScorta();
-      // Use _syncTime for comparison — more precise than date string
-      const localSyncTime  = localData._syncTime  || 0;
-      const remoteSyncTime = remoteData._syncTime || 0;
-      if(remoteSyncTime >= localSyncTime) {
-        localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
-        if(document.getElementById('scortaCount')) updateScortaDisplay();
-      }
-    }
-    // Medico: always take remote (last write wins)
-    if(remoteData.tao_medico) {
-      localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico));
-    }
-    // Diario: merge local + remote
-    if(remoteData.tao_diario) {
-      const mergedDiario = Object.assign({}, loadDiario(), remoteData.tao_diario);
-      localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
-    }
-
-    if(remoteTime > localTime) {
-      // Remote is newer: update local silently
-      const merged = fbMergeData(remoteData, localData);
-      if(remoteData.tao_diario) delete merged.tao_diario;
-      if(remoteData.tao_scorta) delete merged.tao_scorta;
-      if(remoteData.tao_medico) delete merged.tao_medico;
-      saveData(merged);
-      appData = merged;
-      calInitialized = false;
-      renderCurrentTab();
-      // Always re-render terapia to update progress bar
-      renderTerapiaTab();
-      // Refresh scorta display if on strumenti tab
-      updateScortaDisplay();
-      updateRichiestaInviataBadge();
-      setFbSyncStatus(
-        `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
-      );
-      showAutoBackupToast('☁️ Dati aggiornati dal cloud');
-
-      // If day detail modal is open, refresh it with new data
-      if(_dayDetailKey && document.getElementById('dayDetailModal').classList.contains('active')) {
-        _renderDayDetailModal(_dayDetailKey, merged);
-      }
-
-      // Reschedule all alarms after sync (in case alarms were set on another device)
-      Object.entries(merged.alarms||{}).forEach(([date, time]) => {
-        if(!merged.taken||merged.taken[date]!==true) {
-          scheduleAlarm(date, time);
-        }
-      });
-    }
-  }, err => {
-    console.error('[FB] Realtime sync error:', err);
-    setFbSyncStatus('⚠️ Errore sincronizzazione: ' + err.message, 'warn');
-  });
-}
-
-function fbMergeData(remote, local) {
-  const merged = Object.assign({}, remote);
-
-  // taken + takenTimes: vince il timestamp più recente per ogni giorno
-  // Usiamo takenEditTime per sapere l'ultima modifica di ogni giorno
-  const remoteTaken     = remote.taken          || {};
-  const localTaken      = local.taken           || {};
-  const remoteTakenTs   = remote.takenEditTimes || {};
-  const localTakenTs    = local.takenEditTimes  || {};
-  const remoteTakenTime = remote.takenTimes     || {};
-  const localTakenTime  = local.takenTimes      || {};
-
-  const mergedTaken     = Object.assign({}, remoteTaken);
-  const mergedTakenTs   = Object.assign({}, remoteTakenTs);
-  const mergedTakenTime = Object.assign({}, remoteTakenTime);
-
-  // For each date modified locally, check if local is more recent
-  const allDates = new Set([...Object.keys(localTaken), ...Object.keys(localTakenTs)]);
-  for(const date of allDates) {
-    const localTs  = localTakenTs[date]  || 0;
-    const remoteTs = remoteTakenTs[date] || 0;
-    if(localTs >= remoteTs) {
-      // Local modification is more recent — use it (even if false/removal)
-      mergedTaken[date]     = localTaken[date];
-      mergedTakenTs[date]   = localTs;
-      if(localTakenTime[date]) mergedTakenTime[date] = localTakenTime[date];
-      else delete mergedTakenTime[date];
-    }
-  }
-
-  merged.taken          = mergedTaken;
-  merged.takenEditTimes = mergedTakenTs;
-  merged.takenTimes     = mergedTakenTime;
-
-  // Alarms: vince il timestamp più recente per ogni giorno
-  const remoteAlarms  = remote.alarms       || {};
-  const localAlarms   = local.alarms        || {};
-  const remoteATs     = remote.alarmTimes   || {}; // timestamp ultima modifica
-  const localATs      = local.alarmTimes    || {};
-
-  const mergedAlarms  = Object.assign({}, remoteAlarms);
-  const mergedATs     = Object.assign({}, remoteATs);
-
-  for(const date of Object.keys(localAlarms)) {
-    const localTs  = localATs[date]  || 0;
-    const remoteTs = remoteATs[date] || 0;
-    if(localTs >= remoteTs) {
-      // Modifica locale più recente: usa locale
-      mergedAlarms[date] = localAlarms[date];
-      mergedATs[date]    = localTs;
-    }
-    // altrimenti mantieni remoto (già in mergedAlarms)
-  }
-
-  merged.alarms     = mergedAlarms;
-  merged.alarmTimes = mergedATs;
-  return merged;
-}
-
-async function fbSyncNow(silent=false) {
-  if(!_fbUser || !_fbDb || _fbSyncing) return;
-  _fbSyncing = true;
-  if(!silent) setFbSyncStatus('🔄 Sincronizzazione in corso…', 'info');
-
-  try {
-    const { doc, getDoc, setDoc } = window._firebaseModules;
-    const docRef    = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-    const snapshot  = await getDoc(docRef);
-    const localData = loadData();
-    const localTime = localData._syncTime || 0;
-
-    if(snapshot.exists()) {
-      const remoteData = snapshot.data();
-      const remoteTime = remoteData._syncTime || 0;
-
-      if(remoteTime > localTime) {
-        const merged = fbMergeData(remoteData, localData);
-        merged._syncTime = remoteTime;
-        // Restore diario from remote if present
-        if(remoteData.tao_diario) {
-          const mergedDiario = Object.assign({}, loadDiario(), remoteData.tao_diario);
-          localStorage.setItem(DIARIO_KEY, JSON.stringify(mergedDiario));
-          delete merged.tao_diario;
-        }
-        // Restore scorta
-        if(remoteData.tao_scorta) {
-          const localScorta = loadScorta();
-          const remoteScorta = remoteData.tao_scorta;
-          const localTs  = localScorta?.ts  || (localScorta?.dataAggiornamento  ? parseDate(localScorta.dataAggiornamento).getTime()  : 0);
-          const remoteTs = remoteScorta?.ts || (remoteScorta?.dataAggiornamento ? parseDate(remoteScorta.dataAggiornamento).getTime() : 0);
-          if(remoteTs >= localTs) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteScorta));
-          delete merged.tao_scorta;
-        }
-        // Restore medico
-        if(remoteData.tao_medico) {
-          localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico));
-          delete merged.tao_medico;
-        }
-        saveData(merged);
-        appData = merged;
-        calInitialized = false;
-        renderCurrentTab();
-        setFbSyncStatus(`✅ Aggiornato — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok');
-      } else if(localTime >= remoteTime) {
-        await fbUploadData(localData);
-        setFbSyncStatus(`✅ Cloud aggiornato — ${new Date(localTime).toLocaleString('it-IT')}`, 'ok');
-      }
-    } else {
-      await fbUploadData(localData);
-      setFbSyncStatus('✅ Primo sync completato.', 'ok');
-    }
-  } catch(e) {
-    console.error('[FB] Sync error:', e);
-    setFbSyncStatus('❌ Errore: ' + e.message, 'err');
-  }
-  _fbSyncing = false;
-}
-
-async function fbUploadData(data) {
-  const { doc, setDoc } = window._firebaseModules;
-  data._syncTime = Date.now();
-  saveData(data);
-
-  // Include diario alimentare e scorta in sync
-  const diario = loadDiario();
-  const scorta = loadScorta();
-  const medico = loadMedico();
-  const dataWithExtras = Object.assign({}, data, {
-    tao_diario: diario,
-    tao_scorta: scorta,
-    tao_medico: medico
-  });
-
-  const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-  await setDoc(docRef, dataWithExtras);
-}
-
-async function fbForceUpload() {
-  if(!_fbUser) { alert('Accedi prima.'); return; }
-  setFbSyncStatus('⬆ Caricamento…', 'info');
-  await fbUploadData(loadData());
-  setFbSyncStatus('✅ Dati locali caricati sul cloud.', 'ok');
-}
-
-async function fbForceDownload() {
-  if(!_fbUser) { alert('Accedi prima.'); return; }
-  const { doc, getDoc } = window._firebaseModules;
-  setFbSyncStatus('⬇ Download…', 'info');
-  const docRef   = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-  const snapshot = await getDoc(docRef);
-  if(!snapshot.exists()) { setFbSyncStatus('⚠️ Nessun dato sul cloud.', 'warn'); return; }
-  const data = snapshot.data();
-  // Restore diario if present
-  if(data.tao_diario) {
-    localStorage.setItem(DIARIO_KEY, JSON.stringify(data.tao_diario));
-    delete data.tao_diario;
-  }
-  // Restore scorta if present
-  if(data.tao_scorta) {
-    localStorage.setItem(SCORTA_KEY, JSON.stringify(data.tao_scorta));
-    delete data.tao_scorta;
-  }
-  // Restore medico if present
-  if(data.tao_medico) {
-    localStorage.setItem(MEDICO_KEY, JSON.stringify(data.tao_medico));
-    delete data.tao_medico;
-  }
-  saveData(data);
-  appData = data;
-  calInitialized = false;
-  renderCurrentTab();
-  setFbSyncStatus('✅ Dati scaricati dal cloud.', 'ok');
-}
-
-// Auto-sync: called after every data change
-async function fbAutoSync() {
-  if(!_fbUser || !_fbDb || _fbSyncing) return;
-  try {
-    await fbUploadData(loadData());
-    showAutoBackupToast('☁️ Cloud sincronizzato');
-  } catch(e) {
-    console.warn('[FB] Auto-sync failed:', e);
-  }
-}
-
-function renderCurrentTab() {
-  const active = document.querySelector('.tab-panel.active');
-  if(!active) return;
-  if(active.id==='tab-inr') renderINRTab();
-  else if(active.id==='tab-terapia') renderTerapiaTab();
-}
-
-// ---- FCM NOTIFICATIONS ----
-async function fbRegisterFCM() {
-  if(!_fbMessaging || !_fbVapidKey || !_fbUser) return;
-  try {
-    const { getToken } = window._firebaseModules;
-    // Skip FCM SW in Capacitor - use native notifications instead
-    let token;
-    if(window.Capacitor) {
-      // Native app - get FCM token via Capacitor Push Notifications
-      token = null; // Will be set by native plugin
-    } else {
-      // Web PWA - register FCM service worker
-      const swReg = await navigator.serviceWorker.register(
-        '/firebase-messaging-sw.js',
-        { scope: '/' }
-      );
-      const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
-      if(swReg.active) swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
-      else if(swReg.installing) {
-        swReg.installing.addEventListener('statechange', e => {
-          if(e.target.state === 'activated')
-            swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
-        });
-      }
-      token = await getToken(_fbMessaging, {
-        vapidKey: _fbVapidKey,
-        serviceWorkerRegistration: swReg
-      });
-    }
-    if(token) {
-      // Save token to Firestore so alarm-checker.js can use it
-      const { doc, setDoc } = window._firebaseModules;
-      await setDoc(
-        doc(_fbDb, 'users', _fbUser.uid, 'fcm', 'token'),
-        { token, updatedAt: new Date().toISOString(), platform: navigator.userAgent.includes('Android') ? 'android' : 'web' }
-      );
-      // Also save alarms with this token
-      await fbSyncAlarmsToFirestore(token);
-      updateFbNotifStatus('✅ Notifiche push attive', 'ok');
-      document.getElementById('fbNotifBtn').style.display = 'none';
-      console.log('[FB] FCM token registered');
-    }
-  } catch(e) {
-    console.warn('[FB] FCM token error:', e);
-    updateFbNotifStatus('⚠️ Notifiche non disponibili: ' + e.message, 'warn');
-  }
-}
-
-async function fbRequestNotifications() {
-  if(typeof Notification === 'undefined') {
-    updateFbNotifStatus('⚠️ Notifiche browser non disponibili in questa versione.', 'warn');
-    return;
-  }
-  const perm = await Notification.requestPermission();
-  if(perm !== 'granted') {
-    updateFbNotifStatus('❌ Permesso notifiche negato. Abilitalo nelle impostazioni del browser.', 'err');
-    return;
-  }
-  await fbRegisterFCM();
-}
-
-async function fbSyncAlarmsToFirestore(fcmToken) {
-  if(!_fbUser || !_fbDb) return;
-  const { doc, setDoc } = window._firebaseModules;
-  const localData = loadData();
-  const alarms    = localData.alarms || {};
-  const taken     = localData.taken  || {};
-
-  // Write each future alarm to Firestore collection "alarms"
-  // alarm-checker.js reads this collection every minute
-  // Also add extra week alarm entries (copy from prev week if not set)
-  const therapies = getAllTherapies();
-  const extraAlarms = {};
-  therapies.forEach(t => {
-    if(!t.dataFine) return;
-    const lastDay = parseDate(t.dataFine);
-    for(let i=1; i<=7; i++) {
-      const extraDate = new Date(lastDay);
-      extraDate.setDate(extraDate.getDate() + i);
-      const extraStr = formatDate(extraDate);
-      if(!alarms[extraStr]) {
-        const prevWeek = new Date(extraDate);
-        prevWeek.setDate(prevWeek.getDate() - 7);
-        const prevStr = formatDate(prevWeek);
-        if(alarms[prevStr]) extraAlarms[extraStr] = alarms[prevStr];
-      }
-    }
-  });
-  const allAlarms = Object.assign({}, alarms, extraAlarms);
-
-  for(const [dateStr, timeStr] of Object.entries(allAlarms)) {
-    if(taken[dateStr]) continue; // already taken
-    const [dd,mm,yyyy] = dateStr.split('/');
-    const alarmDate = new Date(`${yyyy}-${mm}-${dd}T${timeStr}:00`);
-    if(alarmDate < new Date()) continue; // past alarms skip
-
-    const alarmId = `${_fbUser.uid}_${dateStr.replace(/\//g,'')}_${timeStr.replace(':','')}`;
-    await setDoc(
-      doc(_fbDb, 'alarms', alarmId),
-      { date: dateStr, time: timeStr, fcmToken, userId: _fbUser.uid, sent: false, createdAt: new Date().toISOString() }
-    );
-  }
-  console.log('[FB] Alarms synced to Firestore');
-}
-
-function updateFbNotifStatus(msg, type) {
-  const colors = { ok:'var(--accent2)', warn:'var(--warn)', err:'var(--danger)', info:'var(--muted)' };
-  const el = document.getElementById('fbNotifStatus');
-  if(!el) return;
-  el.style.display = 'block';
-  el.style.color   = colors[type]||colors.info;
-  el.style.background = type==='ok' ? 'rgba(63,185,80,.1)' : 'rgba(240,136,62,.1)';
-  el.style.padding = '8px 12px';
-  el.style.borderRadius = '8px';
-  el.textContent = msg;
-}
-
-// Listen for FCM messages when app is open
-function fbListenMessages() {
-  if(!_fbMessaging) return;
-  const { onMessage } = window._firebaseModules;
-  onMessage(_fbMessaging, payload => {
-    console.log('[FB] Message received:', payload);
-    const data = payload.data || {};
-    if(data.type === 'DOSE_ALARM') {
-      // Show in-app alarm toast
-      currentAlarmDate = data.date;
-      document.getElementById('alarmSub').textContent =
-        `${data.date} — orario programmato: ${data.time}`;
-      document.getElementById('alarmToast').classList.add('show');
-      startAlarmSound();
-    }
-  });
-}
-
-// ===================================================
-// STRUMENTI: BACKUP & PDF REPORT
-// ===================================================
-
-function initStrumenti() {
-  initFirebase();
-  initScortaDisplay();
-  initAlarmVolume();
-  const data = loadData();
-  const controls = data.controls || [];
-  if(!controls.length) return;
-
-  // Set default date range = all data
-  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
-  const first = sorted[0].data.split('/').reverse().join('-');
-  const last  = sorted[sorted.length-1].data.split('/').reverse().join('-');
-  document.getElementById('reportDateFrom').value = first;
-  document.getElementById('reportDateTo').value   = last;
-}
-
-function setReportRange(months) {
-  const data = loadData();
-  const controls = data.controls || [];
-  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
-  if(!sorted.length) return;
-
-  const toDate = new Date();
-  let fromDate;
-  if(months === 0) {
-    fromDate = parseDate(sorted[0].data);
-  } else {
-    fromDate = new Date();
-    fromDate.setMonth(fromDate.getMonth() - months);
-  }
-  document.getElementById('reportDateFrom').value = fromDate.toISOString().split('T')[0];
-  document.getElementById('reportDateTo').value   = toDate.toISOString().split('T')[0];
-}
-
-// ---- BACKUP FOLDER (File System Access API) ----
-let _backupDirHandle = null; // remembered for session
-
-async function pickBackupFolder() {
-  if(!('showDirectoryPicker' in window)) {
-    showBackupNotice('⚠️ Il tuo browser non supporta la scelta cartella. Usa Chrome su Android o desktop.', 'warn');
-    return false;
-  }
-  try {
-    _backupDirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
-    showBackupNotice(`✅ Cartella selezionata: "${_backupDirHandle.name}". I backup automatici verranno salvati qui.`, 'ok');
-    return true;
-  } catch(e) {
-    if(e.name !== 'AbortError') showBackupNotice('❌ Errore selezione cartella: ' + e.message, 'err');
-    return false;
-  }
-}
-
-function showBackupNotice(msg, type) {
-  const colors = { ok: 'var(--accent2)', warn: 'var(--warn)', err: 'var(--danger)', info: 'var(--muted)' };
-  // Show in strumenti tab if visible, otherwise console
-  const el = document.getElementById('backupFolderStatus');
-  if(el) { el.textContent = msg; el.style.color = colors[type]||colors.info; el.style.display='block'; }
-  console.log('[TAO Backup]', msg);
-}
-
-async function saveBackupToFolder(silent=false) {
-  const data = loadData();
-  const json = JSON.stringify(data, null, 2);
-  const now  = new Date();
-  const ts   = now.toISOString().slice(0,16).replace('T','_').replace(':','-');
-  const fname = `tao-backup-${ts}.json`;
-
-  if(_backupDirHandle) {
-    try {
-      const fh = await _backupDirHandle.getFileHandle(fname, { create: true });
-      const writable = await fh.createWritable();
-      await writable.write(json);
-      await writable.close();
-      if(!silent) showBackupNotice(`✅ Backup salvato: ${fname}`, 'ok');
-      showAutoBackupToast(fname);
-      return true;
-    } catch(e) {
-      // Permission might have expired, fallback to download
-      console.warn('Backup folder write failed:', e);
-      _backupDirHandle = null;
-    }
-  }
-
-  // No folder set or failed: show notice
-  if(!silent) {
-    showBackupNotice('⚠️ Nessuna cartella selezionata. Scegli una cartella per i backup automatici.', 'warn');
-  } else {
-    // Auto backup: show small toast asking to set folder
-    showAutoBackupPromptToast();
-  }
-  return false;
-}
-
-function showAutoBackupToast(fname) {
-  const toast = document.getElementById('autoBackupToast');
-  const msg   = document.getElementById('autoBackupMsg');
-  if(!toast) return;
-  msg.textContent = `💾 Backup salvato: ${fname}`;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 3500);
-}
-
-function showAutoBackupPromptToast() {
-  const toast = document.getElementById('autoBackupToast');
-  const msg   = document.getElementById('autoBackupMsg');
-  if(!toast) return;
-  msg.innerHTML = '📁 <strong>Scegli una cartella</strong> per i backup automatici → scheda Strumenti';
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 5000);
-}
-
-// ---- BACKUP EXPORT (manual fallback) ----
-function exportBackup() {
-  const data = loadData();
-  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  const ts   = new Date().toISOString().slice(0,10);
-  a.href     = url;
-  a.download = `tao-backup-${ts}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-// ---- BACKUP IMPORT ----
-function importBackup(event) {
-  const file = event.target.files[0];
-  if(!file) return;
-  const msg = document.getElementById('importBackupMsg');
-  const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      const parsed = JSON.parse(e.target.result);
-      // Validate it looks like TAO data
-      if(!parsed.controls && !parsed.therapies) {
-        throw new Error('File non valido: non sembra un backup TAO Monitor');
-      }
-      if(!confirm(`Ripristinare il backup? Verranno sovrascritti i dati attuali.
-
-Controlli: ${(parsed.controls||[]).length}
-Terapie: ${(parsed.therapies||[]).length}`)) {
-        return;
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      appData = parsed;
-      msg.style.display = 'block';
-      msg.style.color = 'var(--accent2)';
-      msg.textContent = `✅ Backup ripristinato: ${(parsed.controls||[]).length} controlli, ${(parsed.therapies||[]).length} terapie.`;
-      // Update badge
-      const th = parsed.therapies||[];
-      if(th.length) updatePatientBadge(th[th.length-1].paziente);
-      initAlarms();
-// Init Drive if already authenticated from previous session
-setTimeout(initFirebase, 1000);
-    } catch(err) {
-      msg.style.display = 'block';
-      msg.style.color = 'var(--danger)';
-      msg.textContent = '❌ Errore: ' + err.message;
-    }
-    event.target.value = '';
-  };
-  reader.readAsText(file);
-}
-
-// ---- PDF REPORT ----
-function toggleReportPanel() {
-  const content = document.getElementById('reportPanelContent');
-  if(!content) return;
-  const isOpen = content.style.display !== 'none';
-  if(isOpen) {
-    content.style.display = 'none';
-  } else {
-    content.style.display = 'block';
-    // Auto-open on Android goes to PWA directly
-    if(window.isCapacitor) {
-      content.style.display = 'none';
-      handlePDFReport();
-      return;
-    }
-    // Set default dates
-    setReportRange(3);
-  }
-}
-
-function handlePDFReport() {
-  if(window.isCapacitor) {
-    const url = 'https://praticobruno75-dot.github.io/?action=report';
-    try {
-      const { AlarmPlugin } = window.Capacitor.Plugins;
-      if(AlarmPlugin) {
-        AlarmPlugin.openUrl({ url });
-        return;
-      }
-    } catch(e) {
-      console.warn('[TAO] openUrl error:', e.message);
-    }
-    window.open(url, '_blank');
-    return;
-  }
-  generatePDFReport();
-}
-
-async function generatePDFReport() {
-  const msgEl = document.getElementById('reportMsg');
-  msgEl.style.display = 'block';
-  msgEl.style.color = 'var(--muted)';
-  msgEl.textContent = 'Generazione report in corso…';
-
-  const fromStr = document.getElementById('reportDateFrom').value;
-  const toStr   = document.getElementById('reportDateTo').value;
-  if(!fromStr || !toStr) {
-    msgEl.style.color = 'var(--danger)';
-    msgEl.textContent = '❌ Seleziona un periodo valido.';
-    return;
-  }
-
-  const fromDate = new Date(fromStr);
-  const toDate   = new Date(toStr);
-  toDate.setHours(23,59,59);
-
-  const data = loadData();
-  const allControls = (data.controls||[]).sort((a,b)=>parseDate(a.data)-parseDate(b.data));
-  const filtered = allControls.filter(c => {
-    const d = parseDate(c.data);
-    return d >= fromDate && d <= toDate;
-  });
-
-  if(!filtered.length) {
-    msgEl.style.color = 'var(--danger)';
-    msgEl.textContent = '❌ Nessun controllo nel periodo selezionato.';
-    return;
-  }
-
-  const th = data.therapies||[];
-  const paziente = th.length ? th[th.length-1].paziente : {};
-  const farmaco  = th.length ? th[th.length-1].farmaco : 'COUMADIN';
-
-  // Stats
-  const rangeMin = filtered[0].rangeMin || 2.0;
-  const rangeMax = filtered[0].rangeMax || 3.0;
-  const target   = filtered[0].target   || 2.5;
-  const avgINR   = (filtered.reduce((s,c)=>s+c.inr,0)/filtered.length).toFixed(2);
-  const inRange  = filtered.filter(c=>c.inr>=rangeMin&&c.inr<=rangeMax).length;
-  const ttrData  = calcRosendaalTTR(filtered);
-  const pctRange = ttrData.ttr;
-
-  // Calculate progressive Rosendaal TTR for each control (cumulative from start)
-  filtered.forEach((ctrl, i) => {
-    if(i === 0) {
-      ctrl.ttrRosendaal = null; // Not enough data for first point
-    } else {
-      const subset = filtered.slice(0, i + 1);
-      const r = calcRosendaalTTR(subset);
-      ctrl.ttrRosendaal = r.ttr;
-    }
-  });
-
-  const latestTIR = ttrData.ttr;
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const pw = 210, ph = 297;
-  const margin = 15;
-  const usableW = pw - margin*2;
-  let y = margin;
-
-  // ---- HEADER ----
-  doc.setFillColor(22, 27, 34);
-  doc.rect(0, 0, pw, 28, 'F');
-  doc.setTextColor(230, 237, 243);
-  doc.setFontSize(18);
-  doc.setFont('helvetica','bold');
-  doc.text('TAO Monitor — Report INR', margin, 12);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(125, 133, 144);
-  doc.text(`Generato il ${formatDate(new Date())}`, margin, 19);
-  doc.text(`Periodo: ${fromStr.split('-').reverse().join('/')} — ${toStr.split('-').reverse().join('/')}`, margin, 24);
-  y = 35;
-
-  // ---- PATIENT INFO BOX ----
-  doc.setFillColor(28, 35, 51);
-  doc.roundedRect(margin, y, usableW, 22, 3, 3, 'F');
-  doc.setTextColor(88, 166, 255);
-  doc.setFontSize(10);
-  doc.setFont('helvetica','bold');
-  doc.text('PAZIENTE', margin+4, y+7);
-  doc.setTextColor(230, 237, 243);
-  doc.setFontSize(13);
-  doc.text(paziente.nome || '—', margin+4, y+14);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','normal');
-  doc.setTextColor(125, 133, 144);
-  doc.text(`Nato il ${paziente.dataNascita||'—'}`, margin+4, y+20);
-  doc.text(`Farmaco: ${farmaco}`, margin+80, y+14);
-  doc.text(`Range terapeutico: ${rangeMin} – ${rangeMax}   Target: ${target}`, margin+80, y+20);
-  y += 28;
-
-  // ---- STATS BOXES ----
-  const statBoxW = (usableW - 9) / 4;
-  const stats = [
-    { label:'Controlli', value: String(filtered.length), color:[88,166,255] },
-    { label:'INR Medio', value: avgINR, color: parseFloat(avgINR)>=rangeMin&&parseFloat(avgINR)<=rangeMax?[63,185,80]:[240,136,62] },
-    { label:'TTR Rosendaal', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
-    { label:'Giorni in range', value: ttrData.daysInRange+'/'+ttrData.totalDays, color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
-  ];
-  stats.forEach((s,i) => {
-    const bx = margin + i*(statBoxW+3);
-    doc.setFillColor(22, 27, 34);
-    doc.roundedRect(bx, y, statBoxW, 20, 2, 2, 'F');
-    doc.setDrawColor(48,54,61);
-    doc.roundedRect(bx, y, statBoxW, 20, 2, 2, 'S');
-    doc.setTextColor(...s.color);
-    doc.setFontSize(16);
-    doc.setFont('helvetica','bold');
-    doc.text(s.value, bx + statBoxW/2, y+13, {align:'center'});
-    doc.setTextColor(125,133,144);
-    doc.setFontSize(7);
-    doc.setFont('helvetica','normal');
-    doc.text(s.label.toUpperCase(), bx + statBoxW/2, y+19, {align:'center'});
-  });
-  y += 26;
-
-  // ---- INR CHART via canvas ----
-  msgEl.textContent = 'Generazione grafico…';
-  try {
-    // Temporarily render an offscreen chart
-    const chartDiv = document.getElementById('pdfPreviewArea');
-    chartDiv.style.display = 'block';
-    chartDiv.style.position = 'fixed';
-    chartDiv.style.left = '-9999px';
-    chartDiv.style.top = '0';
-    chartDiv.style.width = '800px';
-    chartDiv.style.height = '260px';
-    chartDiv.style.background = '#0d1117';
-    chartDiv.innerHTML = '<canvas id="pdfChartCanvas" width="800" height="260"></canvas>';
-
-    const ctx2 = document.getElementById('pdfChartCanvas').getContext('2d');
-    const labels2 = filtered.map(c=>c.data);
-    const vals2   = filtered.map(c=>c.inr);
-
-    const pdfChart = new Chart(ctx2, {
-      type:'line',
-      data:{labels:labels2, datasets:[
-        {label:'INR', data:vals2,
-          borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.1)',
-          pointBackgroundColor:vals2.map(v=>v>=rangeMin&&v<=rangeMax?'#3fb950':v<rangeMin*0.8||v>rangeMax*1.2?'#ff7b72':'#f0883e'),
-          pointRadius:5, borderWidth:2, tension:0.3, fill:false},
-        {label:'Min', data:Array(labels2.length).fill(rangeMin),
-          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
-        {label:'Max', data:Array(labels2.length).fill(rangeMax),
-          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5,
-          fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
-        {label:'Target', data:Array(labels2.length).fill(target),
-          borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
-      ]},
-      options:{
-        animation:false,
-        responsive:false,
-        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
-        scales:{
-          x:{ticks:{color:'#7d8590',maxRotation:45,maxTicksLimit:12},grid:{color:'rgba(48,54,61,0.8)'}},
-          y:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,0.8)'},
-            suggestedMin:Math.min(...vals2,rangeMin)-0.5,
-            suggestedMax:Math.max(...vals2,rangeMax)+0.5}
-        }
-      }
-    });
-
-    await new Promise(r => setTimeout(r, 300)); // let chart render
-
-    const imgData = chartDiv.querySelector('canvas').toDataURL('image/png');
-    pdfChart.destroy();
-    chartDiv.style.display = 'none';
-    chartDiv.innerHTML = '';
-
-    // Add chart title
-    doc.setFillColor(22,27,34);
-    doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
-    doc.setTextColor(88,166,255);
-    doc.setFontSize(9);
-    doc.setFont('helvetica','bold');
-    doc.text('ANDAMENTO INR NEL TEMPO', margin+3, y+4.5);
-    y += 8;
-
-    // Chart image
-    const chartH = 65;
-    doc.addImage(imgData, 'PNG', margin, y, usableW, chartH);
-    y += chartH + 8;
-  } catch(chartErr) {
-    console.warn('Chart render error:', chartErr);
-    y += 4;
-  }
-
-  // ---- CONTROLS TABLE ----
-  doc.setFillColor(22,27,34);
-  doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
-  doc.setTextColor(88,166,255);
-  doc.setFontSize(9);
-  doc.setFont('helvetica','bold');
-  doc.text('DETTAGLIO CONTROLLI', margin+3, y+4.5);
-  y += 9;
-
-  // Table header
-  const cols = [
-    {label:'Data',         w:28},
-    {label:'INR',          w:18},
-    {label:'Range',        w:28},
-    {label:'Target',       w:18},
-    {label:'Dose sett.',   w:28},
-    {label:'Stato',        w:30},
-    {label:'Tempo range',  w:30},
-  ];
-  const tableW = cols.reduce((s,col)=>s+col.w,0);
-
-  doc.setFillColor(28,35,51);
-  doc.rect(margin, y, tableW, 7, 'F');
-  doc.setTextColor(125,133,144);
-  doc.setFontSize(7);
-  doc.setFont('helvetica','bold');
-  let tx = margin+2;
-  cols.forEach(col => {
-    doc.text(col.label.toUpperCase(), tx, y+5);
-    tx += col.w;
-  });
-  y += 7;
-
-  // Table rows
-  doc.setFont('helvetica','normal');
-  [...filtered].reverse().forEach((ctrl, i) => {
-    if(y > ph - 25) {
-      doc.addPage();
-      y = margin;
-    }
-    const rowColor = i%2===0 ? [22,27,34] : [28,35,51];
-    doc.setFillColor(...rowColor);
-    doc.rect(margin, y, tableW, 7, 'F');
-
-    const inr = ctrl.inr;
-    const inRng = inr>=rangeMin&&inr<=rangeMax;
-    const stato = inRng ? 'In range' : inr<rangeMin ? 'Sotto range' : 'Sopra range';
-    const statoColor = inRng ? [63,185,80] : inr<rangeMin*0.85||inr>rangeMax*1.15 ? [255,123,114] : [240,136,62];
-
-    const rowData = [
-      ctrl.data,
-      String(inr),
-      `${rangeMin} – ${rangeMax}`,
-      String(target),
-      ctrl.doseSettimanale ? ctrl.doseSettimanale+' mg' : '—',
-      stato,
-      ctrl.ttrRosendaal !== undefined ? ctrl.ttrRosendaal+'%' : '—',
-    ];
-
-    tx = margin+2;
-    rowData.forEach((val, ci) => {
-      if(ci === 5) doc.setTextColor(...statoColor);
-      else if(ci === 1) {
-        doc.setTextColor(...(inRng?[63,185,80]:inr<rangeMin*0.85||inr>rangeMax*1.15?[255,123,114]:[240,136,62]));
-      }
-      else doc.setTextColor(200,210,220);
-      doc.setFontSize(8);
-      doc.text(String(val), tx, y+5);
-      tx += cols[ci].w;
-    });
-    y += 7;
-  });
-
-  // ---- FOOTER ----
-  doc.setTextColor(60,70,80);
-  doc.setFontSize(7);
-  doc.setFont('helvetica','normal');
-  const pageCount = doc.internal.getNumberOfPages();
-  for(let p=1;p<=pageCount;p++){
-    doc.setPage(p);
-    doc.text(`TAO Monitor — Report generato il ${formatDate(new Date())} — Pagina ${p}/${pageCount}`, pw/2, ph-8, {align:'center'});
-    doc.setDrawColor(48,54,61);
-    doc.line(margin, ph-11, pw-margin, ph-11);
-  }
-
-  // Save
-  const fname = `TAO-Report-${fromStr}-${toStr}.pdf`;
-
-
-  doc.save(fname);
-  msgEl.style.color = 'var(--accent2)';
-  msgEl.textContent = `✅ Report salvato: ${fname}`;
-}
-
-// ===================================================
-// INIT
-// ===================================================
-// ---- CAPACITOR NATIVE ALARMS ----
-async function scheduleNativeAlarm(dateStr, time) {
-  if(!window.isCapacitor) return;
-  try {
-    const { AlarmPlugin } = window.Capacitor.Plugins;
-    if(!AlarmPlugin) return;
-
-    // Check if alarm time is in the future before scheduling
-    const [dd,mm,yyyy] = dateStr.split('/');
-    const [hh,min] = time.split(':');
-    const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
-    if(alarmDate <= new Date()) {
-      console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
-      return; // Skip past alarms silently
-    }
-
-    const alarmId = parseInt(`${yyyy}${mm}${dd}`);
-    const therapies = getAllTherapies();
-    const t = therapies[currentTherapyIdx];
-    const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
-    const doseText = doseToText(dose);
-
-    await AlarmPlugin.scheduleAlarm({
-      date: dateStr,
-      time: time,
-      alarmId: alarmId,
-      dose: doseText
-    });
-    console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
-  } catch(e) {
-    console.warn('[CAP] Native alarm error:', e.message || e);
-    // Don't fallback to setTimeout in Capacitor — just log
-  }
-}
-
-async function cancelNativeAlarm(dateStr) {
-  if(!window.isCapacitor) return;
-  try {
-    const { AlarmPlugin } = window.Capacitor.Plugins;
-    if(!AlarmPlugin) return;
-    const [dd,mm,yyyy] = dateStr.split('/');
-    const alarmId = parseInt(`${yyyy}${mm}${dd}`);
-    // Cancel main alarm
-    await AlarmPlugin.cancelAlarm({ alarmId });
-    // Cancel snooze alarms (snooze uses different IDs: hashCode + minutes)
-    // Cancel IDs in range around the main alarm ID
-    const snoozeIds = [alarmId + 300, alarmId + 315, alarmId + 330,
-                       alarmId + 345, alarmId + 360, alarmId + 375,
-                       alarmId + 390, alarmId + 999];
-    for(const sid of snoozeIds) {
-      try { await AlarmPlugin.cancelAlarm({ alarmId: sid }); } catch(e) {}
-    }
-    console.log('[CAP] Cancelled alarm and snooze alarms for:', dateStr);
-  } catch(e) {
-    console.warn('[CAP] Cancel alarm error:', e);
-  }
-}
-
-async function checkPendingConfirmFromNative() {
-  if(!window.isCapacitor) return;
-  try {
-    const { AlarmPlugin } = window.Capacitor.Plugins;
-    if(!AlarmPlugin) return;
-    const result = await AlarmPlugin.checkPendingConfirm();
-    if(!result || !result.confirms) return;
-
-    const confirms = JSON.parse(result.confirms);
-    if(!confirms.length) return;
-
-    appData = loadData();
-    if(!appData.taken) appData.taken = {};
-    if(!appData.takenTimes) appData.takenTimes = {};
-    if(!appData.takenEditTimes) appData.takenEditTimes = {};
-
-    confirms.forEach(entry => {
-      console.log('[TAO] Processing pending confirm:', entry.date, entry.time);
-      appData.taken[entry.date] = true;
-      appData.takenTimes[entry.date] = entry.time || '';
-      appData.takenEditTimes[entry.date] = Date.now();
-      // Deduct dose from scorta
-      deductScorta(entry.date);
-    });
-
-    saveData(appData);
-    fbAutoSync();
-    renderTerapiaTab();
-
-    // No toast — assunzioni visibili direttamente nel calendario
-  } catch(e) {
-    console.warn('[TAO] checkPendingConfirm error:', e);
-  }
-}
-
-function initCapacitor() {
-  if(!window.isCapacitor) return;
-  console.log('[CAP] Running in Capacitor native app');
-
-  // Hide native splash screen immediately
-  try {
-    const { SplashScreen } = window.Capacitor.Plugins;
-    if(SplashScreen) {
-      SplashScreen.hide({ fadeOutDuration: 300 });
-      console.log('[CAP] Splash hidden');
-    }
-  } catch(e) {
-    console.warn('[CAP] SplashScreen error:', e);
-  }
-
-  // Handle alarm action from notification (confirm/snooze)
-  window.Capacitor.Plugins.App?.addListener('appUrlOpen', data => {
-    console.log('[CAP] App opened with:', data);
-  });
-
-  // Check if app was opened from alarm notification
-  const urlParams = new URLSearchParams(window.location.search);
-  const alarmDate = urlParams.get('alarmDate');
-  const alarmAction = urlParams.get('alarmAction');
-  if(alarmDate && alarmAction === 'confirm') {
-    setTimeout(() => {
-      appData = loadData();
-      if(!appData.taken) appData.taken = {};
-      if(!appData.takenTimes) appData.takenTimes = {};
-      if(!appData.takenEditTimes) appData.takenEditTimes = {};
-      appData.taken[alarmDate] = true;
-      appData.takenEditTimes[alarmDate] = Date.now();
-      appData.takenTimes[alarmDate] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-      saveData(appData);
-      fbAutoSync();
-      renderTerapiaTab();
-    }, 1500);
-  }
-}
-
-function saveControlloDateForNative() {
-  // Save control date to native SharedPreferences for AlarmActivity countdown
-  if(!window.isCapacitor) return;
-  try {
-    const therapies = getAllTherapies();
-    if(!therapies.length) return;
-    const lastTherapy = therapies[therapies.length-1];
-    if(!lastTherapy.dataControllo) return;
-    const { AlarmPlugin } = window.Capacitor?.Plugins || {};
-    if(AlarmPlugin?.saveControlloDate) {
-      AlarmPlugin.saveControlloDate({ date: lastTherapy.dataControllo });
-    }
-  } catch(e) { console.warn('[TAO] saveControlloDate error:', e); }
-}
-
-function initAlarms() {
-  const data=loadData();
-
-  // Detect timezone offset change (DST) and reschedule if needed
-  const currentOffset = new Date().getTimezoneOffset();
-  const savedOffset = parseInt(localStorage.getItem('tao_tz_offset') || currentOffset);
-  if(currentOffset !== savedOffset) {
-    console.log(`[TAO] Timezone changed: ${savedOffset} → ${currentOffset}. Rescheduling alarms.`);
-    localStorage.setItem('tao_tz_offset', currentOffset);
-    // Force reschedule all future alarms with new timezone
-    setTimeout(() => {
-      const d = loadData();
-      const today = formatDate(new Date());
-      Object.entries(d.alarms||{}).forEach(([date, time]) => {
-        if(date >= today && !(d.taken||{})[date]) {
-          scheduleAlarm(date, time);
-          console.log(`[TAO] Rescheduled: ${date} ${time}`);
-        }
-      });
-      showAutoBackupToast('🕐 Ora legale: allarmi aggiornati');
-    }, 2000);
-  } else {
-    localStorage.setItem('tao_tz_offset', currentOffset);
-  }
-
-  Object.entries(data.alarms||{}).forEach(([date,time])=>scheduleAlarm(date,time));
-  if(typeof Notification !== 'undefined' && Notification.permission==='default') document.getElementById('notifBtn').style.display='block';
-  const th=data.therapies&&data.therapies.length?data.therapies:(data.therapy?[data.therapy]:[]);
-  if(th.length) updatePatientBadge(th[th.length-1].paziente);
-  // First launch: ask default time if we have therapies but no defaultAlarmTime
-  if(th.length && !data.defaultAlarmTime) {
-    setTimeout(()=>askDefaultAlarmTime(th[th.length-1]),800);
-  }
-}
-// ===================================================
-// SMART STARTUP
-// ===================================================
-function lockLandscapeOnMobile() {
-  const w = window.screen.width, h = window.screen.height;
-  const isSmartphone = Math.min(w,h) < 600; // phones have short side < 600px
-  if(!isSmartphone) return;
-  if(screen.orientation && screen.orientation.lock) {
-    screen.orientation.lock('landscape').catch(()=>{});
-  }
-}
-
-function hideSplash() {
-  const splash = document.getElementById('splashScreen');
-  if(!splash) return;
-  splash.style.opacity = '0';
-  splash.style.transform = 'scale(1.05)';
-  document.body.classList.remove('splash-active');
-  setTimeout(() => { splash.style.display='none'; }, 500);
-}
-
-function openStartupTab() {
-  const data = loadData();
-  const hasTherapy = (data.therapies&&data.therapies.length>0) || data.therapy;
-  if(hasTherapy) {
-    switchTab('terapia');
-    setTimeout(() => setView('cal'), 150);
-  } else {
-    switchTab('upload');
-  }
-}
-
-// Run startup sequence
-// Auto-open report panel if opened from Android app
-(function() {
-  const params = new URLSearchParams(window.location.search);
-  if(params.get('action') === 'report') {
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        // Switch to INR tab and open report panel
-        switchTab('inr');
-        setTimeout(() => {
-          const panel = document.getElementById('reportPanelContent');
-          if(panel) {
-            panel.style.display = 'block';
-            setReportRange(3);
-            document.getElementById('reportPanel')?.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 800);
-      }, 1200);
-    });
-  }
-})();
-
-lockLandscapeOnMobile();
-initAlarms();
-initSwipe();
-initCapacitor();
-initRingtoneUI();
-initBatteryOptUI();
-// Re-render terapia after short delay to ensure data is loaded
-setTimeout(() => { renderTerapiaTab(); showControlloCountdownBanner(); saveControlloDateForNative(); checkScortaWarning(); showScortaPopupIfNeeded(); checkPendingConfirmFromNative();
-    // Sync volume to native
-    if(window.isCapacitor) {
-      const vol = parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80');
-      try {
-        const { AlarmPlugin } = window.Capacitor?.Plugins || {};
-        if(AlarmPlugin) AlarmPlugin.setAlarmVolume({ volume: vol });
-      } catch(e) {}
-    } }, 800);
-
-// Hide splash immediately in Capacitor, after 1.2s in browser
-const splashDelay = window.isCapacitor ? 100 : 1200;
-setTimeout(() => {
-  hideSplash();
-  openStartupTab();
-}, splashDelay);
-
-setTimeout(initFirebase, 800);
-
-</script>
-<script>
-// Service Worker disabled in Capacitor APK
-// Alarms handled natively via AlarmPlugin
-if('serviceWorker' in navigator && !window.Capacitor) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(reg => console.log('[TAO] SW registrato:', reg.scope))
-      .catch(err => console.warn('[TAO] SW failed:', err));
-  });
-}
-</script>
-
-</body>
-</html>
+>
