@@ -845,51 +845,52 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div id="dayDetailDose" style="font-size:13px;color:var(--muted);margin-bottom:16px"></div>
 
     <!-- ALLARME SECTION -->
-    <div style="border:2px solid rgba(88,166,255,0.4);border-radius:12px;padding:12px;margin-bottom:14px;background:rgba(88,166,255,0.04)">
-      <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%;margin-bottom:10px;padding:10px;border-color:rgba(88,166,255,0.5);color:var(--accent)">
-        ⏰ Modifica orario allarme
-      </button>
-      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(88,166,255,0.2);border-radius:12px;padding:12px;user-select:none">
+    <div style="border:2px solid rgba(88,166,255,0.4);border-radius:12px;padding:12px;margin-bottom:20px;background:rgba(88,166,255,0.04)">
+      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(88,166,255,0.2);border-radius:10px;padding:12px;user-select:none">
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
           <button onclick="adjustDetailTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">17</div>
+          <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
           <button onclick="adjustDetailTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--muted);padding:0 8px;margin-bottom:2px">:</div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
           <button onclick="adjustDetailTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">30</div>
+          <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
           <button onclick="adjustDetailTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
       </div>
-      <input type="hidden" id="dayDetailTime" value="17:30">
+      <input type="hidden" id="dayDetailTime" value="00:00">
+      <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;border-color:rgba(88,166,255,0.5);color:var(--accent)">
+        ⏰ Modifica orario allarme
+      </button>
     </div>
 
     <!-- Taken status -->
     <div id="dayDetailTakenInfo" style="font-size:12px;color:var(--accent2);margin-bottom:8px;display:none"></div>
 
     <!-- ASSUNZIONE SECTION -->
-    <div id="editTakenTimeRow" style="border:2px solid rgba(63,185,80,0.4);border-radius:12px;padding:12px;margin-bottom:14px;background:rgba(63,185,80,0.04)">
-      <button onclick="saveTakenTime()" class="btn-secondary" style="width:100%;margin-bottom:10px;padding:10px;border-color:rgba(63,185,80,0.5);color:var(--accent2)">
-        💊 Modifica orario assunzione
-      </button>
+    <div id="editTakenTimeRow" style="border:2px solid rgba(63,185,80,0.4);border-radius:12px;padding:12px;margin-bottom:20px;background:rgba(63,185,80,0.04)">
       <div id="editTakenTimePicker" style="opacity:0.4;pointer-events:none">
-        <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(63,185,80,0.2);border-radius:12px;padding:10px;user-select:none">
+        <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(63,185,80,0.2);border-radius:10px;padding:10px;user-select:none">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
             <button onclick="adjustEditTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
-            <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">17</div>
+            <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
             <button onclick="adjustEditTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted);padding:0 6px">:</div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
             <button onclick="adjustEditTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
-            <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">30</div>
+            <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
             <button onclick="adjustEditTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
           </div>
         </div>
       </div>
+      <button onclick="saveTakenTime()" class="btn-secondary" style="width:100%;margin-top:10px;padding:10px;border-color:rgba(63,185,80,0.5);color:var(--accent2)">
+        💊 Modifica orario assunzione
+      </button>
     </div>
 
+    <!-- BUTTONS -->
     <div class="modal-btns" style="flex-direction:column;gap:8px">
       <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%">○ Segna come preso</button>
       <button onclick="openDiarioModal(_dayDetailKey)" class="btn-secondary" style="width:100%;background:rgba(63,185,80,0.08);border-color:rgba(63,185,80,0.3);color:var(--accent2)">🥦 Diario alimentare</button>
@@ -1143,6 +1144,7 @@ function parseTAOLocal(items) {
     ['due e tre quarti', 2.75], ['due e un quarto', 2.25], ['due e mezza', 2.5],
     ['tre quarti', 0.75], ['un quarto', 0.25], ['mezza', 0.5], ['mezzo', 0.5],
     ['una', 1.0], ['due', 2.0], ['tre', 3.0],
+    ['sospesa', 0], ['sospeso', 0], ['niente', 0], ['non assumere', 0],
   ];
   const monthNames = Object.keys(monthMap).join('|');
   const doseAlt = doseTextMap.map(([k]) => k.replace(/ /g,'\\s+')).join('|');
@@ -1156,7 +1158,9 @@ function parseTAOLocal(items) {
     if(!month || day < 1 || day > 31) continue;
     const dateStr = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}/${year}`;
     const found = doseTextMap.find(([k]) => k === doseStr);
-    if(found && dosePerId[dateStr] === undefined) dosePerId[dateStr] = found[1];
+    if(found && dosePerId[dateStr] === undefined) {
+      dosePerId[dateStr] = found[1];
+    }
   }
 
   // ---- THERAPY DATE RANGE ----
@@ -2097,17 +2101,30 @@ function renderCalendar(data) {
   const gridEnd = new Date(lastDay);
   gridEnd.setDate(gridEnd.getDate() + (6 - lastDow));
 
-  // Extend grid end by 7 days ONLY if no next therapy covers those days
-  const gridEndExtended = new Date(gridEnd);
+  // Extend grid to show 7 extra days after dataFine (safety days)
   const therapiesAll = getAllTherapies();
   const nextTherapy = therapiesAll[currentTherapyIdx + 1];
   const nextTherapyStart = nextTherapy ? parseDate(nextTherapy.dataInizio) : null;
-  // Add extra week only if next therapy starts more than 7 days after this one ends
-  // or there is no next therapy
-  const shouldAddExtraWeek = !nextTherapyStart ||
-    nextTherapyStart > new Date(gridEnd.getTime() + 7*24*60*60*1000);
-  if(shouldAddExtraWeek) {
-    gridEndExtended.setDate(gridEndExtended.getDate() + 7);
+
+  // Extra days start from dataFine + 1, not from gridEnd
+  const extraEnd = new Date(lastDay);
+  extraEnd.setDate(extraEnd.getDate() + 7);
+
+  // Use extra days only if no next therapy covers them
+  const shouldAddExtraDays = !nextTherapyStart ||
+    nextTherapyStart > new Date(lastDay.getTime() + 7*24*60*60*1000);
+
+  // gridEndExtended: extend to cover full weeks including extra days
+  const gridEndExtended = new Date(gridEnd);
+  if(shouldAddExtraDays) {
+    // Extend to end of week that contains extraEnd
+    const extraEndDow = extraEnd.getDay();
+    const daysToSunday = extraEndDow === 0 ? 0 : 7 - extraEndDow;
+    const fullExtraEnd = new Date(extraEnd);
+    fullExtraEnd.setDate(fullExtraEnd.getDate() + daysToSunday);
+    if(fullExtraEnd > gridEndExtended) {
+      gridEndExtended.setTime(fullExtraEnd.getTime());
+    }
   }
 
   let cur = new Date(gridStart);
@@ -2119,7 +2136,8 @@ function renderCalendar(data) {
     const isTaken = taken[dateStr];
     const alarm = alarms[dateStr];
     const takenTime = takenTimes[dateStr];
-    const isExtraWeek = cur > gridEnd && shouldAddExtraWeek;
+    const isExtraDay = shouldAddExtraDays && cur > lastDay && cur <= extraEnd;
+    const isExtraWeek = isExtraDay;
     // If next therapy starts on this day, don't show as extra week
     const isNextTherapyDay = nextTherapyStart && formatDate(cur) === formatDate(nextTherapyStart);
 
@@ -2156,11 +2174,16 @@ function renderCalendar(data) {
       let inner=`<div class="cal-day-num">${cur.getDate()}</div>`;
       // Get dose for this day (works for both therapy days and control-only days)
       const dayDose = getDayDoseFromTherapy(t, dateStr);
+      const daySospesa = t.dosePerId && t.dosePerId[dateStr] === 0;
       if(inTherapy || isControl) {
-        inner+=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
-          ${drawDoseSVG(dayDose, t.doseUnitaMg||5, 44)}
-        </div>`;
-        if(alarm) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
+        if(daySospesa) {
+          inner+=`<div style="font-size:10px;color:#7d8590;text-align:center;padding:6px 2px;border:1px solid #444;border-radius:6px;margin:2px 0">SOSPESA</div>`;
+        } else {
+          inner+=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0">
+            ${drawDoseSVG(dayDose, t.doseUnitaMg||5, 44)}
+          </div>`;
+        }
+        if(alarm && !daySospesa) inner+=`<div class="dose-time-badge">🔔 ${alarm}</div>`;
         if(takenTime) inner+=`<div class="cal-taken-time">✅ ${takenTime}</div>`;
         else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
       }
@@ -2228,6 +2251,7 @@ function renderList(data) {
     const isControl = dateStr===t.dataControllo;
     const isToday = dateStr===today;
     const dose = getDayDoseFromTherapy(t, dateStr);
+    const isSospesa = t.dosePerId && t.dosePerId[dateStr] === 0;
     const isSpecial = dose!==1;
 
     const item = document.createElement('div');
@@ -2239,7 +2263,7 @@ function renderList(data) {
         <div>${dateStr} ${isToday?'🔵':''}</div>
         <div class="day-weekday">${wd[d.getDay()]}</div>
       </div>
-      <div class="day-dose" style="${isSpecial?'border-color:#f0883e;color:white':'border-color:#3fb950;color:white'}">${dosePillLabel(dose,t.doseUnitaMg||5)}</div>
+      <div class="day-dose" style="${isSospesa?'border-color:#7d8590;color:#7d8590;background:rgba(125,133,144,0.1)':isSpecial?'border-color:#f0883e;color:white':'border-color:#3fb950;color:white'}">${isSospesa?'SOSPESA':dosePillLabel(dose,t.doseUnitaMg||5)}</div>
       ${isControl?'<span class="control-tag">📋 Controllo</span>':''}
       <div class="day-alarm">
         <input type="time" class="alarm-input" value="${alarm||'17:30'}" data-date="${dateStr}"
@@ -2785,7 +2809,7 @@ function _renderDayDetailModal(dateStr, data) {
     if(editTakenRow) {
       const picker = document.getElementById('editTakenTimePicker');
       if(picker) { picker.style.opacity = '1'; picker.style.pointerEvents = 'auto'; }
-      const editTime = takenTime || '17:30';
+      const editTime = takenTime || '00:00';
       initEditTimePicker(editTime);
     }
     takenBtn.textContent = '○ Rimuovi assunzione';
@@ -3219,8 +3243,10 @@ function deductScorta(dateStr) {
     return days.includes(dateStr);
   }) || therapies[therapies.length-1];
 
-  const dose = getDayDoseFromTherapy(t, dateStr) || getDoseGiornaliera();
-  scorta.compresse = Math.max(0, (scorta.compresse || 0) - dose);
+  const dose = getDayDoseFromTherapy(t, dateStr);
+  if(dose === 0) return; // Sospesa — don't deduct
+  const doseVal = dose || getDoseGiornaliera();
+  scorta.compresse = Math.max(0, (scorta.compresse || 0) - doseVal);
   scorta.dataAggiornamento = formatDate(new Date());
   scorta.ts = Date.now();
   saveScorta(scorta);
