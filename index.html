@@ -2184,6 +2184,20 @@ function renderCalendar(data) {
 }
 
 
+
+function dosePillLabel(dose, unitaMg) {
+  if(!dose) return '—';
+  const d = parseFloat(dose);
+  if(d === 0.25) return '¼ cpr';
+  if(d === 0.5)  return '½ cpr';
+  if(d === 0.75) return '¾ cpr';
+  if(d === 1)    return '1 cpr';
+  if(d === 1.25) return '1¼ cpr';
+  if(d === 1.5)  return '1½ cpr';
+  if(d === 2)    return '2 cpr';
+  return d + ' cpr';
+}
+
 function renderList(data) {
   const therapies = getAllTherapies();
   if(!therapies.length) return;
@@ -2996,6 +3010,7 @@ async function setScorta() {
   document.getElementById('scortaInput').value = '';
   updateScortaDisplay();
   showScortaBanner();
+  try { await fbUploadData(loadData()); } catch(e) {}
   try {
     await fbUploadData(loadData());
     showAutoBackupToast('✅ Scorta aggiornata e sincronizzata');
@@ -3018,6 +3033,7 @@ async function addConfezione() {
   updateScortaDisplay();
   showScortaBanner();
   clearRichiestaInviata();
+  try { await fbUploadData(loadData()); } catch(e) {}
   try {
     await fbUploadData(loadData());
     showAutoBackupToast('✅ Scorta aggiornata e sincronizzata');
@@ -4391,10 +4407,18 @@ function fbStartRealtimeSync() {
     if(remoteTime > localTime) {
       // Remote is newer: update local silently
       const merged = fbMergeData(remoteData, localData);
+      // Restore diario
+      if(remoteData.tao_diario) { const md = Object.assign({}, loadDiario(), remoteData.tao_diario); localStorage.setItem(DIARIO_KEY, JSON.stringify(md)); delete merged.tao_diario; }
+      // Restore scorta — remote wins if syncTime newer
+      if(remoteData.tao_scorta) { const ls=localData._syncTime||0, rs=remoteData._syncTime||0; if(rs>=ls) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteData.tao_scorta)); delete merged.tao_scorta; }
+      // Restore medico
+      if(remoteData.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico)); delete merged.tao_medico; }
       saveData(merged);
       appData = merged;
       calInitialized = false;
       renderCurrentTab();
+      updateScortaDisplay();
+      updateRichiestaInviataBadge();
       setFbSyncStatus(
         `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
       );
@@ -4496,6 +4520,9 @@ async function fbSyncNow(silent=false) {
       if(remoteTime > localTime) {
         const merged = fbMergeData(remoteData, localData);
         merged._syncTime = remoteTime;
+        if(remoteData.tao_diario) { const md = Object.assign({}, loadDiario(), remoteData.tao_diario); localStorage.setItem(DIARIO_KEY, JSON.stringify(md)); delete merged.tao_diario; }
+        if(remoteData.tao_scorta) { const ls = loadScorta(); const ld = ls?._syncTime||0; const rd = remoteData._syncTime||0; if(rd>=ld) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteData.tao_scorta)); delete merged.tao_scorta; }
+        if(remoteData.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico)); delete merged.tao_medico; }
         saveData(merged);
         appData = merged;
         calInitialized = false;
@@ -4520,8 +4547,16 @@ async function fbUploadData(data) {
   const { doc, setDoc } = window._firebaseModules;
   data._syncTime = Date.now();
   saveData(data);
+  const diario = loadDiario();
+  const scorta = loadScorta();
+  const medico = loadMedico();
+  const dataWithExtras = Object.assign({}, data, {
+    tao_diario: diario,
+    tao_scorta: scorta,
+    tao_medico: medico
+  });
   const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
-  await setDoc(docRef, data);
+  await setDoc(docRef, dataWithExtras);
 }
 
 async function fbForceUpload() {
@@ -4539,6 +4574,9 @@ async function fbForceDownload() {
   const snapshot = await getDoc(docRef);
   if(!snapshot.exists()) { setFbSyncStatus('⚠️ Nessun dato sul cloud.', 'warn'); return; }
   const data = snapshot.data();
+  if(data.tao_diario) { localStorage.setItem(DIARIO_KEY, JSON.stringify(data.tao_diario)); delete data.tao_diario; }
+  if(data.tao_scorta) { localStorage.setItem(SCORTA_KEY, JSON.stringify(data.tao_scorta)); delete data.tao_scorta; }
+  if(data.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(data.tao_medico)); delete data.tao_medico; }
   saveData(data);
   appData = data;
   calInitialized = false;
