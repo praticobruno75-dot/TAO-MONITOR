@@ -826,24 +826,25 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 
 <!-- DAY DETAIL MODAL (long press) -->
 <div class="modal-overlay" id="dayDetailModal">
-  <div class="modal" style="max-width:340px">
+  <div class="modal" style="max-width:340px;max-height:90vh;overflow-y:auto">
     <div class="modal-title" id="dayDetailTitle">📅 Dettaglio giorno</div>
     <div id="dayDetailDose" style="font-size:13px;color:var(--muted);margin-bottom:16px"></div>
 
-    <!-- Alarm time -->
-    <div class="modal-row">
-      <div class="modal-label">⏰ Orario allarme</div>
-      <!-- Custom time picker for day detail -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;user-select:none">
+    <!-- ALLARME SECTION -->
+    <div style="border:2px solid rgba(88,166,255,0.4);border-radius:12px;padding:12px;margin-bottom:14px;background:rgba(88,166,255,0.04)">
+      <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%;margin-bottom:10px;padding:10px;border-color:rgba(88,166,255,0.5);color:var(--accent)">
+        ⏰ Modifica orario allarme
+      </button>
+      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(88,166,255,0.2);border-radius:12px;padding:12px;user-select:none">
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
           <button onclick="adjustDetailTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--text);width:64px;text-align:center;line-height:1.2">17</div>
+          <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">17</div>
           <button onclick="adjustDetailTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--muted);padding:0 8px;margin-bottom:2px">:</div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
           <button onclick="adjustDetailTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--text);width:64px;text-align:center;line-height:1.2">30</div>
+          <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">30</div>
           <button onclick="adjustDetailTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
       </div>
@@ -853,31 +854,31 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <!-- Taken status -->
     <div id="dayDetailTakenInfo" style="font-size:12px;color:var(--accent2);margin-bottom:8px;display:none"></div>
 
-    <!-- Edit taken time (shown only when already taken) -->
-    <div id="editTakenTimeRow" style="display:none;margin-bottom:12px">
-      <div class="modal-label" style="margin-bottom:8px">✏️ Modifica orario assunzione</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px;user-select:none">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustEditTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
-          <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--text);width:56px;text-align:center">17</div>
-          <button onclick="adjustEditTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
-        </div>
-        <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted);padding:0 6px">:</div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustEditTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
-          <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--text);width:56px;text-align:center">30</div>
-          <button onclick="adjustEditTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+    <!-- ASSUNZIONE SECTION -->
+    <div id="editTakenTimeRow" style="border:2px solid rgba(63,185,80,0.4);border-radius:12px;padding:12px;margin-bottom:14px;background:rgba(63,185,80,0.04)">
+      <button onclick="saveTakenTime()" class="btn-secondary" style="width:100%;margin-bottom:10px;padding:10px;border-color:rgba(63,185,80,0.5);color:var(--accent2)">
+        💊 Modifica orario assunzione
+      </button>
+      <div id="editTakenTimePicker" style="opacity:0.4;pointer-events:none">
+        <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(63,185,80,0.2);border-radius:12px;padding:10px;user-select:none">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <button onclick="adjustEditTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
+            <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">17</div>
+            <button onclick="adjustEditTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted);padding:0 6px">:</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+            <button onclick="adjustEditTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
+            <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">30</div>
+            <button onclick="adjustEditTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+          </div>
         </div>
       </div>
-      <button onclick="saveTakenTime()" class="btn-secondary" style="width:100%;margin-top:8px;padding:10px">
-        💾 Salva orario assunzione
-      </button>
     </div>
 
     <div class="modal-btns" style="flex-direction:column;gap:8px">
-      <button onclick="openDiarioModal(_dayDetailKey)" class="btn-secondary" style="width:100%;background:rgba(63,185,80,0.1);border-color:rgba(63,185,80,0.3);color:var(--accent2)">🥦 Diario alimentare</button>
       <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%">○ Segna come preso</button>
-      <button onclick="saveAlarmFromModal()" class="btn-secondary" style="width:100%">🔔 Salva orario allarme</button>
+      <button onclick="openDiarioModal(_dayDetailKey)" class="btn-secondary" style="width:100%;background:rgba(63,185,80,0.08);border-color:rgba(63,185,80,0.3);color:var(--accent2)">🥦 Diario alimentare</button>
       <button onclick="closeDayDetailModal()" class="btn-secondary" style="width:100%;color:var(--muted)">Chiudi</button>
     </div>
   </div>
@@ -2731,9 +2732,10 @@ function _renderDayDetailModal(dateStr, data) {
   if(isTaken === true) {
     takenInfo.style.display = 'block';
     takenInfo.textContent = takenTime ? `✅ Assunto alle ${takenTime}` : '✅ Segnato come preso';
-    // Show edit time row and init with current taken time
+    // Enable taken time picker
     if(editTakenRow) {
-      editTakenRow.style.display = 'block';
+      const picker = document.getElementById('editTakenTimePicker');
+      if(picker) { picker.style.opacity = '1'; picker.style.pointerEvents = 'auto'; }
       const editTime = takenTime || '17:30';
       initEditTimePicker(editTime);
     }
@@ -2741,6 +2743,11 @@ function _renderDayDetailModal(dateStr, data) {
     takenBtn.style.cssText = 'width:100%;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px;border-radius:8px;font-size:14px;cursor:pointer';
   } else {
     takenInfo.style.display = 'none';
+    // Disable taken time picker when not taken
+    if(editTakenRow) {
+      const picker = document.getElementById('editTakenTimePicker');
+      if(picker) { picker.style.opacity = '0.4'; picker.style.pointerEvents = 'none'; }
+    }
     takenBtn.textContent = '✅ Segna come preso';
     takenBtn.style.cssText = 'width:100%;background:var(--accent2);border:none;color:#0d1117;padding:10px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer';
   }
@@ -3473,7 +3480,8 @@ function getDiarioForPeriod(dateFrom, dateTo) {
   const from = parseDate(dateFrom);
   const to   = parseDate(dateTo);
   Object.entries(d).forEach(([dateStr, entries]) => {
-    const dt = new Date(dateStr);
+    // dateStr is in DD/MM/YYYY format — use parseDate not new Date()
+    const dt = parseDate(dateStr);
     if(dt >= from && dt <= to) result[dateStr] = entries;
   });
   return result;
