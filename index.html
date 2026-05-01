@@ -976,8 +976,9 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div class="modal" style="max-width:420px;max-height:85vh;overflow-y:auto">
       <div class="modal-title" id="diarioReportTitle">📊 Report diario alimentare</div>
       <div id="diarioReportContent"></div>
-      <div class="modal-btns" style="margin-top:16px">
-        <button class="btn-secondary" onclick="closeDiarioReportModal()">Chiudi</button>
+      <div class="modal-btns" style="margin-top:16px;flex-direction:column;gap:8px">
+        <button onclick="exportDiarioReportPDF()" class="btn-primary" style="width:100%">📄 Esporta PDF</button>
+        <button class="btn-secondary" style="width:100%" onclick="closeDiarioReportModal()">Chiudi</button>
       </div>
     </div>
   </div>
@@ -3598,39 +3599,88 @@ function generateDiarioReport(dataInizio, dataFine, therapyIndex) {
   document.getElementById('diarioReportTitle').textContent =
     `📊 Diario alimentare: ${dataInizio} → ${dataFine}`;
 
-  // Count by week
-  const weeks = {};
-  Object.entries(diario).forEach(([dateStr, entries]) => {
-    const dt = new Date(dateStr);
-    // Week number within period
-    const from = parseDate(dataInizio);
-    const weekNum = Math.floor((dt - from) / (7 * 24 * 60 * 60 * 1000));
-    const weekKey = `Settimana ${weekNum + 1}`;
-    if(!weeks[weekKey]) weeks[weekKey] = { rossi:0, gialli:0, integratori:[], farmaci:[] };
-    entries.forEach(e => {
-      if(e.tipo === 'alimento') {
-        if(e.colore === 'red') weeks[weekKey].rossi += e.porzioni || 1;
-        else weeks[weekKey].gialli += e.porzioni || 1;
-      } else if(e.tipo === 'integratore') weeks[weekKey].integratori.push(e.nome);
-      else if(e.tipo === 'farmaco') weeks[weekKey].farmaci.push(e.nome);
-    });
-  });
-
-  // Total counts
-  let totRossi=0, totGialli=0, totInt=0, totFarm=0;
-  Object.values(weeks).forEach(w => {
-    totRossi += w.rossi; totGialli += w.gialli;
-    totInt += w.integratori.length; totFarm += w.farmaci.length;
-  });
-
   const container = document.getElementById('diarioReportContent');
   if(!container) return;
 
-  if(!Object.keys(weeks).length) {
+  if(!Object.keys(diario).length) {
     container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px">Nessuna registrazione nel diario per questo periodo</div>';
     modal.classList.add('active');
     return;
   }
+
+  // Group by week — use parseDate for DD/MM/YYYY keys
+  const from = parseDate(dataInizio);
+  const weeks = {};
+  const weekOrder = [];
+
+  // Sort dates descending (most recent first)
+  const sortedDates = Object.keys(diario).sort((a, b) => parseDate(b) - parseDate(a));
+
+  sortedDates.forEach(dateStr => {
+    const dt = parseDate(dateStr);
+    const weekNum = Math.floor((dt - from) / (7 * 24 * 60 * 60 * 1000));
+    const weekIdx = Math.max(0, weekNum);
+    const weekKey = `Settimana ${weekIdx + 1}`;
+    if(!weeks[weekKey]) {
+      weeks[weekKey] = { rossi:[], gialli:[], integratori:[], farmaci:[], giorni:{} };
+      weekOrder.push(weekKey);
+    }
+    const entries = diario[dateStr];
+    if(!weeks[weekKey].giorni[dateStr]) weeks[weekKey].giorni[dateStr] = [];
+    entries.forEach(e => {
+      weeks[weekKey].giorni[dateStr].push(e);
+      if(e.tipo === 'alimento') {
+        const list = e.colore === 'red' ? weeks[weekKey].rossi : weeks[weekKey].gialli;
+        list.push({ nome: e.nome, porzioni: e.porzioni || 1, data: dateStr });
+      } else if(e.tipo === 'integratore') weeks[weekKey].integratori.push({ nome: e.nome, dose: e.dose, data: dateStr });
+      else if(e.tipo === 'farmaco') weeks[weekKey].farmaci.push({ nome: e.nome, dose: e.dose, data: dateStr });
+    });
+  });
+
+  // Totals
+  let totRossi=0, totGialli=0, totInt=0, totFarm=0;
+  Object.values(weeks).forEach(w => {
+    totRossi += w.rossi.reduce((s,e) => s + e.porzioni, 0);
+    totGialli += w.gialli.reduce((s,e) => s + e.porzioni, 0);
+    totInt += w.integratori.length;
+    totFarm += w.farmaci.length;
+  });
+
+  function renderDetailList(items, color, unit) {
+    if(!items.length) return '';
+    // Group by name
+    const grouped = {};
+    items.forEach(e => {
+      const key = e.nome;
+      if(!grouped[key]) grouped[key] = { nome: e.nome, total: 0, days: [] };
+      grouped[key].total += e.porzioni || 1;
+      grouped[key].days.push(e.data);
+    });
+    return Object.values(grouped).map(g =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--text)">${g.nome}</span>
+        <span style="font-size:12px;color:${color};font-weight:600">${g.total} ${unit}</span>
+      </div>`
+    ).join('');
+  }
+
+  function renderEventList(items, color) {
+    if(!items.length) return '';
+    const grouped = {};
+    items.forEach(e => {
+      if(!grouped[e.nome]) grouped[e.nome] = { nome: e.nome, count: 0, dose: e.dose };
+      grouped[e.nome].count++;
+    });
+    return Object.values(grouped).map(g =>
+      `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--text)">${g.nome}${g.dose ? ' ('+g.dose+')' : ''}</span>
+        <span style="font-size:12px;color:${color};font-weight:600">${g.count}x</span>
+      </div>`
+    ).join('');
+  }
+
+  // weekOrder is already most-recent-first due to sorted dates
+  const uniqueWeekOrder = [...new Set(weekOrder)];
 
   container.innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px">
@@ -3652,23 +3702,225 @@ function generateDiarioReport(dataInizio, dataFine, therapyIndex) {
       </div>
     </div>
     <div class="section-title">Dettaglio settimanale</div>
-    ${Object.entries(weeks).map(([week, w]) => `
-      <div class="card" style="margin-bottom:8px;padding:10px 14px">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px">${week}</div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
-          ${w.rossi ? `<span style="color:#ff7b72">🔴 ${w.rossi} porz.</span>` : ''}
-          ${w.gialli ? `<span style="color:#f0883e">🟡 ${w.gialli} porz.</span>` : ''}
-          ${w.integratori.length ? `<span style="color:#3fb950">🌿 ${[...new Set(w.integratori)].join(', ')}</span>` : ''}
-          ${w.farmaci.length ? `<span style="color:#58a6ff">💊 ${[...new Set(w.farmaci)].join(', ')}</span>` : ''}
-          ${!w.rossi && !w.gialli && !w.integratori.length && !w.farmaci.length ? '<span>Nessuna registrazione</span>' : ''}
-        </div>
-      </div>`).join('')}`;
+    ${uniqueWeekOrder.map(weekKey => {
+      const w = weeks[weekKey];
+      const hasData = w.rossi.length || w.gialli.length || w.integratori.length || w.farmaci.length;
+      return `<div class="card" style="margin-bottom:10px;padding:12px 14px">
+        <div style="font-weight:600;font-size:13px;margin-bottom:8px">${weekKey}</div>
+        ${w.rossi.length ? `
+          <div style="font-size:11px;color:#ff7b72;font-weight:600;margin-bottom:4px">🔴 Alimenti da evitare</div>
+          ${renderDetailList(w.rossi, '#ff7b72', 'porz.')}
+          <div style="margin-bottom:8px"></div>` : ''}
+        ${w.gialli.length ? `
+          <div style="font-size:11px;color:#f0883e;font-weight:600;margin-bottom:4px">🟡 Alimenti da moderare</div>
+          ${renderDetailList(w.gialli, '#f0883e', 'porz.')}
+          <div style="margin-bottom:8px"></div>` : ''}
+        ${w.integratori.length ? `
+          <div style="font-size:11px;color:#3fb950;font-weight:600;margin-bottom:4px">🌿 Integratori</div>
+          ${renderEventList(w.integratori, '#3fb950')}
+          <div style="margin-bottom:8px"></div>` : ''}
+        ${w.farmaci.length ? `
+          <div style="font-size:11px;color:#58a6ff;font-weight:600;margin-bottom:4px">💊 Farmaci</div>
+          ${renderEventList(w.farmaci, '#58a6ff')}` : ''}
+        ${!hasData ? '<div style="font-size:12px;color:var(--muted)">Nessuna registrazione</div>' : ''}
+      </div>`;
+    }).join('')}`;
 
   modal.classList.add('active');
 }
 
 function closeDiarioReportModal() {
   document.getElementById('diarioReportModal')?.classList.remove('active');
+}
+
+async function exportDiarioReportPDF() {
+  const { jsPDF } = window.jspdf;
+  if(!jsPDF) { alert('jsPDF non disponibile'); return; }
+
+  const titleEl   = document.getElementById('diarioReportTitle');
+  const contentEl = document.getElementById('diarioReportContent');
+  if(!titleEl || !contentEl) return;
+
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const pageW = 210, pageH = 297, margin = 14;
+  const contentW = pageW - margin * 2;
+  let y = margin;
+
+  // Colors
+  const COL_RED    = [255,123,114];
+  const COL_ORANGE = [240,136,62];
+  const COL_GREEN  = [63,185,80];
+  const COL_BLUE   = [88,166,255];
+  const COL_DARK   = [13,17,23];
+  const COL_MUTED  = [125,133,144];
+  const COL_BORDER = [48,54,61];
+  const COL_CARD   = [22,27,34];
+
+  function checkNewPage(needed) {
+    if(y + needed > pageH - margin) {
+      doc.addPage();
+      y = margin;
+      return true;
+    }
+    return false;
+  }
+
+  // Header
+  doc.setFillColor(...COL_DARK);
+  doc.rect(0, 0, pageW, 28, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(16);
+  doc.setFont('helvetica','bold');
+  doc.text('TAO Monitor — Diario Alimentare', margin, 12);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(...COL_MUTED);
+  doc.text(titleEl.textContent.replace('📊 ',''), margin, 20);
+  doc.text(`Generato il ${formatDate(new Date())}`, pageW - margin, 20, { align:'right' });
+  y = 36;
+
+  // Patient info
+  const therapies = getAllTherapies();
+  if(therapies.length) {
+    const t = therapies[therapies.length-1];
+    const paz = t.paziente || {};
+    doc.setFillColor(...COL_CARD);
+    doc.roundedRect(margin, y, contentW, 14, 2, 2, 'F');
+    doc.setTextColor(...COL_GREEN);
+    doc.setFontSize(8);
+    doc.setFont('helvetica','bold');
+    doc.text('PAZIENTE', margin+3, y+5);
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','bold');
+    doc.text(paz.nome || '—', margin+3, y+11);
+    doc.setTextColor(...COL_MUTED);
+    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    if(paz.codiceFiscale) doc.text(paz.codiceFiscale, pageW-margin-3, y+11, { align:'right' });
+    y += 20;
+  }
+
+  // Summary cards
+  const cards = contentEl.querySelectorAll('.card');
+  const summaryCards = [...cards].slice(0,4);
+  if(summaryCards.length === 4) {
+    const cardW = (contentW - 6) / 2;
+    const cardH = 16;
+    const cardColors = [COL_RED, COL_ORANGE, COL_GREEN, COL_BLUE];
+    const cardLabels = ['Porzioni 🔴', 'Porzioni 🟡', 'Integratori 🌿', 'Farmaci 💊'];
+    summaryCards.forEach((card, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const cx = margin + col * (cardW + 3);
+      const cy = y + row * (cardH + 3);
+      doc.setFillColor(...COL_CARD);
+      doc.roundedRect(cx, cy, cardW, cardH, 2, 2, 'F');
+      const val = card.querySelector('div')?.textContent || '0';
+      doc.setTextColor(...cardColors[i]);
+      doc.setFontSize(14);
+      doc.setFont('helvetica','bold');
+      doc.text(val, cx + cardW/2, cy + 9, { align:'center' });
+      doc.setTextColor(...COL_MUTED);
+      doc.setFontSize(7);
+      doc.setFont('helvetica','normal');
+      doc.text(cardLabels[i], cx + cardW/2, cy + 14, { align:'center' });
+    });
+    y += 2 * (cardH + 3) + 6;
+  }
+
+  // Weekly detail
+  doc.setTextColor(...COL_BLUE);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','bold');
+  doc.text('DETTAGLIO SETTIMANALE', margin, y);
+  y += 6;
+
+  const weekCards = contentEl.querySelectorAll('.card:not(:nth-child(-n+4))');
+  weekCards.forEach(weekCard => {
+    const title = weekCard.querySelector('div')?.textContent || '';
+    const sections = weekCard.querySelectorAll('div[style*="font-weight:600"]');
+
+    const estimatedH = 10 + sections.length * 20;
+    checkNewPage(estimatedH);
+
+    // Week card background
+    doc.setFillColor(...COL_CARD);
+    doc.roundedRect(margin, y, contentW, 8, 2, 2, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','bold');
+    doc.text(title, margin+3, y+5.5);
+    y += 11;
+
+    // Sections inside week
+    const sectionColors = {
+      '🔴': COL_RED, '🟡': COL_ORANGE, '🌿': COL_GREEN, '💊': COL_BLUE
+    };
+
+    weekCard.querySelectorAll('div').forEach(div => {
+      const txt = div.textContent.trim();
+      if(!txt) return;
+
+      // Section header (colored label)
+      const emoji = txt[0];
+      if(['🔴','🟡','🌿','💊'].includes(emoji)) {
+        checkNewPage(8);
+        const col = sectionColors[emoji] || COL_MUTED;
+        doc.setTextColor(...col);
+        doc.setFontSize(8);
+        doc.setFont('helvetica','bold');
+        doc.text(txt.replace(/[🔴🟡🌿💊]/g,'').trim(), margin+2, y);
+        y += 5;
+        return;
+      }
+
+      // Item rows (name + value)
+      const rowDivs = div.querySelectorAll('div[style*="justify-content:space-between"]');
+      rowDivs.forEach(row => {
+        checkNewPage(6);
+        const spans = row.querySelectorAll('span');
+        if(spans.length >= 2) {
+          doc.setTextColor(200,200,200);
+          doc.setFontSize(8);
+          doc.setFont('helvetica','normal');
+          doc.text(spans[0].textContent, margin+4, y);
+          doc.setTextColor(...COL_MUTED);
+          doc.text(spans[1].textContent, pageW-margin-3, y, { align:'right' });
+          // Separator line
+          doc.setDrawColor(...COL_BORDER);
+          doc.setLineWidth(0.2);
+          doc.line(margin+4, y+1, pageW-margin-4, y+1);
+          y += 5.5;
+        }
+      });
+    });
+    y += 4;
+  });
+
+  // Footer
+  const pageCount = doc.getNumberOfPages();
+  for(let i=1; i<=pageCount; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(...COL_BORDER);
+    doc.setLineWidth(0.3);
+    doc.line(margin, pageH-10, pageW-margin, pageH-10);
+    doc.setTextColor(...COL_MUTED);
+    doc.setFontSize(7);
+    doc.setFont('helvetica','normal');
+    doc.text(`TAO Monitor — Report diario alimentare — Pagina ${i}/${pageCount}`, pageW/2, pageH-6, { align:'center' });
+  }
+
+  const fileName = `Diario-Alimentare-${formatDate(new Date()).replace(/\//g,'-')}.pdf`;
+
+  // Android: show inline with share button; Desktop: download
+  if(window.isCapacitor) {
+    const pdfBlob = doc.output('blob');
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+  } else {
+    doc.save(fileName);
+  }
 }
 
 // ===================================================
