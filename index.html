@@ -986,6 +986,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 </main>
 
 <script>
+
 // ===================================================
 // LOCAL TAO PARSER
 // ===================================================
@@ -3991,6 +3992,1268 @@ async function exportDiarioReportPDF() {
     doc.save(fileName);
   }
 }
+
+function initTimePicker(elementId, timeStr) {
+  const parts = (timeStr || '17:30').split(':');
+  let h = parseInt(parts[0]) || 17;
+  let m = parseInt(parts[1]) || 30;
+  m = Math.round(m / 5) * 5; // round to nearest 5
+  if(m >= 60) { m = 0; h = (h + 1) % 24; }
+
+  const prefix = elementId === 'modalTime' ? 'tp' : 'dtp';
+  const hourEl = document.getElementById(prefix + 'Hour');
+  const minEl = document.getElementById(prefix + 'Min');
+  if(hourEl) hourEl.textContent = String(h).padStart(2,'0');
+  if(minEl) minEl.textContent = String(m).padStart(2,'0');
+  updateHiddenTime(elementId, prefix);
+}
+
+function updateHiddenTime(inputId, prefix) {
+  const h = document.getElementById(prefix + 'Hour')?.textContent || '17';
+  const m = document.getElementById(prefix + 'Min')?.textContent || '30';
+  const input = document.getElementById(inputId);
+  if(input) input.value = `${h}:${m}`;
+}
+
+function adjustTime(part, delta) {
+  const hourEl = document.getElementById('tpHour');
+  const minEl = document.getElementById('tpMin');
+  if(!hourEl || !minEl) return;
+  let h = parseInt(hourEl.textContent);
+  let m = parseInt(minEl.textContent);
+  if(part === 'h') {
+    h = (h + delta + 24) % 24;
+  } else {
+    m = m + delta;
+    if(m >= 60) { m = 0; h = (h + 1) % 24; }
+    if(m < 0) { m = 55; h = (h - 1 + 24) % 24; }
+  }
+  hourEl.textContent = String(h).padStart(2,'0');
+  minEl.textContent = String(m).padStart(2,'0');
+  updateHiddenTime('modalTime', 'tp');
+}
+
+function adjustDetailTime(part, delta) {
+  const hourEl = document.getElementById('dtpHour');
+  const minEl = document.getElementById('dtpMin');
+  if(!hourEl || !minEl) return;
+  let h = parseInt(hourEl.textContent);
+  let m = parseInt(minEl.textContent);
+  if(part === 'h') {
+    h = (h + delta + 24) % 24;
+  } else {
+    m = m + delta;
+    if(m >= 60) { m = 0; h = (h + 1) % 24; }
+    if(m < 0) { m = 55; h = (h - 1 + 24) % 24; }
+  }
+  hourEl.textContent = String(h).padStart(2,'0');
+  minEl.textContent = String(m).padStart(2,'0');
+  updateHiddenTime('dayDetailTime', 'dtp');
+}
+
+// ===================================================
+// HELPERS
+// ===================================================
+function previewAlarm() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('alarmSub').textContent = `Test — ${timeStr}`;
+  document.getElementById('alarmToast').classList.add('show');
+  startAlarmSound();
+}
+function parseDate(s) { if(!s) return new Date(0); const[d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); }
+function formatDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+function inrClass(v,min,max) { if(!min||!max) return ''; if(v>=min&&v<=max) return 'inr-good'; if(v<min*.85||v>max*1.15) return 'inr-bad'; return 'inr-warn'; }
+function getINRStatus(v,min,max) { if(!min||!max) return{cls:'',icon:'—',label:'—'}; if(v>=min&&v<=max) return{cls:'good',icon:'✓',label:'In range'}; if(v<min) return{cls:v<min*.85?'bad':'warn',icon:'↓',label:'Sotto range'}; return{cls:v>max*1.15?'bad':'warn',icon:'↑',label:'Sopra range'}; }
+function showLoading(msg) { document.getElementById('loadingText').textContent=msg; document.getElementById('loadingOverlay').classList.add('active'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('active'); }
+
+
+
+
+// ===================================================
+// FIREBASE: AUTH + FIRESTORE SYNC + FCM
+// ===================================================
+
+let _fbApp        = null;
+let _fbAuth       = null;
+let _fbDb         = null;
+let _fbMessaging  = null;
+let _fbUser       = null;
+let _fbUnsubscribe = null; // Firestore realtime listener
+let _fbVapidKey   = null;
+let _fbSyncing    = false;
+
+const FB_CONFIG_KEY = 'tao_fb_config';
+const FB_VAPID_KEY  = 'tao_fb_vapid';
+
+// ---- INIT ----
+function initFirebase() {
+  const raw = localStorage.getItem(FB_CONFIG_KEY);
+  const vapid = localStorage.getItem(FB_VAPID_KEY);
+  if(!raw) return;
+  try {
+    const config = JSON.parse(raw);
+    _fbVapidKey = vapid || null;
+
+    // Wait for Firebase modules to load
+    const tryInit = () => {
+      const mods = window._firebaseModules;
+      if(!mods) { setTimeout(tryInit, 200); return; }
+
+      const { initializeApp, getAuth, onAuthStateChanged,
+              getFirestore, getMessaging } = mods;
+
+      _fbApp       = initializeApp(config);
+      _fbAuth      = getAuth(_fbApp);
+      _fbDb        = getFirestore(_fbApp);
+
+      // Firebase Messaging not supported in Capacitor WebView — skip
+      if(!window.isCapacitor) {
+        try {
+          _fbMessaging = getMessaging(_fbApp);
+          fbListenMessages();
+          const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
+          navigator.serviceWorker?.getRegistrations().then(regs => {
+            regs.forEach(reg => {
+              if(reg.active) reg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+            });
+          });
+        } catch(e) { console.warn('[FB] Messaging init:', e); }
+      } else {
+        console.log('[FB] Messaging disabled in Capacitor — using native alarms');
+      }
+
+      // Listen for auth state
+      onAuthStateChanged(_fbAuth, user => {
+        if(user) {
+          _fbUser = user;
+          showFbLoggedIn(user.email);
+          fbStartRealtimeSync();
+          fbSyncNow(true);
+          fbRegisterFCM();
+        } else {
+          _fbUser = null;
+          showFbLoggedOut();
+          if(_fbUnsubscribe) { _fbUnsubscribe(); _fbUnsubscribe = null; }
+        }
+      });
+    };
+
+    if(window._firebaseModules) tryInit();
+    else window.addEventListener('firebase-ready', tryInit);
+
+  } catch(e) {
+    console.error('[FB] Init error:', e);
+  }
+
+  // Listen for messages from Service Worker (alarm actions)
+  navigator.serviceWorker?.addEventListener('message', event => {
+    const msg = event.data;
+    if(!msg) return;
+    if(msg.type === 'DOSE_CONFIRMED' && msg.date) {
+      appData = loadData();
+      if(!appData.taken) appData.taken = {};
+      if(!appData.takenTimes) appData.takenTimes = {};
+      appData.taken[msg.date] = true;
+      appData.takenTimes[msg.date] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      saveData(appData);
+      renderTerapiaTab();
+      fbAutoSync();
+    }
+    if(msg.type === 'SNOOZE_ALARM' && msg.date) {
+      snoozeAlarm(msg.minutes || 15);
+    }
+  });
+}
+
+function saveFirebaseConfig() {
+  const raw   = document.getElementById('fbConfigInput').value.trim();
+  const vapid = document.getElementById('fbVapidInput').value.trim();
+  const status = document.getElementById('fbConfigStatus');
+
+  try {
+    const config = JSON.parse(raw);
+    if(!config.apiKey || !config.projectId) throw new Error('Config incompleta');
+    localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(config));
+    if(vapid) localStorage.setItem(FB_VAPID_KEY, vapid);
+    status.style.display = 'block';
+    status.style.color = 'var(--accent2)';
+    status.textContent = '✅ Configurazione salvata. Accedi con email e password.';
+    initFirebase();
+  } catch(e) {
+    status.style.display = 'block';
+    status.style.color = 'var(--danger)';
+    status.textContent = '❌ JSON non valido: ' + e.message;
+  }
+}
+
+// ---- AUTH ----
+async function fbSignIn() {
+  const email = document.getElementById('fbEmail').value.trim();
+  const pwd   = document.getElementById('fbPassword').value;
+  const errEl = document.getElementById('fbAuthError');
+  errEl.style.display = 'none';
+
+  if(!_fbAuth) { errEl.style.display='block'; errEl.textContent='Configura prima Firebase.'; return; }
+
+  try {
+    const { signInWithEmailAndPassword } = window._firebaseModules;
+    await signInWithEmailAndPassword(_fbAuth, email, pwd);
+  } catch(e) {
+    errEl.style.display = 'block';
+    errEl.textContent = fbErrorMsg(e.code);
+  }
+}
+
+async function fbRegister() {
+  const email = document.getElementById('fbEmail').value.trim();
+  const pwd   = document.getElementById('fbPassword').value;
+  const errEl = document.getElementById('fbAuthError');
+  errEl.style.display = 'none';
+
+  if(!_fbAuth) { errEl.style.display='block'; errEl.textContent='Configura prima Firebase.'; return; }
+  if(pwd.length < 6) { errEl.style.display='block'; errEl.textContent='Password minimo 6 caratteri.'; return; }
+
+  try {
+    const { createUserWithEmailAndPassword } = window._firebaseModules;
+    await createUserWithEmailAndPassword(_fbAuth, email, pwd);
+  } catch(e) {
+    errEl.style.display = 'block';
+    errEl.textContent = fbErrorMsg(e.code);
+  }
+}
+
+async function fbSignOut() {
+  if(!_fbAuth) return;
+  const { signOut } = window._firebaseModules;
+  await signOut(_fbAuth);
+}
+
+function fbErrorMsg(code) {
+  const msgs = {
+    'auth/user-not-found':      'Utente non trovato. Registrati prima.',
+    'auth/wrong-password':      'Password errata.',
+    'auth/invalid-email':       'Email non valida.',
+    'auth/email-already-in-use':'Email già registrata. Accedi invece di registrarti.',
+    'auth/weak-password':       'Password troppo debole (minimo 6 caratteri).',
+    'auth/invalid-credential':  'Credenziali non valide.',
+    'auth/network-request-failed': 'Errore di rete. Controlla la connessione.',
+  };
+  return msgs[code] || 'Errore: ' + code;
+}
+
+// ---- UI ----
+function showFbLoggedIn(email) {
+  document.getElementById('fbLoggedOut').style.display = 'none';
+  document.getElementById('fbLoggedIn').style.display  = 'block';
+  document.getElementById('fbUserEmail').textContent   = email;
+  setFbSyncStatus('✅ Connesso — sincronizzazione attiva', 'ok');
+}
+
+function showFbLoggedOut() {
+  document.getElementById('fbLoggedOut').style.display = 'block';
+  document.getElementById('fbLoggedIn').style.display  = 'none';
+}
+
+function setFbSyncStatus(msg, type) {
+  const colors = { ok:'var(--accent2)', warn:'var(--warn)', err:'var(--danger)', info:'var(--muted)' };
+  const el = document.getElementById('fbSyncStatus');
+  if(el) { el.textContent = msg; el.style.color = colors[type]||colors.info; }
+}
+
+// ---- FIRESTORE SYNC ----
+function fbStartRealtimeSync() {
+  if(!_fbUser || !_fbDb || _fbUnsubscribe) return;
+  const { doc, onSnapshot } = window._firebaseModules;
+  const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+
+  _fbUnsubscribe = onSnapshot(docRef, snapshot => {
+    if(!snapshot.exists()) return;
+    const remoteData = snapshot.data();
+    const localData  = loadData();
+    const remoteTime = remoteData._syncTime || 0;
+    const localTime  = localData._syncTime  || 0;
+
+    if(remoteTime > localTime) {
+      // Remote is newer: update local silently
+      const merged = fbMergeData(remoteData, localData);
+      saveData(merged);
+      appData = merged;
+      calInitialized = false;
+      renderCurrentTab();
+      setFbSyncStatus(
+        `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
+      );
+      showAutoBackupToast('☁️ Dati aggiornati dal cloud');
+
+      // If day detail modal is open, refresh it with new data
+      if(_dayDetailKey && document.getElementById('dayDetailModal').classList.contains('active')) {
+        _renderDayDetailModal(_dayDetailKey, merged);
+      }
+
+      // Reschedule all alarms after sync (in case alarms were set on another device)
+      Object.entries(merged.alarms||{}).forEach(([date, time]) => {
+        if(!merged.taken||merged.taken[date]!==true) {
+          scheduleAlarm(date, time);
+        }
+      });
+    }
+  }, err => {
+    console.error('[FB] Realtime sync error:', err);
+    setFbSyncStatus('⚠️ Errore sincronizzazione: ' + err.message, 'warn');
+  });
+}
+
+function fbMergeData(remote, local) {
+  const merged = Object.assign({}, remote);
+
+  // taken + takenTimes: vince il timestamp più recente per ogni giorno
+  // Usiamo takenEditTime per sapere l'ultima modifica di ogni giorno
+  const remoteTaken     = remote.taken          || {};
+  const localTaken      = local.taken           || {};
+  const remoteTakenTs   = remote.takenEditTimes || {};
+  const localTakenTs    = local.takenEditTimes  || {};
+  const remoteTakenTime = remote.takenTimes     || {};
+  const localTakenTime  = local.takenTimes      || {};
+
+  const mergedTaken     = Object.assign({}, remoteTaken);
+  const mergedTakenTs   = Object.assign({}, remoteTakenTs);
+  const mergedTakenTime = Object.assign({}, remoteTakenTime);
+
+  // For each date modified locally, check if local is more recent
+  const allDates = new Set([...Object.keys(localTaken), ...Object.keys(localTakenTs)]);
+  for(const date of allDates) {
+    const localTs  = localTakenTs[date]  || 0;
+    const remoteTs = remoteTakenTs[date] || 0;
+    if(localTs >= remoteTs) {
+      // Local modification is more recent — use it (even if false/removal)
+      mergedTaken[date]     = localTaken[date];
+      mergedTakenTs[date]   = localTs;
+      if(localTakenTime[date]) mergedTakenTime[date] = localTakenTime[date];
+      else delete mergedTakenTime[date];
+    }
+  }
+
+  merged.taken          = mergedTaken;
+  merged.takenEditTimes = mergedTakenTs;
+  merged.takenTimes     = mergedTakenTime;
+
+  // Alarms: vince il timestamp più recente per ogni giorno
+  const remoteAlarms  = remote.alarms       || {};
+  const localAlarms   = local.alarms        || {};
+  const remoteATs     = remote.alarmTimes   || {}; // timestamp ultima modifica
+  const localATs      = local.alarmTimes    || {};
+
+  const mergedAlarms  = Object.assign({}, remoteAlarms);
+  const mergedATs     = Object.assign({}, remoteATs);
+
+  for(const date of Object.keys(localAlarms)) {
+    const localTs  = localATs[date]  || 0;
+    const remoteTs = remoteATs[date] || 0;
+    if(localTs >= remoteTs) {
+      // Modifica locale più recente: usa locale
+      mergedAlarms[date] = localAlarms[date];
+      mergedATs[date]    = localTs;
+    }
+    // altrimenti mantieni remoto (già in mergedAlarms)
+  }
+
+  merged.alarms     = mergedAlarms;
+  merged.alarmTimes = mergedATs;
+  return merged;
+}
+
+async function fbSyncNow(silent=false) {
+  if(!_fbUser || !_fbDb || _fbSyncing) return;
+  _fbSyncing = true;
+  if(!silent) setFbSyncStatus('🔄 Sincronizzazione in corso…', 'info');
+
+  try {
+    const { doc, getDoc, setDoc } = window._firebaseModules;
+    const docRef    = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+    const snapshot  = await getDoc(docRef);
+    const localData = loadData();
+    const localTime = localData._syncTime || 0;
+
+    if(snapshot.exists()) {
+      const remoteData = snapshot.data();
+      const remoteTime = remoteData._syncTime || 0;
+
+      if(remoteTime > localTime) {
+        const merged = fbMergeData(remoteData, localData);
+        merged._syncTime = remoteTime;
+        saveData(merged);
+        appData = merged;
+        calInitialized = false;
+        renderCurrentTab();
+        setFbSyncStatus(`✅ Aggiornato — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok');
+      } else if(localTime >= remoteTime) {
+        await fbUploadData(localData);
+        setFbSyncStatus(`✅ Cloud aggiornato — ${new Date(localTime).toLocaleString('it-IT')}`, 'ok');
+      }
+    } else {
+      await fbUploadData(localData);
+      setFbSyncStatus('✅ Primo sync completato.', 'ok');
+    }
+  } catch(e) {
+    console.error('[FB] Sync error:', e);
+    setFbSyncStatus('❌ Errore: ' + e.message, 'err');
+  }
+  _fbSyncing = false;
+}
+
+async function fbUploadData(data) {
+  const { doc, setDoc } = window._firebaseModules;
+  data._syncTime = Date.now();
+  saveData(data);
+  const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+  await setDoc(docRef, data);
+}
+
+async function fbForceUpload() {
+  if(!_fbUser) { alert('Accedi prima.'); return; }
+  setFbSyncStatus('⬆ Caricamento…', 'info');
+  await fbUploadData(loadData());
+  setFbSyncStatus('✅ Dati locali caricati sul cloud.', 'ok');
+}
+
+async function fbForceDownload() {
+  if(!_fbUser) { alert('Accedi prima.'); return; }
+  const { doc, getDoc } = window._firebaseModules;
+  setFbSyncStatus('⬇ Download…', 'info');
+  const docRef   = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
+  const snapshot = await getDoc(docRef);
+  if(!snapshot.exists()) { setFbSyncStatus('⚠️ Nessun dato sul cloud.', 'warn'); return; }
+  const data = snapshot.data();
+  saveData(data);
+  appData = data;
+  calInitialized = false;
+  renderCurrentTab();
+  setFbSyncStatus('✅ Dati scaricati dal cloud.', 'ok');
+}
+
+// Auto-sync: called after every data change
+async function fbAutoSync() {
+  if(!_fbUser || !_fbDb || _fbSyncing) return;
+  try {
+    await fbUploadData(loadData());
+    showAutoBackupToast('☁️ Cloud sincronizzato');
+  } catch(e) {
+    console.warn('[FB] Auto-sync failed:', e);
+  }
+}
+
+function renderCurrentTab() {
+  const active = document.querySelector('.tab-panel.active');
+  if(!active) return;
+  if(active.id==='tab-inr') renderINRTab();
+  else if(active.id==='tab-terapia') renderTerapiaTab();
+}
+
+// ---- FCM NOTIFICATIONS ----
+async function fbRegisterFCM() {
+  if(!_fbMessaging || !_fbVapidKey || !_fbUser) return;
+  try {
+    const { getToken } = window._firebaseModules;
+    // Skip FCM SW in Capacitor - use native notifications instead
+    let token;
+    if(window.Capacitor) {
+      // Native app - get FCM token via Capacitor Push Notifications
+      token = null; // Will be set by native plugin
+    } else {
+      // Web PWA - register FCM service worker
+      const swReg = await navigator.serviceWorker.register(
+        '/firebase-messaging-sw.js',
+        { scope: '/' }
+      );
+      const fbConfig = JSON.parse(localStorage.getItem(FB_CONFIG_KEY)||'{}');
+      if(swReg.active) swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+      else if(swReg.installing) {
+        swReg.installing.addEventListener('statechange', e => {
+          if(e.target.state === 'activated')
+            swReg.active.postMessage({ type:'FIREBASE_CONFIG', config:fbConfig });
+        });
+      }
+      token = await getToken(_fbMessaging, {
+        vapidKey: _fbVapidKey,
+        serviceWorkerRegistration: swReg
+      });
+    }
+    if(token) {
+      // Save token to Firestore so alarm-checker.js can use it
+      const { doc, setDoc } = window._firebaseModules;
+      await setDoc(
+        doc(_fbDb, 'users', _fbUser.uid, 'fcm', 'token'),
+        { token, updatedAt: new Date().toISOString(), platform: navigator.userAgent.includes('Android') ? 'android' : 'web' }
+      );
+      // Also save alarms with this token
+      await fbSyncAlarmsToFirestore(token);
+      updateFbNotifStatus('✅ Notifiche push attive', 'ok');
+      document.getElementById('fbNotifBtn').style.display = 'none';
+      console.log('[FB] FCM token registered');
+    }
+  } catch(e) {
+    console.warn('[FB] FCM token error:', e);
+    updateFbNotifStatus('⚠️ Notifiche non disponibili: ' + e.message, 'warn');
+  }
+}
+
+async function fbRequestNotifications() {
+  if(typeof Notification === 'undefined') {
+    updateFbNotifStatus('⚠️ Notifiche browser non disponibili in questa versione.', 'warn');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if(perm !== 'granted') {
+    updateFbNotifStatus('❌ Permesso notifiche negato. Abilitalo nelle impostazioni del browser.', 'err');
+    return;
+  }
+  await fbRegisterFCM();
+}
+
+async function fbSyncAlarmsToFirestore(fcmToken) {
+  if(!_fbUser || !_fbDb) return;
+  const { doc, setDoc } = window._firebaseModules;
+  const localData = loadData();
+  const alarms    = localData.alarms || {};
+  const taken     = localData.taken  || {};
+
+  // Write each future alarm to Firestore collection "alarms"
+  // alarm-checker.js reads this collection every minute
+  // Also add extra week alarm entries (copy from prev week if not set)
+  const therapies = getAllTherapies();
+  const extraAlarms = {};
+  therapies.forEach(t => {
+    if(!t.dataFine) return;
+    const lastDay = parseDate(t.dataFine);
+    for(let i=1; i<=7; i++) {
+      const extraDate = new Date(lastDay);
+      extraDate.setDate(extraDate.getDate() + i);
+      const extraStr = formatDate(extraDate);
+      if(!alarms[extraStr]) {
+        const prevWeek = new Date(extraDate);
+        prevWeek.setDate(prevWeek.getDate() - 7);
+        const prevStr = formatDate(prevWeek);
+        if(alarms[prevStr]) extraAlarms[extraStr] = alarms[prevStr];
+      }
+    }
+  });
+  const allAlarms = Object.assign({}, alarms, extraAlarms);
+
+  for(const [dateStr, timeStr] of Object.entries(allAlarms)) {
+    if(taken[dateStr]) continue; // already taken
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const alarmDate = new Date(`${yyyy}-${mm}-${dd}T${timeStr}:00`);
+    if(alarmDate < new Date()) continue; // past alarms skip
+
+    const alarmId = `${_fbUser.uid}_${dateStr.replace(/\//g,'')}_${timeStr.replace(':','')}`;
+    await setDoc(
+      doc(_fbDb, 'alarms', alarmId),
+      { date: dateStr, time: timeStr, fcmToken, userId: _fbUser.uid, sent: false, createdAt: new Date().toISOString() }
+    );
+  }
+  console.log('[FB] Alarms synced to Firestore');
+}
+
+function updateFbNotifStatus(msg, type) {
+  const colors = { ok:'var(--accent2)', warn:'var(--warn)', err:'var(--danger)', info:'var(--muted)' };
+  const el = document.getElementById('fbNotifStatus');
+  if(!el) return;
+  el.style.display = 'block';
+  el.style.color   = colors[type]||colors.info;
+  el.style.background = type==='ok' ? 'rgba(63,185,80,.1)' : 'rgba(240,136,62,.1)';
+  el.style.padding = '8px 12px';
+  el.style.borderRadius = '8px';
+  el.textContent = msg;
+}
+
+// Listen for FCM messages when app is open
+function fbListenMessages() {
+  if(!_fbMessaging) return;
+  const { onMessage } = window._firebaseModules;
+  onMessage(_fbMessaging, payload => {
+    console.log('[FB] Message received:', payload);
+    const data = payload.data || {};
+    if(data.type === 'DOSE_ALARM') {
+      // Show in-app alarm toast
+      currentAlarmDate = data.date;
+      document.getElementById('alarmSub').textContent =
+        `${data.date} — orario programmato: ${data.time}`;
+      document.getElementById('alarmToast').classList.add('show');
+      startAlarmSound();
+    }
+  });
+}
+
+// ===================================================
+// STRUMENTI: BACKUP & PDF REPORT
+// ===================================================
+
+function initStrumenti() {
+  initFirebase();
+  const data = loadData();
+  const controls = data.controls || [];
+  if(!controls.length) return;
+
+  // Set default date range = all data
+  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  const first = sorted[0].data.split('/').reverse().join('-');
+  const last  = sorted[sorted.length-1].data.split('/').reverse().join('-');
+  document.getElementById('reportDateFrom').value = first;
+  document.getElementById('reportDateTo').value   = last;
+}
+
+function setReportRange(months) {
+  const data = loadData();
+  const controls = data.controls || [];
+  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  if(!sorted.length) return;
+
+  const toDate = new Date();
+  let fromDate;
+  if(months === 0) {
+    fromDate = parseDate(sorted[0].data);
+  } else {
+    fromDate = new Date();
+    fromDate.setMonth(fromDate.getMonth() - months);
+  }
+  document.getElementById('reportDateFrom').value = fromDate.toISOString().split('T')[0];
+  document.getElementById('reportDateTo').value   = toDate.toISOString().split('T')[0];
+}
+
+// ---- BACKUP FOLDER (File System Access API) ----
+let _backupDirHandle = null; // remembered for session
+
+async function pickBackupFolder() {
+  if(!('showDirectoryPicker' in window)) {
+    showBackupNotice('⚠️ Il tuo browser non supporta la scelta cartella. Usa Chrome su Android o desktop.', 'warn');
+    return false;
+  }
+  try {
+    _backupDirHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
+    showBackupNotice(`✅ Cartella selezionata: "${_backupDirHandle.name}". I backup automatici verranno salvati qui.`, 'ok');
+    return true;
+  } catch(e) {
+    if(e.name !== 'AbortError') showBackupNotice('❌ Errore selezione cartella: ' + e.message, 'err');
+    return false;
+  }
+}
+
+function showBackupNotice(msg, type) {
+  const colors = { ok: 'var(--accent2)', warn: 'var(--warn)', err: 'var(--danger)', info: 'var(--muted)' };
+  // Show in strumenti tab if visible, otherwise console
+  const el = document.getElementById('backupFolderStatus');
+  if(el) { el.textContent = msg; el.style.color = colors[type]||colors.info; el.style.display='block'; }
+  console.log('[TAO Backup]', msg);
+}
+
+async function saveBackupToFolder(silent=false) {
+  const data = loadData();
+  const json = JSON.stringify(data, null, 2);
+  const now  = new Date();
+  const ts   = now.toISOString().slice(0,16).replace('T','_').replace(':','-');
+  const fname = `tao-backup-${ts}.json`;
+
+  if(_backupDirHandle) {
+    try {
+      const fh = await _backupDirHandle.getFileHandle(fname, { create: true });
+      const writable = await fh.createWritable();
+      await writable.write(json);
+      await writable.close();
+      if(!silent) showBackupNotice(`✅ Backup salvato: ${fname}`, 'ok');
+      showAutoBackupToast(fname);
+      return true;
+    } catch(e) {
+      // Permission might have expired, fallback to download
+      console.warn('Backup folder write failed:', e);
+      _backupDirHandle = null;
+    }
+  }
+
+  // No folder set or failed: show notice
+  if(!silent) {
+    showBackupNotice('⚠️ Nessuna cartella selezionata. Scegli una cartella per i backup automatici.', 'warn');
+  } else {
+    // Auto backup: show small toast asking to set folder
+    showAutoBackupPromptToast();
+  }
+  return false;
+}
+
+function showAutoBackupToast(fname) {
+  const toast = document.getElementById('autoBackupToast');
+  const msg   = document.getElementById('autoBackupMsg');
+  if(!toast) return;
+  msg.textContent = `💾 Backup salvato: ${fname}`;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+function showAutoBackupPromptToast() {
+  const toast = document.getElementById('autoBackupToast');
+  const msg   = document.getElementById('autoBackupMsg');
+  if(!toast) return;
+  msg.innerHTML = '📁 <strong>Scegli una cartella</strong> per i backup automatici → scheda Strumenti';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 5000);
+}
+
+// ---- BACKUP EXPORT (manual fallback) ----
+function exportBackup() {
+  const data = loadData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const ts   = new Date().toISOString().slice(0,10);
+  a.href     = url;
+  a.download = `tao-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---- BACKUP IMPORT ----
+function importBackup(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const msg = document.getElementById('importBackupMsg');
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Validate it looks like TAO data
+      if(!parsed.controls && !parsed.therapies) {
+        throw new Error('File non valido: non sembra un backup TAO Monitor');
+      }
+      if(!confirm(`Ripristinare il backup? Verranno sovrascritti i dati attuali.
+
+Controlli: ${(parsed.controls||[]).length}
+Terapie: ${(parsed.therapies||[]).length}`)) {
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      appData = parsed;
+      msg.style.display = 'block';
+      msg.style.color = 'var(--accent2)';
+      msg.textContent = `✅ Backup ripristinato: ${(parsed.controls||[]).length} controlli, ${(parsed.therapies||[]).length} terapie.`;
+      // Update badge
+      const th = parsed.therapies||[];
+      if(th.length) updatePatientBadge(th[th.length-1].paziente);
+      initAlarms();
+// Init Drive if already authenticated from previous session
+setTimeout(initFirebase, 1000);
+    } catch(err) {
+      msg.style.display = 'block';
+      msg.style.color = 'var(--danger)';
+      msg.textContent = '❌ Errore: ' + err.message;
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ---- PDF REPORT ----
+async function generatePDFReport() {
+  const msgEl = document.getElementById('reportMsg');
+  msgEl.style.display = 'block';
+  msgEl.style.color = 'var(--muted)';
+  msgEl.textContent = 'Generazione report in corso…';
+
+  const fromStr = document.getElementById('reportDateFrom').value;
+  const toStr   = document.getElementById('reportDateTo').value;
+  if(!fromStr || !toStr) {
+    msgEl.style.color = 'var(--danger)';
+    msgEl.textContent = '❌ Seleziona un periodo valido.';
+    return;
+  }
+
+  const fromDate = new Date(fromStr);
+  const toDate   = new Date(toStr);
+  toDate.setHours(23,59,59);
+
+  const data = loadData();
+  const allControls = (data.controls||[]).sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  const filtered = allControls.filter(c => {
+    const d = parseDate(c.data);
+    return d >= fromDate && d <= toDate;
+  });
+
+  if(!filtered.length) {
+    msgEl.style.color = 'var(--danger)';
+    msgEl.textContent = '❌ Nessun controllo nel periodo selezionato.';
+    return;
+  }
+
+  const th = data.therapies||[];
+  const paziente = th.length ? th[th.length-1].paziente : {};
+  const farmaco  = th.length ? th[th.length-1].farmaco : 'COUMADIN';
+
+  // Stats
+  const rangeMin = filtered[0].rangeMin || 2.0;
+  const rangeMax = filtered[0].rangeMax || 3.0;
+  const target   = filtered[0].target   || 2.5;
+  const avgINR   = (filtered.reduce((s,c)=>s+c.inr,0)/filtered.length).toFixed(2);
+  const inRange  = filtered.filter(c=>c.inr>=rangeMin&&c.inr<=rangeMax).length;
+  const pctRange = Math.round(inRange/filtered.length*100);
+  const latestTIR = filtered[filtered.length-1].tempoInRange;
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const pw = 210, ph = 297;
+  const margin = 15;
+  const usableW = pw - margin*2;
+  let y = margin;
+
+  // ---- HEADER ----
+  doc.setFillColor(22, 27, 34);
+  doc.rect(0, 0, pw, 28, 'F');
+  doc.setTextColor(230, 237, 243);
+  doc.setFontSize(18);
+  doc.setFont('helvetica','bold');
+  doc.text('TAO Monitor — Report INR', margin, 12);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(125, 133, 144);
+  doc.text(`Generato il ${formatDate(new Date())}`, margin, 19);
+  doc.text(`Periodo: ${fromStr.split('-').reverse().join('/')} — ${toStr.split('-').reverse().join('/')}`, margin, 24);
+  y = 35;
+
+  // ---- PATIENT INFO BOX ----
+  doc.setFillColor(28, 35, 51);
+  doc.roundedRect(margin, y, usableW, 22, 3, 3, 'F');
+  doc.setTextColor(88, 166, 255);
+  doc.setFontSize(10);
+  doc.setFont('helvetica','bold');
+  doc.text('PAZIENTE', margin+4, y+7);
+  doc.setTextColor(230, 237, 243);
+  doc.setFontSize(13);
+  doc.text(paziente.nome || '—', margin+4, y+14);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(125, 133, 144);
+  doc.text(`Nato il ${paziente.dataNascita||'—'}`, margin+4, y+20);
+  doc.text(`Farmaco: ${farmaco}`, margin+80, y+14);
+  doc.text(`Range terapeutico: ${rangeMin} – ${rangeMax}   Target: ${target}`, margin+80, y+20);
+  y += 28;
+
+  // ---- STATS BOXES ----
+  const statBoxW = (usableW - 9) / 4;
+  const stats = [
+    { label:'Controlli', value: String(filtered.length), color:[88,166,255] },
+    { label:'INR Medio', value: avgINR, color: parseFloat(avgINR)>=rangeMin&&parseFloat(avgINR)<=rangeMax?[63,185,80]:[240,136,62] },
+    { label:'% In range', value: pctRange+'%', color: pctRange>=70?[63,185,80]:pctRange>=50?[240,136,62]:[255,123,114] },
+    { label:'Tempo in range', value: latestTIR ? latestTIR+'%' : '—', color: latestTIR&&latestTIR>=70?[63,185,80]:[125,133,144] },
+  ];
+  stats.forEach((s,i) => {
+    const bx = margin + i*(statBoxW+3);
+    doc.setFillColor(22, 27, 34);
+    doc.roundedRect(bx, y, statBoxW, 20, 2, 2, 'F');
+    doc.setDrawColor(48,54,61);
+    doc.roundedRect(bx, y, statBoxW, 20, 2, 2, 'S');
+    doc.setTextColor(...s.color);
+    doc.setFontSize(16);
+    doc.setFont('helvetica','bold');
+    doc.text(s.value, bx + statBoxW/2, y+13, {align:'center'});
+    doc.setTextColor(125,133,144);
+    doc.setFontSize(7);
+    doc.setFont('helvetica','normal');
+    doc.text(s.label.toUpperCase(), bx + statBoxW/2, y+19, {align:'center'});
+  });
+  y += 26;
+
+  // ---- INR CHART via canvas ----
+  msgEl.textContent = 'Generazione grafico…';
+  try {
+    // Temporarily render an offscreen chart
+    const chartDiv = document.getElementById('pdfPreviewArea');
+    chartDiv.style.display = 'block';
+    chartDiv.style.position = 'fixed';
+    chartDiv.style.left = '-9999px';
+    chartDiv.style.top = '0';
+    chartDiv.style.width = '800px';
+    chartDiv.style.height = '260px';
+    chartDiv.style.background = '#0d1117';
+    chartDiv.innerHTML = '<canvas id="pdfChartCanvas" width="800" height="260"></canvas>';
+
+    const ctx2 = document.getElementById('pdfChartCanvas').getContext('2d');
+    const labels2 = filtered.map(c=>c.data);
+    const vals2   = filtered.map(c=>c.inr);
+
+    const pdfChart = new Chart(ctx2, {
+      type:'line',
+      data:{labels:labels2, datasets:[
+        {label:'INR', data:vals2,
+          borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.1)',
+          pointBackgroundColor:vals2.map(v=>v>=rangeMin&&v<=rangeMax?'#3fb950':v<rangeMin*0.8||v>rangeMax*1.2?'#ff7b72':'#f0883e'),
+          pointRadius:5, borderWidth:2, tension:0.3, fill:false},
+        {label:'Min', data:Array(labels2.length).fill(rangeMin),
+          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
+        {label:'Max', data:Array(labels2.length).fill(rangeMax),
+          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5,
+          fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
+        {label:'Target', data:Array(labels2.length).fill(target),
+          borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
+      ]},
+      options:{
+        animation:false,
+        responsive:false,
+        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
+        scales:{
+          x:{ticks:{color:'#7d8590',maxRotation:45,maxTicksLimit:12},grid:{color:'rgba(48,54,61,0.8)'}},
+          y:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,0.8)'},
+            suggestedMin:Math.min(...vals2,rangeMin)-0.5,
+            suggestedMax:Math.max(...vals2,rangeMax)+0.5}
+        }
+      }
+    });
+
+    await new Promise(r => setTimeout(r, 300)); // let chart render
+
+    const imgData = chartDiv.querySelector('canvas').toDataURL('image/png');
+    pdfChart.destroy();
+    chartDiv.style.display = 'none';
+    chartDiv.innerHTML = '';
+
+    // Add chart title
+    doc.setFillColor(22,27,34);
+    doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
+    doc.setTextColor(88,166,255);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','bold');
+    doc.text('ANDAMENTO INR NEL TEMPO', margin+3, y+4.5);
+    y += 8;
+
+    // Chart image
+    const chartH = 65;
+    doc.addImage(imgData, 'PNG', margin, y, usableW, chartH);
+    y += chartH + 8;
+  } catch(chartErr) {
+    console.warn('Chart render error:', chartErr);
+    y += 4;
+  }
+
+  // ---- CONTROLS TABLE ----
+  doc.setFillColor(22,27,34);
+  doc.roundedRect(margin, y, usableW, 6, 2, 2, 'F');
+  doc.setTextColor(88,166,255);
+  doc.setFontSize(9);
+  doc.setFont('helvetica','bold');
+  doc.text('DETTAGLIO CONTROLLI', margin+3, y+4.5);
+  y += 9;
+
+  // Table header
+  const cols = [
+    {label:'Data',         w:28},
+    {label:'INR',          w:18},
+    {label:'Range',        w:28},
+    {label:'Target',       w:18},
+    {label:'Dose sett.',   w:28},
+    {label:'Stato',        w:30},
+    {label:'Tempo range',  w:30},
+  ];
+  const tableW = cols.reduce((s,col)=>s+col.w,0);
+
+  doc.setFillColor(28,35,51);
+  doc.rect(margin, y, tableW, 7, 'F');
+  doc.setTextColor(125,133,144);
+  doc.setFontSize(7);
+  doc.setFont('helvetica','bold');
+  let tx = margin+2;
+  cols.forEach(col => {
+    doc.text(col.label.toUpperCase(), tx, y+5);
+    tx += col.w;
+  });
+  y += 7;
+
+  // Table rows
+  doc.setFont('helvetica','normal');
+  [...filtered].reverse().forEach((ctrl, i) => {
+    if(y > ph - 25) {
+      doc.addPage();
+      y = margin;
+    }
+    const rowColor = i%2===0 ? [22,27,34] : [28,35,51];
+    doc.setFillColor(...rowColor);
+    doc.rect(margin, y, tableW, 7, 'F');
+
+    const inr = ctrl.inr;
+    const inRng = inr>=rangeMin&&inr<=rangeMax;
+    const stato = inRng ? 'In range' : inr<rangeMin ? 'Sotto range' : 'Sopra range';
+    const statoColor = inRng ? [63,185,80] : inr<rangeMin*0.85||inr>rangeMax*1.15 ? [255,123,114] : [240,136,62];
+
+    const rowData = [
+      ctrl.data,
+      String(inr),
+      `${rangeMin} – ${rangeMax}`,
+      String(target),
+      ctrl.doseSettimanale ? ctrl.doseSettimanale+' mg' : '—',
+      stato,
+      ctrl.tempoInRange ? ctrl.tempoInRange+'%' : '—',
+    ];
+
+    tx = margin+2;
+    rowData.forEach((val, ci) => {
+      if(ci === 5) doc.setTextColor(...statoColor);
+      else if(ci === 1) {
+        doc.setTextColor(...(inRng?[63,185,80]:inr<rangeMin*0.85||inr>rangeMax*1.15?[255,123,114]:[240,136,62]));
+      }
+      else doc.setTextColor(200,210,220);
+      doc.setFontSize(8);
+      doc.text(String(val), tx, y+5);
+      tx += cols[ci].w;
+    });
+    y += 7;
+  });
+
+  // ---- FOOTER ----
+  doc.setTextColor(60,70,80);
+  doc.setFontSize(7);
+  doc.setFont('helvetica','normal');
+  const pageCount = doc.internal.getNumberOfPages();
+  for(let p=1;p<=pageCount;p++){
+    doc.setPage(p);
+    doc.text(`TAO Monitor — Report generato il ${formatDate(new Date())} — Pagina ${p}/${pageCount}`, pw/2, ph-8, {align:'center'});
+    doc.setDrawColor(48,54,61);
+    doc.line(margin, ph-11, pw-margin, ph-11);
+  }
+
+  // Save
+  const fname = `TAO-Report-${fromStr}-${toStr}.pdf`;
+
+  if(window.isCapacitor) {
+    try {
+      // Use blob URL — works in Capacitor WebView without plugins
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+
+      // Create temporary link and click it
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = fname;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+
+      msgEl.style.color = 'var(--accent2)';
+      msgEl.textContent = `✅ Report scaricato: ${fname}`;
+      return;
+    } catch(e) {
+      console.warn('[TAO] PDF Capacitor error:', e.message || e);
+      // Fall through to normal download
+    }
+  }
+
+  doc.save(fname);
+  msgEl.style.color = 'var(--accent2)';
+  msgEl.textContent = `✅ Report salvato: ${fname}`;
+}
+
+// ===================================================
+// INIT
+// ===================================================
+// ---- CAPACITOR NATIVE ALARMS ----
+async function scheduleNativeAlarm(dateStr, time) {
+  if(!window.isCapacitor) return;
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+
+    // Check if alarm time is in the future before scheduling
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const [hh,min] = time.split(':');
+    const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
+    if(alarmDate <= new Date()) {
+      console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
+      return; // Skip past alarms silently
+    }
+
+    const alarmId = parseInt(`${yyyy}${mm}${dd}`);
+    const therapies = getAllTherapies();
+    const t = therapies[currentTherapyIdx];
+    const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
+    const doseText = doseToText(dose);
+
+    await AlarmPlugin.scheduleAlarm({
+      date: dateStr,
+      time: time,
+      alarmId: alarmId,
+      dose: doseText
+    });
+    console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
+  } catch(e) {
+    console.warn('[CAP] Native alarm error:', e.message || e);
+    // Don't fallback to setTimeout in Capacitor — just log
+  }
+}
+
+async function cancelNativeAlarm(dateStr) {
+  if(!window.isCapacitor) return;
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const alarmId = parseInt(`${yyyy}${mm}${dd}`);
+    await AlarmPlugin.cancelAlarm({ alarmId });
+  } catch(e) {
+    console.warn('[CAP] Cancel alarm error:', e);
+  }
+}
+
+async function checkPendingConfirmFromNative() {
+  if(!window.isCapacitor) return;
+  try {
+    const { AlarmPlugin } = window.Capacitor.Plugins;
+    if(!AlarmPlugin) return;
+    const result = await AlarmPlugin.checkPendingConfirm();
+    if(!result || !result.confirms) return;
+    const confirms = JSON.parse(result.confirms);
+    if(!confirms.length) return;
+    appData = loadData();
+    if(!appData.taken) appData.taken = {};
+    if(!appData.takenTimes) appData.takenTimes = {};
+    if(!appData.takenEditTimes) appData.takenEditTimes = {};
+    confirms.forEach(entry => {
+      appData.taken[entry.date] = true;
+      appData.takenTimes[entry.date] = entry.time || '';
+      appData.takenEditTimes[entry.date] = Date.now();
+      deductScorta(entry.date);
+    });
+    saveData(appData);
+    fbAutoSync();
+    renderTerapiaTab();
+  } catch(e) { console.warn('[TAO] checkPendingConfirm error:', e); }
+}
+
+function saveControlloDateForNative() {
+  if(!window.isCapacitor) return;
+  try {
+    const therapies = getAllTherapies();
+    if(!therapies.length) return;
+    const lastTherapy = therapies[therapies.length-1];
+    if(!lastTherapy.dataControllo) return;
+    const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+    if(AlarmPlugin?.saveControlloDate) AlarmPlugin.saveControlloDate({ date: lastTherapy.dataControllo });
+  } catch(e) { console.warn('[TAO] saveControlloDate error:', e); }
+}
+
+function initCapacitor() {
+  if(!window.isCapacitor) return;
+  console.log('[CAP] Running in Capacitor native app');
+
+  // Hide native splash screen immediately
+  try {
+    const { SplashScreen } = window.Capacitor.Plugins;
+    if(SplashScreen) {
+      SplashScreen.hide({ fadeOutDuration: 300 });
+      console.log('[CAP] Splash hidden');
+    }
+  } catch(e) {
+    console.warn('[CAP] SplashScreen error:', e);
+  }
+
+  // Handle alarm action from notification (confirm/snooze)
+  window.Capacitor.Plugins.App?.addListener('appUrlOpen', data => {
+    console.log('[CAP] App opened with:', data);
+  });
+
+  // Check if app was opened from alarm notification
+  const urlParams = new URLSearchParams(window.location.search);
+  const alarmDate = urlParams.get('alarmDate');
+  const alarmAction = urlParams.get('alarmAction');
+  if(alarmDate && alarmAction === 'confirm') {
+    setTimeout(() => {
+      appData = loadData();
+      if(!appData.taken) appData.taken = {};
+      if(!appData.takenTimes) appData.takenTimes = {};
+      if(!appData.takenEditTimes) appData.takenEditTimes = {};
+      appData.taken[alarmDate] = true;
+      appData.takenEditTimes[alarmDate] = Date.now();
+      appData.takenTimes[alarmDate] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+      saveData(appData);
+      fbAutoSync();
+      renderTerapiaTab();
+    }, 1500);
+  }
+}
+
+function initAlarms() {
+  const data=loadData();
+  Object.entries(data.alarms||{}).forEach(([date,time])=>scheduleAlarm(date,time));
+  if(typeof Notification !== 'undefined' && Notification.permission==='default') document.getElementById('notifBtn').style.display='block';
+  const th=data.therapies&&data.therapies.length?data.therapies:(data.therapy?[data.therapy]:[]);
+  if(th.length) updatePatientBadge(th[th.length-1].paziente);
+  // First launch: ask default time if we have therapies but no defaultAlarmTime
+  if(th.length && !data.defaultAlarmTime) {
+    setTimeout(()=>askDefaultAlarmTime(th[th.length-1]),800);
+  }
+}
+// ===================================================
+// SMART STARTUP
+// ===================================================
+function lockLandscapeOnMobile() {
+  const w = window.screen.width, h = window.screen.height;
+  const isSmartphone = Math.min(w,h) < 600; // phones have short side < 600px
+  if(!isSmartphone) return;
+  if(screen.orientation && screen.orientation.lock) {
+    screen.orientation.lock('landscape').catch(()=>{});
+  }
+}
+
+function hideSplash() {
+  const splash = document.getElementById('splashScreen');
+  if(!splash) return;
+  splash.style.opacity = '0';
+  splash.style.transform = 'scale(1.05)';
+  document.body.classList.remove('splash-active');
+  setTimeout(() => { splash.style.display='none'; }, 500);
+}
+
+function openStartupTab() {
+  const data = loadData();
+  const hasTherapy = (data.therapies&&data.therapies.length>0) || data.therapy;
+  if(hasTherapy) {
+    switchTab('terapia');
+    setTimeout(() => setView('cal'), 150);
+  } else {
+    switchTab('upload');
+  }
+}
+
+// Run startup sequence
+lockLandscapeOnMobile();
+initAlarms();
+initSwipe();
+initCapacitor();
+initRingtoneUI();
+initBatteryOptUI();
+
+// Hide splash immediately in Capacitor, after 1.2s in browser
+const splashDelay = window.isCapacitor ? 100 : 1200;
+setTimeout(() => {
+  hideSplash();
+  openStartupTab();
+}, splashDelay);
+
+setTimeout(initFirebase, 800);
+setTimeout(() => {
+  renderTerapiaTab();
+  showControlloCountdownBanner();
+  showScortaBanner();
+  saveControlloDateForNative();
+  checkScortaWarning();
+  showScortaPopupIfNeeded();
+  checkPendingConfirmFromNative();
+  // Sync volume to native
+  if(window.isCapacitor) {
+    const vol = parseInt(localStorage.getItem(ALARM_VOLUME_KEY) || '80');
+    try {
+      const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+      if(AlarmPlugin) AlarmPlugin.setAlarmVolume({ volume: vol });
+    } catch(e) {}
+  }
+}, 1000);
 
 
 </script>
