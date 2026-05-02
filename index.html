@@ -3458,6 +3458,8 @@ function deductPrescrizione() {
   showPrescrizioniBanner();
   showPrescrizioniPopupIfNeeded();
 }
+
+function updatePrescrizioniDisplay() {
   const p = loadPrescrizioni();
   const countEl = document.getElementById('prescrizioniCount');
   const noteEl  = document.getElementById('prescrizioniNote');
