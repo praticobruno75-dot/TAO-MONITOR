@@ -1326,8 +1326,14 @@ function applyExtractedData(extracted) {
   saveBackupToFolder(true);
   fbAutoSync();
 
-  // Ask about default alarm time
-  askDefaultAlarmTime(newT);
+  // Ask about default alarm time only if this is a genuinely new plan
+  // (existing plan reload already has alarms[d] set for all days — no need to ask)
+  const therapyDays = getTherapyDays(newT);
+  const alreadyScheduled = therapyDays.length > 0 &&
+    therapyDays.every(d => !!(appData.alarms && appData.alarms[d]));
+  if(!alreadyScheduled) {
+    askDefaultAlarmTime(newT);
+  }
 }
 
 // ===================================================
@@ -1378,9 +1384,10 @@ function confirmDefaultTime() {
     if(!appData.alarms) appData.alarms = {};
     const nowTs = Date.now();
     if(!appData.alarmTimes) appData.alarmTimes={};
-    days.forEach(d => { appData.alarms[d] = time; appData.alarmTimes[d] = nowTs; });
-    // Schedule alarms
-    days.forEach(d => scheduleAlarm(d, time));
+    const newDays = [];
+    days.forEach(d => { if(!appData.alarms[d]) { appData.alarms[d] = time; appData.alarmTimes[d] = nowTs; newDays.push(d); } });
+    // Schedule only days just written (preserves existing custom alarms)
+    newDays.forEach(d => scheduleAlarm(d, time));
   }
   saveData(appData);
   document.getElementById('defaultTimeModal').classList.remove('active');
