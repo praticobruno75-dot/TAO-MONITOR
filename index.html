@@ -215,15 +215,15 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 @media(max-width:640px){main{padding:16px}header{padding:14px 16px}nav{padding:12px 16px 0;overflow-x:auto}.tab-btn{white-space:nowrap}.cards-grid{grid-template-columns:repeat(2,1fr)}.cal-grid{gap:3px}.cal-day{min-height:90px;padding:6px 4px}.dose-circle{width:44px;height:44px}.dose-circle-num{font-size:13px}}
 
 @keyframes pulseOrangeRed {
-  0%, 100% { background: rgba(240,136,62,0.15); border-color: rgba(240,136,62,0.7); color: #f0883e; }
-  50%       { background: rgba(255,123,114,0.15); border-color: rgba(255,123,114,0.7); color: #ff7b72; }
+  0%, 100% { background: rgba(240,136,62,0.12); border-color: rgba(240,136,62,0.5); color: #f0883e; }
+  50%       { background: rgba(240,136,62,0.55); border-color: rgba(255,255,255,0.9); color: #fff; }
 }
 @keyframes pulseRedOrange {
-  0%, 100% { background: rgba(255,123,114,0.15); border-color: rgba(255,123,114,0.7); color: #ff7b72; }
-  50%       { background: rgba(240,136,62,0.15); border-color: rgba(240,136,62,0.7); color: #f0883e; }
+  0%, 100% { background: rgba(255,123,114,0.12); border-color: rgba(255,123,114,0.5); color: #ff7b72; }
+  50%       { background: rgba(255,123,114,0.60); border-color: rgba(255,255,255,0.9); color: #fff; }
 }
-.scorta-pulse      { animation: pulseOrangeRed 1.8s ease-in-out infinite; }
-.scorta-pulse-crit { animation: pulseRedOrange 1.8s ease-in-out infinite; }
+.scorta-pulse      { animation: pulseOrangeRed 0.7s ease-in-out infinite; }
+.scorta-pulse-crit { animation: pulseRedOrange 0.7s ease-in-out infinite; }
 
 /* Prevent text selection on long press for interactive elements */
 .cal-day, .cal-day *, .cal-header, .list-item, .plan-card,
@@ -502,6 +502,8 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <div id="controlloBanner" style="display:none;padding:12px 16px;border-radius:10px;border:1px solid;font-size:13px;font-weight:500;margin-bottom:12px;line-height:1.5"></div>
       <!-- Scorta farmaco warning banner -->
       <button id="scortaBanner" onclick="inviaRichiestaMedico()" class="scorta-pulse" style="display:none;width:100%;padding:14px 16px;border-radius:10px;border:2px solid rgba(240,136,62,0.6);background:rgba(240,136,62,0.15);font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.5;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;color:var(--warn)"></button>
+      <!-- Prescrizioni controllo INR warning banner -->
+      <button id="prescrizioniBanner" onclick="inviaRichiestaPrescrizioni()" class="scorta-pulse scorta-pulse-crit" style="display:none;width:100%;padding:14px 16px;border-radius:10px;border:2px solid rgba(255,123,114,0.6);background:rgba(255,123,114,0.1);font-size:13px;font-weight:600;margin-bottom:12px;line-height:1.5;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;color:var(--danger)"></button>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap">
         <div class="section-title" style="margin:0">💊 Piano terapeutico</div>
         <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
@@ -702,6 +704,61 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
         <div style="display:flex;gap:8px;margin-bottom:8px">
           <button onclick="saveMedicoConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
           <button onclick="inviaRichiestaMedico()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRESCRIZIONI CONTROLLO INR -->
+    <div class="section-title">🩸 Prescrizioni controllo INR</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Tieni traccia delle prescrizioni per i controlli al centro TAO. Il contatore scala automaticamente ad ogni nuovo PDF caricato.
+      </div>
+
+      <div id="prescrizioniDisplay" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Prescrizioni disponibili</div>
+          <div id="prescrizioniCount" style="font-size:28px;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace">—</div>
+          <div id="prescrizioniNote" style="font-size:11px;color:var(--muted)"></div>
+        </div>
+        <div id="prescrizioniWarning" style="display:none;font-size:13px;color:var(--danger);text-align:right;max-width:160px;line-height:1.5"></div>
+      </div>
+
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="number" id="prescrizioniInput" class="modal-input" placeholder="N. prescrizioni ricevute" min="1" step="1" style="flex:1">
+        <button onclick="setPrescrizioniControllo()" class="btn-primary" style="padding:10px 16px">Imposta</button>
+      </div>
+
+      <div id="richiestaPrescrBadge" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--accent2);font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <span>📧</span><span id="richiestaPrescrText">Richiesta inviata</span>
+      </div>
+
+      <button onclick="addPrescrizioniControllo()" class="btn-secondary" style="width:100%;margin-bottom:8px">
+        📋 Ho ricevuto nuove prescrizioni
+      </button>
+
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+        <div class="modal-label" style="margin-bottom:6px">Email medico di base</div>
+        <input type="email" id="prescrizioniEmail" class="modal-input" placeholder="dott@esempio.it" style="width:100%;margin-bottom:10px">
+
+        <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
+        <input type="text" id="prescrizioniOggetto" class="modal-input"
+          placeholder="es. Richiesta prescrizione controlli INR" style="width:100%;margin-bottom:10px">
+
+        <div class="modal-label" style="margin-bottom:4px">Testo email</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
+          Puoi usare: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{controlli}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{prossimo}</code>
+        </div>
+        <textarea id="prescrizioniTesto" class="modal-input"
+          placeholder="es. Gentile Dottoressa, sono {nome} (CF: {cf}). Richiedo la prescrizione per i controlli INR al centro TAO. Prescrizioni rimanenti: {controlli}. Prossimo controllo previsto: {prossimo}. Grazie."
+          style="width:100%;height:100px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
+
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button onclick="savePrescrizioniConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
+          <button onclick="inviaRichiestaPrescrizioni()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
         </div>
       </div>
     </div>
@@ -935,8 +992,22 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   </div><!-- /tab-interazioni -->
 
 
-  <!-- SCORTA WARNING POPUP -->
-  <div class="modal-overlay" id="scortaPopup">
+  <!-- PRESCRIZIONI CONTROLLO POPUP -->
+  <div class="modal-overlay" id="prescrizioniPopup">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div style="font-size:48px;margin-bottom:8px">⛔</div>
+      <div class="modal-title" style="color:var(--danger)">Ultima prescrizione controllo!</div>
+      <div id="prescrizioniPopupMsg" style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6"></div>
+      <button onclick="inviaRichiestaPrescrizioni();closePrescrizioniPopup()" class="btn-primary" style="width:100%;margin-bottom:10px;padding:12px">
+        📧 Invia richiesta al medico
+      </button>
+      <button onclick="closePrescrizioniPopup()" class="btn-secondary" style="width:100%;padding:10px">
+        ✕ Chiudi
+      </button>
+    </div>
+  </div>
+
+
     <div class="modal" style="max-width:360px;text-align:center">
       <div id="scortaPopupIcon" style="font-size:48px;margin-bottom:8px">⚠️</div>
       <div class="modal-title" id="scortaPopupTitle">Scorta farmaco in esaurimento</div>
@@ -1237,7 +1308,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if(name==='inr') renderINRTab();
-  if(name==='terapia') { renderTerapiaTab(); showScortaPopupIfNeeded(); }
+  if(name==='terapia') { renderTerapiaTab(); showScortaPopupIfNeeded(); showPrescrizioniBanner(); showPrescrizioniPopupIfNeeded(); }
   if(name==='strumenti') initStrumenti();
   if(name==='interazioni') { renderInterazioniAlim(); }
 }
@@ -1259,6 +1330,7 @@ async function processPDF(file) {
     const extracted = parseTAOLocal(items);
     hideLoading();
     if(extracted) {
+      _preLoadSnapshot = JSON.stringify(loadData());
       applyExtractedData(extracted);
     } else {
       document.getElementById('parseDebugText').textContent = items.map(i=>i.str).join(' ');
@@ -1326,6 +1398,9 @@ function applyExtractedData(extracted) {
   saveBackupToFolder(true);
   fbAutoSync();
 
+  // New PDF = new control performed — deduct one prescription
+  deductPrescrizione();
+
   // Ask about default alarm time only if this is a genuinely new plan
   // (existing plan reload already has alarms[d] set for all days — no need to ask)
   const therapyDays = getTherapyDays(newT);
@@ -1340,6 +1415,7 @@ function applyExtractedData(extracted) {
 // DEFAULT ALARM TIME FLOW
 // ===================================================
 let pendingTherapyForAlarm = null;
+let _preLoadSnapshot = null;
 
 function askDefaultAlarmTime(therapy) {
   const data = loadData();
@@ -1392,6 +1468,10 @@ function confirmDefaultTime() {
   saveData(appData);
   document.getElementById('defaultTimeModal').classList.remove('active');
   pendingTherapyForAlarm = null;
+  // User confirmed — discard rollback snapshot
+  _preLoadSnapshot = null;
+  const rb = document.getElementById('uploadRollbackBtn');
+  if(rb) rb.remove();
   renderTerapiaTab();
 }
 
@@ -1408,12 +1488,45 @@ function keepDefaultTime() {
   }
   document.getElementById('defaultTimeModal').classList.remove('active');
   pendingTherapyForAlarm = null;
+  // User confirmed — discard rollback snapshot
+  _preLoadSnapshot = null;
+  const rb = document.getElementById('uploadRollbackBtn');
+  if(rb) rb.remove();
   renderTerapiaTab();
 }
 
 // ===================================================
 // SHOW EXTRACTED RESULT
 // ===================================================
+function rollbackLastLoad() {
+  if(!_preLoadSnapshot) return;
+  try {
+    const snap = JSON.parse(_preLoadSnapshot);
+    saveData(snap);
+    appData = snap;
+    _preLoadSnapshot = null;
+    // Cancel any native alarms that were scheduled during the aborted load
+    if(window.isCapacitor && snap.therapies) {
+      // Best effort: cancel alarms for the last 60 days forward
+      const today = new Date();
+      for(let i = -1; i <= 60; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        const ds = formatDate(d);
+        if(!snap.alarms || !snap.alarms[ds]) cancelNativeAlarm(ds);
+      }
+    }
+    document.getElementById('uploadResult').style.display = 'none';
+    document.getElementById('defaultTimeModal').classList.remove('active');
+    pendingTherapyForAlarm = null;
+    calInitialized = false;
+    renderTerapiaTab();
+    showAutoBackupToast('↩️ Caricamento annullato — dati ripristinati');
+  } catch(e) {
+    console.error('[TAO] Rollback failed:', e);
+  }
+}
+
 function showExtractedResult(extracted) {
   const ctrl = extracted.controllo;
   document.getElementById('extractedCards').innerHTML = `
@@ -1426,6 +1539,16 @@ function showExtractedResult(extracted) {
   `;
   document.getElementById('uploadResult').style.display = 'block';
   document.getElementById('uploadResultText').textContent = `Dati estratti dal ${ctrl.data}. Storico: ${appData.controls.length} controlli, ${appData.therapies.length} periodi terapia.`;
+  // Add rollback button
+  const existing = document.getElementById('uploadRollbackBtn');
+  if(existing) existing.remove();
+  const btn = document.createElement('button');
+  btn.id = 'uploadRollbackBtn';
+  btn.className = 'btn-secondary';
+  btn.style.cssText = 'width:100%;margin-top:12px;border-color:var(--danger);color:var(--danger)';
+  btn.textContent = '↩️ Annulla caricamento';
+  btn.onclick = rollbackLastLoad;
+  document.getElementById('uploadResult').appendChild(btn);
 }
 function updatePatientBadge(p) {
   if(!p?.nome) return;
@@ -3276,6 +3399,218 @@ function checkScortaWarning() {
 }
 
 // ===================================================
+// PRESCRIZIONI CONTROLLO INR
+// ===================================================
+const PRESCRIZIONI_KEY = 'tao_prescrizioni';
+const PRESCRIZIONI_MEDICO_KEY = 'tao_prescrizioni_medico';
+
+function loadPrescrizioni() {
+  try { return JSON.parse(localStorage.getItem(PRESCRIZIONI_KEY) || 'null'); }
+  catch(e) { return null; }
+}
+function savePrescrizioni(data) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(data)); }
+
+function loadPrescrizioniMedico() {
+  try { return JSON.parse(localStorage.getItem(PRESCRIZIONI_MEDICO_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function setPrescrizioniControllo() {
+  const val = parseInt(document.getElementById('prescrizioniInput')?.value);
+  if(isNaN(val) || val < 0) { showAutoBackupToast('⚠️ Inserisci un numero valido'); return; }
+  const p = loadPrescrizioni() || {};
+  p.disponibili = val;
+  p.dataAggiornamento = formatDate(new Date());
+  p.ts = Date.now();
+  savePrescrizioni(p);
+  document.getElementById('prescrizioniInput').value = '';
+  updatePrescrizioniDisplay();
+  showPrescrizioniBanner();
+  fbAutoSync();
+  showAutoBackupToast('✅ Prescrizioni aggiornate: ' + val);
+}
+
+function addPrescrizioniControllo() {
+  const n = parseInt(prompt('Quante prescrizioni hai ricevuto?', '6'));
+  if(isNaN(n) || n < 1) return;
+  const p = loadPrescrizioni() || { disponibili: 0 };
+  p.disponibili = (p.disponibili || 0) + n;
+  p.dataAggiornamento = formatDate(new Date());
+  p.ts = Date.now();
+  delete p.richiestaInviataData;
+  savePrescrizioni(p);
+  updatePrescrizioniDisplay();
+  showPrescrizioniBanner();
+  updateRichiestaPrescrBadge();
+  fbAutoSync();
+  showAutoBackupToast('✅ Aggiunte ' + n + ' prescrizioni. Totale: ' + p.disponibili);
+}
+
+function deductPrescrizione() {
+  // Called automatically when a new PDF is loaded (new control performed)
+  const p = loadPrescrizioni();
+  if(!p || p.disponibili === undefined) return;
+  if(p.disponibili > 0) p.disponibili--;
+  p.dataAggiornamento = formatDate(new Date());
+  p.ts = Date.now();
+  savePrescrizioni(p);
+  showPrescrizioniBanner();
+  showPrescrizioniPopupIfNeeded();
+}
+
+function updatePrescrizioniDisplay() {
+  const p = loadPrescrizioni();
+  const countEl = document.getElementById('prescrizioniCount');
+  const noteEl  = document.getElementById('prescrizioniNote');
+  const warnEl  = document.getElementById('prescrizioniWarning');
+  if(!countEl) return;
+  if(!p) { countEl.textContent = '—'; return; }
+  const n = p.disponibili ?? 0;
+  const isCritical = n <= 1;
+  countEl.textContent = n;
+  countEl.style.color = isCritical ? 'var(--danger)' : 'var(--accent2)';
+  if(noteEl) noteEl.textContent = p.dataAggiornamento ? 'Aggiornato: ' + p.dataAggiornamento : '';
+  if(warnEl) {
+    warnEl.style.display = isCritical ? 'block' : 'none';
+    warnEl.textContent = n === 0 ? '⛔ Nessuna prescrizione!' : '⛔ Ultima prescrizione!';
+  }
+  updateRichiestaPrescrBadge();
+}
+
+function isRichiestaPrescrInviata() {
+  const p = loadPrescrizioni();
+  return !!(p?.richiestaInviataData);
+}
+
+function updateRichiestaPrescrBadge() {
+  const badge = document.getElementById('richiestaPrescrBadge');
+  const text  = document.getElementById('richiestaPrescrText');
+  if(!badge) return;
+  const p = loadPrescrizioni();
+  if(p?.richiestaInviataData) {
+    badge.style.display = 'flex';
+    if(text) text.textContent = 'Richiesta inviata il ' + p.richiestaInviataData;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function showPrescrizioniBanner() {
+  const banner = document.getElementById('prescrizioniBanner');
+  if(!banner) return;
+  const p = loadPrescrizioni();
+  if(!p || p.disponibili === undefined) { banner.style.display = 'none'; return; }
+  if(isRichiestaPrescrInviata()) { banner.style.display = 'none'; return; }
+  const n = p.disponibili;
+  if(n <= 1) {
+    banner.style.display = 'block';
+    banner.innerHTML = `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div>
+        <div style="font-size:14px">⛔ ${n === 0 ? 'Nessuna prescrizione controllo INR!' : 'Ultima prescrizione controllo INR!'}</div>
+        <div style="font-size:11px;margin-top:3px;opacity:0.8">📧 Tocca per inviare richiesta al medico</div>
+      </div>
+      <div style="font-size:20px;flex-shrink:0">→</div>
+    </div>`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function showPrescrizioniPopupIfNeeded() {
+  const p = loadPrescrizioni();
+  if(!p || p.disponibili === undefined) return;
+  if(isRichiestaPrescrInviata()) return;
+  if(p.disponibili > 1) return;
+  // Show once per day for last prescription; always for zero
+  if(p.disponibili === 1) {
+    const lastShown = localStorage.getItem('tao_prescrizioni_popup_date');
+    const today = formatDate(new Date());
+    if(lastShown === today) return;
+    localStorage.setItem('tao_prescrizioni_popup_date', today);
+  }
+  const msg = document.getElementById('prescrizioniPopupMsg');
+  if(msg) msg.textContent = p.disponibili === 0
+    ? 'Non hai prescrizioni per il controllo INR. Richiedi subito al medico.'
+    : 'Hai solo 1 prescrizione rimasta per il controllo INR. Richiedine di nuove al medico.';
+  document.getElementById('prescrizioniPopup')?.classList.add('active');
+}
+
+function closePrescrizioniPopup() {
+  document.getElementById('prescrizioniPopup')?.classList.remove('active');
+}
+
+function savePrescrizioniConfig() {
+  const email   = document.getElementById('prescrizioniEmail')?.value.trim() || '';
+  const oggetto = document.getElementById('prescrizioniOggetto')?.value.trim() || '';
+  const testo   = document.getElementById('prescrizioniTesto')?.value.trim() || '';
+  const med = loadPrescrizioniMedico();
+  if(email)   med.email   = email;
+  if(oggetto) med.oggetto = oggetto;
+  if(testo)   med.testo   = testo;
+  localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(med));
+  fbAutoSync();
+  showAutoBackupToast('✅ Configurazione prescrizioni salvata');
+}
+
+function inviaRichiestaPrescrizioni() {
+  const med = loadPrescrizioniMedico();
+  const therapies = getAllTherapies();
+  const paz = therapies.length ? therapies[therapies.length-1].paziente : {};
+  const p = loadPrescrizioni();
+  const nomePaziente = paz.nome || 'Paziente';
+  const cf = paz.codiceFiscale || '';
+  const controlli = p?.disponibili ?? '?';
+  const prossimo = therapies.length
+    ? (therapies[therapies.length-1].dataControllo || '—') : '—';
+
+  function fillVars(text) {
+    return text
+      .replace(/\{nome\}/gi, nomePaziente)
+      .replace(/\{cf\}/gi, cf)
+      .replace(/\{controlli\}/gi, controlli + ' rimaste')
+      .replace(/\{prossimo\}/gi, prossimo);
+  }
+
+  const destinatario = med.email || '';
+  const oggettoRaw = med.oggetto || `Richiesta prescrizione controlli INR - ${nomePaziente}`;
+  const testoRaw = med.testo ||
+`Gentile Dottore/Dottoressa,
+
+sono ${nomePaziente}${cf ? ' (C.F.: ' + cf + ')' : ''}.
+
+La contatto per richiedere la prescrizione per i controlli INR al centro TAO.
+Prescrizioni rimanenti: ${controlli}.
+Prossimo controllo previsto: ${prossimo}.
+
+La ringrazio per la disponibilità.
+
+Cordiali saluti,
+${nomePaziente}`;
+
+  const mailtoUrl = `mailto:${destinatario}?subject=${encodeURIComponent(fillVars(oggettoRaw))}&body=${encodeURIComponent(fillVars(testoRaw))}`;
+  window.open(mailtoUrl, '_blank');
+
+  // Save richiesta inviata
+  const pr = loadPrescrizioni() || {};
+  pr.richiestaInviataData = formatDate(new Date());
+  savePrescrizioni(pr);
+  fbAutoSync();
+  updateRichiestaPrescrBadge();
+  showPrescrizioniBanner();
+}
+
+function initPrescrizioniDisplay() {
+  const med = loadPrescrizioniMedico();
+  const emailEl   = document.getElementById('prescrizioniEmail');
+  const oggettoEl = document.getElementById('prescrizioniOggetto');
+  const testoEl   = document.getElementById('prescrizioniTesto');
+  if(emailEl   && med.email)   emailEl.value   = med.email;
+  if(oggettoEl && med.oggetto) oggettoEl.value = med.oggetto;
+  if(testoEl   && med.testo)   testoEl.value   = med.testo;
+  updatePrescrizioniDisplay();
+}
+
+// ===================================================
 // VOLUME ALLARME
 // ===================================================
 const ALARM_VOLUME_KEY = 'tao_alarm_volume';
@@ -4301,6 +4636,9 @@ function fbStartRealtimeSync() {
       if(remoteData.tao_scorta) { const ls=localData._syncTime||0, rs=remoteData._syncTime||0; if(rs>=ls) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteData.tao_scorta)); delete merged.tao_scorta; }
       // Restore medico
       if(remoteData.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico)); delete merged.tao_medico; }
+      // Restore prescrizioni
+      if(remoteData.tao_prescrizioni) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(remoteData.tao_prescrizioni)); delete merged.tao_prescrizioni; }
+      if(remoteData.tao_prescrizioni_medico) { localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(remoteData.tao_prescrizioni_medico)); delete merged.tao_prescrizioni_medico; }
       saveData(merged);
       appData = merged;
       calInitialized = false;
@@ -4411,6 +4749,8 @@ async function fbSyncNow(silent=false) {
         if(remoteData.tao_diario) { const md = Object.assign({}, loadDiario(), remoteData.tao_diario); localStorage.setItem(DIARIO_KEY, JSON.stringify(md)); delete merged.tao_diario; }
         if(remoteData.tao_scorta) { const ls = loadScorta(); const ld = ls?._syncTime||0; const rd = remoteData._syncTime||0; if(rd>=ld) localStorage.setItem(SCORTA_KEY, JSON.stringify(remoteData.tao_scorta)); delete merged.tao_scorta; }
         if(remoteData.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico)); delete merged.tao_medico; }
+        if(remoteData.tao_prescrizioni) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(remoteData.tao_prescrizioni)); delete merged.tao_prescrizioni; }
+        if(remoteData.tao_prescrizioni_medico) { localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(remoteData.tao_prescrizioni_medico)); delete merged.tao_prescrizioni_medico; }
         saveData(merged);
         appData = merged;
         calInitialized = false;
@@ -4438,10 +4778,14 @@ async function fbUploadData(data) {
   const diario = loadDiario();
   const scorta = loadScorta();
   const medico = loadMedico();
+  const prescrizioni = loadPrescrizioni();
+  const prescrizioniMedico = loadPrescrizioniMedico();
   const dataWithExtras = Object.assign({}, data, {
     tao_diario: diario,
     tao_scorta: scorta,
-    tao_medico: medico
+    tao_medico: medico,
+    tao_prescrizioni: prescrizioni,
+    tao_prescrizioni_medico: prescrizioniMedico
   });
   const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
   await setDoc(docRef, dataWithExtras);
@@ -4465,6 +4809,8 @@ async function fbForceDownload() {
   if(data.tao_diario) { localStorage.setItem(DIARIO_KEY, JSON.stringify(data.tao_diario)); delete data.tao_diario; }
   if(data.tao_scorta) { localStorage.setItem(SCORTA_KEY, JSON.stringify(data.tao_scorta)); delete data.tao_scorta; }
   if(data.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(data.tao_medico)); delete data.tao_medico; }
+  if(data.tao_prescrizioni) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(data.tao_prescrizioni)); delete data.tao_prescrizioni; }
+  if(data.tao_prescrizioni_medico) { localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(data.tao_prescrizioni_medico)); delete data.tao_prescrizioni_medico; }
   saveData(data);
   appData = data;
   calInitialized = false;
@@ -4632,6 +4978,8 @@ function fbListenMessages() {
 function initStrumenti() {
   initFirebase();
   initControlloAlarmUI();
+  initScortaDisplay();
+  initPrescrizioniDisplay();
   const data = loadData();
 
   // Populate default alarm time input
@@ -5565,9 +5913,11 @@ setTimeout(() => {
   renderTerapiaTab();
   showControlloCountdownBanner();
   showScortaBanner();
+  showPrescrizioniBanner();
   saveControlloDateForNative();
   checkScortaWarning();
   showScortaPopupIfNeeded();
+  showPrescrizioniPopupIfNeeded();
   showControlloPopupIfNeeded();
   checkPendingConfirmFromNative();
   // Sync volume to native
