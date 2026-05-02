@@ -1394,12 +1394,12 @@ function applyExtractedData(extracted) {
   updatePatientBadge(extracted.paziente);
   showExtractedResult(extracted);
 
+  // New PDF = new control performed — deduct one prescription before syncing
+  deductPrescrizione();
+
   // Auto backup + Drive sync after PDF load
   saveBackupToFolder(true);
   fbAutoSync();
-
-  // New PDF = new control performed — deduct one prescription
-  deductPrescrizione();
 
   // Ask about default alarm time only if this is a genuinely new plan
   // (existing plan reload already has alarms[d] set for all days — no need to ask)
