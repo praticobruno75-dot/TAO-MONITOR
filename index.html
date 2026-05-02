@@ -706,6 +706,20 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       </div>
     </div>
 
+    <!-- ORARIO DEFAULT ALLARME -->
+    <div class="section-title">⏰ Orario predefinito farmaco</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Orario usato come base per tutti i nuovi piani terapeutici. Puoi variarlo giorno per giorno dal tap lungo sul calendario.
+      </div>
+      <div class="modal-label" style="margin-bottom:8px">Orario predefinito</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="time" id="defaultAlarmTimeInput" class="modal-input" value="17:30" style="flex:1">
+        <button onclick="saveDefaultAlarmTime()" class="btn-primary" style="padding:10px 16px">💾 Salva</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted)">Modifica l'orario qui per i piani futuri. I giorni già programmati non vengono cambiati.</div>
+    </div>
+
     <!-- VOLUME SUONERIA -->
     <div class="section-title">🔊 Volume allarme</div>
     <div class="card" style="margin-bottom:20px">
@@ -1655,206 +1669,6 @@ function _renderINRChartData(data) {
 }
 
 
-function scrollDoseChart(delta) {
-  const wrap = document.getElementById('doseChartWrap');
-  if(!wrap) return;
-  wrap.scrollLeft += delta;
-  syncChartScroll('dose');
-}
-
-function scrollChart(delta) {
-  const wrap = document.getElementById('inrChartWrap');
-  if(!wrap) return;
-  wrap.scrollLeft += delta;
-  syncChartScroll('inr');
-}
-
-
-function syncChartScroll(source) {
-  if(_syncingScroll) return;
-  _syncingScroll = true;
-  const inrWrap  = document.getElementById('inrChartWrap');
-  const doseWrap = document.getElementById('doseChartWrap');
-  if(!inrWrap || !doseWrap) { _syncingScroll = false; return; }
-
-  // Calculate scroll ratio (charts may have different widths)
-  const inrMax  = inrWrap.scrollWidth  - inrWrap.clientWidth;
-  const doseMax = doseWrap.scrollWidth - doseWrap.clientWidth;
-
-  if(source === 'inr' && inrMax > 0) {
-    const ratio = inrWrap.scrollLeft / inrMax;
-    doseWrap.scrollLeft = ratio * doseMax;
-  } else if(source === 'dose' && doseMax > 0) {
-    const ratio = doseWrap.scrollLeft / doseMax;
-    inrWrap.scrollLeft = ratio * inrMax;
-  }
-  _syncingScroll = false;
-}
-
-function initChartScrollSync() {
-  const inrWrap  = document.getElementById('inrChartWrap');
-  const doseWrap = document.getElementById('doseChartWrap');
-  if(!inrWrap || !doseWrap) return;
-  // Remove old listeners by cloning (prevents duplicate listeners)
-  const newInr  = inrWrap.cloneNode(false);
-  const newDose = doseWrap.cloneNode(false);
-  // Move children
-  while(inrWrap.firstChild)  newInr.appendChild(inrWrap.firstChild);
-  while(doseWrap.firstChild) newDose.appendChild(doseWrap.firstChild);
-  inrWrap.parentNode.replaceChild(newInr, inrWrap);
-  doseWrap.parentNode.replaceChild(newDose, doseWrap);
-  newInr.addEventListener('scroll',  () => syncChartScroll('inr'),  { passive: true });
-  newDose.addEventListener('scroll', () => syncChartScroll('dose'), { passive: true });
-}
-
-function scrollChart_old(delta) {
-  const wrap = document.getElementById('inrChartWrap');
-  if(!wrap) { console.warn('[TAO] inrChartWrap not found'); return; }
-  console.log('[TAO] scroll:', delta, 'scrollWidth:', wrap.scrollWidth, 'clientWidth:', wrap.clientWidth, 'scrollLeft:', wrap.scrollLeft);
-  wrap.scrollLeft += delta;
-}
-
-function setINRRange(months) {
-  inrRangeMonths = months;
-
-  // Update button styles
-  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-  const labels = { 0:'Tutto', 3:'3 mesi', 6:'6 mesi', 12:'1 anno' };
-  document.querySelectorAll('.range-btn').forEach(b => {
-    if(b.textContent.trim() === (labels[months]||'')) b.classList.add('active');
-  });
-
-  if(!inrAllData || !inrAllData.length) return;
-
-  // Filter data
-  let filtered = inrAllData;
-  if(months > 0) {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - months);
-    filtered = inrAllData.filter(d => parseDate(d.data) >= cutoff);
-    if(!filtered.length) filtered = inrAllData;
-  }
-
-  _renderINRChartData(filtered);
-}
-
-function renderINRChart(sorted) {
-  inrAllData = sorted; // always keep full dataset
-  const ctx=document.getElementById('inrChart').getContext('2d');
-  if(inrChartInst) inrChartInst.destroy();
-
-  // Apply current range filter
-  let data = sorted;
-  if(inrRangeMonths > 0) {
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - inrRangeMonths);
-    data = sorted.filter(c => parseDate(c.data) >= cutoff);
-  }
-  if(!data.length) data = sorted; // fallback to all if filter yields nothing
-
-  const labels=data.map(c=>c.data), vals=data.map(c=>c.inr);
-  const rMin=data[0]?.rangeMin||2, rMax=data[0]?.rangeMax||3, tgt=data[0]?.target||2.5;
-
-  // Dynamic chart width
-  const MIN_PX_PER_POINT = 40;
-  const wrapEl = document.getElementById('inrChartWrap');
-  const wrapWidth = wrapEl ? wrapEl.offsetWidth : 300;
-  const chartWidth = Math.max(wrapWidth, labels.length * MIN_PX_PER_POINT);
-  const inrCanvas = document.getElementById('inrChart');
-  if(inrCanvas) {
-    inrCanvas.style.width = chartWidth + 'px';
-    inrCanvas.width = chartWidth;
-  }
-
-  // Update info label
-  const infoEl = document.getElementById('inrRangeInfo');
-  if(infoEl) infoEl.textContent = data.length > 0
-    ? `${data.length} controlli · dal ${data[0].data} al ${data[data.length-1].data}`
-    : '';
-
-  inrChartInst=new Chart(ctx,{
-    type:'line',
-    data:{labels,datasets:[
-      {label:'INR',data:vals,
-        borderColor:'#58a6ff',
-        backgroundColor:'rgba(88,166,255,.08)',
-        pointBackgroundColor:vals.map(v=>v>=rMin&&v<=rMax?'#3fb950':v<rMin*.8||v>rMax*1.2?'#ff7b72':'#f0883e'),
-        pointBorderColor:'#0d1117',
-        pointBorderWidth:1.5,
-        pointRadius:vals.length > 20 ? 4 : 7,
-        pointHoverRadius:10,
-        borderWidth:2,tension:.3,fill:false},
-      {label:'Range min',data:Array(labels.length).fill(rMin),borderColor:'rgba(63,185,80,.5)',borderDash:[5,5],pointRadius:0,borderWidth:1.5,fill:false},
-      {label:'Range max',data:Array(labels.length).fill(rMax),borderColor:'rgba(63,185,80,.5)',borderDash:[5,5],pointRadius:0,borderWidth:1.5,fill:'-1',backgroundColor:'rgba(63,185,80,.07)'},
-      {label:'Target',data:Array(labels.length).fill(tgt),borderColor:'rgba(240,136,62,.6)',borderDash:[3,3],pointRadius:0,borderWidth:1,fill:false}
-    ]},
-    options:{
-      responsive:true,
-      maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{
-        legend:{labels:{color:'#7d8590',font:{family:'DM Sans'}}},
-        tooltip:{
-          backgroundColor:'rgba(22,27,34,.95)',
-          borderColor:'rgba(48,54,61,.8)',
-          borderWidth:1,
-          titleColor:'#e6edf3',
-          bodyColor:'#7d8590',
-          padding:12,
-          callbacks:{
-            label: ctx => {
-              if(ctx.dataset.label==='INR') {
-                const v=ctx.parsed.y;
-                const status=v>=rMin&&v<=rMax?'✓ In range':v<rMin?'↓ Sotto range':'↑ Sopra range';
-                return ` INR: ${v}  ${status}`;
-              }
-              return null;
-            }
-          }
-        },
-        zoom:{
-          zoom:{
-            wheel:{enabled:true, speed:0.1},
-            pinch:{enabled:true},
-            mode:'x',
-            onZoomComplete: ({chart}) => {
-              // Update info after zoom
-            }
-          },
-          pan:{
-            enabled:true,
-            mode:'x',
-            threshold:5
-          },
-          limits:{
-            x:{minRange:1}
-          }
-        },
-        zoom: {
-          zoom: { wheel:{enabled:true, speed:0.1}, pinch:{enabled:true}, mode:'x' },
-          pan:  { enabled:false },
-          limits: { x:{ minRange:1 } }
-        }
-      },
-      scales:{
-        x:{
-          ticks:{color:'#7d8590', maxRotation:45, maxTicksLimit: vals.length>12?12:undefined},
-          grid:{color:'rgba(48,54,61,.6)'}
-        },
-        y:{
-          ticks:{color:'#7d8590'},
-          grid:{color:'rgba(48,54,61,.6)'},
-          suggestedMin:Math.min(...vals,rMin)-.5,
-          suggestedMax:Math.max(...vals,rMax)+.5
-        }
-      }
-    }
-  });
-
-  // Add double-click to reset zoom
-  const canvas = document.getElementById('inrChart');
-  canvas.ondblclick = () => { if(inrChartInst) inrChartInst.resetZoom(); };
-}
 function renderDoseChart(sorted) {
   if(!sorted.length) return;
   if(doseChartInst) { doseChartInst.destroy(); doseChartInst = null; }
@@ -2788,8 +2602,8 @@ function _renderDayDetailModal(dateStr, data) {
   const mg = Math.round(dose * (t.doseUnitaMg||5) * 100) / 100;
   document.getElementById('dayDetailDose').textContent = `${doseToText(dose)} — ${mg}mg`;
 
-  // Alarm time
-  const _dtTimeVal = t.oraAllarme || data.defaultAlarmTime || alarms[dateStr] || '17:30';
+  // Alarm time — per-day custom first (set at plan load or modified by user), then global default
+  const _dtTimeVal = alarms[dateStr] || data.defaultAlarmTime || '17:30';
   document.getElementById('dayDetailTime').value = _dtTimeVal;
   initTimePicker('dayDetailTime', _dtTimeVal);
 
@@ -2809,7 +2623,7 @@ function _renderDayDetailModal(dateStr, data) {
     if(editTakenRow) {
       const picker = document.getElementById('editTakenTimePicker');
       if(picker) { picker.style.opacity = '1'; picker.style.pointerEvents = 'auto'; }
-      const editTime = takenTime || t.oraAllarme || data.defaultAlarmTime || '17:30';
+      const editTime = takenTime || alarms[dateStr] || data.defaultAlarmTime || '17:30';
       initEditTimePicker(editTime);
     }
     takenBtn.textContent = '○ Rimuovi assunzione';
@@ -4247,24 +4061,6 @@ function _doAdjust(prefix, part, delta) {
 function adjustDetailTime(part, delta) { _doAdjust('dtp', part, delta); }
 function adjustEditTime(unit, delta)   { _doAdjust('etp', unit, delta); }
 
-function adjustDetailTime(part, delta) {
-  const hourEl = document.getElementById('dtpHour');
-  const minEl = document.getElementById('dtpMin');
-  if(!hourEl || !minEl) return;
-  let h = parseInt(hourEl.textContent);
-  let m = parseInt(minEl.textContent);
-  if(part === 'h') {
-    h = (h + delta + 24) % 24;
-  } else {
-    m = m + delta;
-    if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0) { m = 59; h = (h - 1 + 24) % 24; }
-  }
-  hourEl.textContent = String(h).padStart(2,'0');
-  minEl.textContent = String(m).padStart(2,'0');
-  updateHiddenTime('dayDetailTime', 'dtp');
-}
-
 // ===================================================
 // HELPERS
 // ===================================================
@@ -4830,6 +4626,11 @@ function initStrumenti() {
   initFirebase();
   initControlloAlarmUI();
   const data = loadData();
+
+  // Populate default alarm time input
+  const defInput = document.getElementById('defaultAlarmTimeInput');
+  if(defInput && data.defaultAlarmTime) defInput.value = data.defaultAlarmTime;
+
   const controls = data.controls || [];
   if(!controls.length) return;
 
@@ -4839,6 +4640,17 @@ function initStrumenti() {
   const last  = sorted[sorted.length-1].data.split('/').reverse().join('-');
   document.getElementById('reportDateFrom').value = first;
   document.getElementById('reportDateTo').value   = last;
+}
+
+function saveDefaultAlarmTime() {
+  const input = document.getElementById('defaultAlarmTimeInput');
+  if(!input) return;
+  const time = input.value || '17:30';
+  appData = loadData();
+  appData.defaultAlarmTime = time;
+  saveData(appData);
+  fbAutoSync();
+  showAutoBackupToast('✅ Orario predefinito salvato: ' + time);
 }
 
 function setReportRange(months) {
@@ -5474,21 +5286,6 @@ function initEditTimePicker(timeStr) {
   const mEl = document.getElementById('etpMin');
   if(hEl) hEl.textContent = String(h).padStart(2,'0');
   if(mEl) mEl.textContent = String(m).padStart(2,'0');
-}
-
-function adjustEditTime(unit, delta) {
-  const hEl = document.getElementById('etpHour');
-  const mEl = document.getElementById('etpMin');
-  if(!hEl || !mEl) return;
-  let h = parseInt(hEl.textContent) || 0;
-  let m = parseInt(mEl.textContent) || 0;
-  if(unit === 'h') { h = (h + delta + 24) % 24; hEl.textContent = String(h).padStart(2,'0'); }
-  else {
-    m = m + delta;
-    if(m >= 60) { m = 0; h = (h + 1) % 24; hEl.textContent = String(h).padStart(2,'0'); }
-    if(m < 0) { m = 59; h = (h - 1 + 24) % 24; hEl.textContent = String(h).padStart(2,'0'); }
-    mEl.textContent = String(m).padStart(2,'0');
-  }
 }
 
 function saveTakenTime() {
