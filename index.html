@@ -854,9 +854,9 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--muted);padding:0 8px;margin-bottom:2px">:</div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustDetailTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
+          <button onclick="adjustDetailTime('m',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
           <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
-          <button onclick="adjustDetailTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
+          <button onclick="adjustDetailTime('m',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
       </div>
       <input type="hidden" id="dayDetailTime" value="00:00">
@@ -879,9 +879,9 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted);padding:0 6px">:</div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <button onclick="adjustEditTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
+            <button onclick="adjustEditTime('m',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
             <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
-            <button onclick="adjustEditTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+            <button onclick="adjustEditTime('m',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
           </div>
         </div>
       </div>
@@ -2789,7 +2789,7 @@ function _renderDayDetailModal(dateStr, data) {
   document.getElementById('dayDetailDose').textContent = `${doseToText(dose)} — ${mg}mg`;
 
   // Alarm time
-  const _dtTimeVal = alarms[dateStr] || data.defaultAlarmTime || '17:30';
+  const _dtTimeVal = alarms[dateStr] || '00:00';
   document.getElementById('dayDetailTime').value = _dtTimeVal;
   initTimePicker('dayDetailTime', _dtTimeVal);
 
@@ -4181,7 +4181,7 @@ function adjustTime(part, delta) {
   } else {
     m = m + delta;
     if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0) { m = 55; h = (h - 1 + 24) % 24; }
+    if(m < 0) { m = 59; h = (h - 1 + 24) % 24; }
   }
   hourEl.textContent = String(h).padStart(2,'0');
   minEl.textContent = String(m).padStart(2,'0');
@@ -4199,7 +4199,7 @@ function adjustDetailTime(part, delta) {
   } else {
     m = m + delta;
     if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0) { m = 55; h = (h - 1 + 24) % 24; }
+    if(m < 0) { m = 59; h = (h - 1 + 24) % 24; }
   }
   hourEl.textContent = String(h).padStart(2,'0');
   minEl.textContent = String(m).padStart(2,'0');
@@ -5424,7 +5424,12 @@ function adjustEditTime(unit, delta) {
   let h = parseInt(hEl.textContent) || 0;
   let m = parseInt(mEl.textContent) || 0;
   if(unit === 'h') { h = (h + delta + 24) % 24; hEl.textContent = String(h).padStart(2,'0'); }
-  else { m = (m + delta + 60) % 60; mEl.textContent = String(m).padStart(2,'0'); }
+  else {
+    m = m + delta;
+    if(m >= 60) { m = 0; h = (h + 1) % 24; hEl.textContent = String(h).padStart(2,'0'); }
+    if(m < 0) { m = 59; h = (h - 1 + 24) % 24; hEl.textContent = String(h).padStart(2,'0'); }
+    mEl.textContent = String(m).padStart(2,'0');
+  }
 }
 
 function saveTakenTime() {
