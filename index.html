@@ -848,15 +848,15 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div style="border:2px solid rgba(88,166,255,0.4);border-radius:12px;padding:12px;margin-bottom:20px;background:rgba(88,166,255,0.04)">
       <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(88,166,255,0.2);border-radius:10px;padding:12px;user-select:none">
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustDetailTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
+          <button onmousedown="startAdjust('dtp','h',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','h',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
           <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
-          <button onclick="adjustDetailTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
+          <button onmousedown="startAdjust('dtp','h',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','h',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--muted);padding:0 8px;margin-bottom:2px">:</div>
         <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustDetailTime('m',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
+          <button onmousedown="startAdjust('dtp','m',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','m',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
           <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
-          <button onclick="adjustDetailTime('m',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
+          <button onmousedown="startAdjust('dtp','m',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','m',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
         </div>
       </div>
       <input type="hidden" id="dayDetailTime" value="00:00">
@@ -873,15 +873,15 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <div id="editTakenTimePicker" style="opacity:0.4;pointer-events:none">
         <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(63,185,80,0.2);border-radius:10px;padding:10px;user-select:none">
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <button onclick="adjustEditTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
+            <button onmousedown="startAdjust('etp','h',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','h',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
             <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
-            <button onclick="adjustEditTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+            <button onmousedown="startAdjust('etp','h',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','h',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted);padding:0 6px">:</div>
           <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <button onclick="adjustEditTime('m',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
+            <button onmousedown="startAdjust('etp','m',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','m',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
             <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
-            <button onclick="adjustEditTime('m',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+            <button onmousedown="startAdjust('etp','m',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','m',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
           </div>
         </div>
       </div>
@@ -2789,7 +2789,7 @@ function _renderDayDetailModal(dateStr, data) {
   document.getElementById('dayDetailDose').textContent = `${doseToText(dose)} — ${mg}mg`;
 
   // Alarm time
-  const _dtTimeVal = alarms[dateStr] || '00:00';
+  const _dtTimeVal = alarms[dateStr] || t.oraAllarme || data.defaultAlarmTime || '17:30';
   document.getElementById('dayDetailTime').value = _dtTimeVal;
   initTimePicker('dayDetailTime', _dtTimeVal);
 
@@ -4187,6 +4187,65 @@ function adjustTime(part, delta) {
   minEl.textContent = String(m).padStart(2,'0');
   updateHiddenTime('modalTime', 'tp');
 }
+
+// ===================================================
+// TIME PICKER WITH LONG PRESS ACCELERATION
+// ===================================================
+let _adjustInterval = null;
+let _adjustTimeout = null;
+let _adjustStep = 1;
+
+function startAdjust(prefix, part, delta) {
+  // Immediate first step
+  _doAdjust(prefix, part, delta);
+  _adjustStep = 1;
+
+  // After 600ms start repeating
+  _adjustTimeout = setTimeout(() => {
+    _adjustInterval = setInterval(() => {
+      _doAdjust(prefix, part, delta);
+    }, 120); // repeat every 120ms
+
+    // After 2s increase speed
+    setTimeout(() => {
+      if(_adjustInterval) {
+        clearInterval(_adjustInterval);
+        _adjustInterval = setInterval(() => {
+          _doAdjust(prefix, part, delta);
+        }, 60);
+      }
+    }, 2000);
+  }, 600);
+}
+
+function stopAdjust() {
+  if(_adjustInterval) { clearInterval(_adjustInterval); _adjustInterval = null; }
+  if(_adjustTimeout)  { clearTimeout(_adjustTimeout);  _adjustTimeout  = null; }
+}
+
+function _doAdjust(prefix, part, delta) {
+  const hEl = document.getElementById(prefix + 'Hour');
+  const mEl = document.getElementById(prefix + 'Min');
+  if(!hEl || !mEl) return;
+  let h = parseInt(hEl.textContent) || 0;
+  let m = parseInt(mEl.textContent) || 0;
+
+  if(part === 'h') {
+    h = (h + delta + 24) % 24;
+  } else {
+    m = m + delta;
+    if(m >= 60) { m = 0; h = (h + 1) % 24; }
+    if(m < 0)   { m = 59; h = (h - 1 + 24) % 24; }
+  }
+  hEl.textContent = String(h).padStart(2,'0');
+  mEl.textContent = String(m).padStart(2,'0');
+
+  // Update hidden input
+  if(prefix === 'dtp') updateHiddenTime('dayDetailTime', 'dtp');
+}
+
+function adjustDetailTime(part, delta) { _doAdjust('dtp', part, delta); }
+function adjustEditTime(unit, delta)   { _doAdjust('etp', unit, delta); }
 
 function adjustDetailTime(part, delta) {
   const hourEl = document.getElementById('dtpHour');
