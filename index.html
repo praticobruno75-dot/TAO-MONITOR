@@ -3454,11 +3454,10 @@ function deductPrescrizione() {
   p.dataAggiornamento = formatDate(new Date());
   p.ts = Date.now();
   savePrescrizioni(p);
+  updatePrescrizioniDisplay();
   showPrescrizioniBanner();
   showPrescrizioniPopupIfNeeded();
 }
-
-function updatePrescrizioniDisplay() {
   const p = loadPrescrizioni();
   const countEl = document.getElementById('prescrizioniCount');
   const noteEl  = document.getElementById('prescrizioniNote');
@@ -4645,6 +4644,8 @@ function fbStartRealtimeSync() {
       renderCurrentTab();
       updateScortaDisplay();
       updateRichiestaInviataBadge();
+      updatePrescrizioniDisplay();
+      showPrescrizioniBanner();
       setFbSyncStatus(
         `✅ Aggiornato dal cloud — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok'
       );
@@ -4755,6 +4756,10 @@ async function fbSyncNow(silent=false) {
         appData = merged;
         calInitialized = false;
         renderCurrentTab();
+        updateScortaDisplay();
+        updateRichiestaInviataBadge();
+        updatePrescrizioniDisplay();
+        showPrescrizioniBanner();
         setFbSyncStatus(`✅ Aggiornato — ${new Date(remoteTime).toLocaleString('it-IT')}`, 'ok');
       } else if(localTime >= remoteTime) {
         await fbUploadData(localData);
@@ -4815,6 +4820,10 @@ async function fbForceDownload() {
   appData = data;
   calInitialized = false;
   renderCurrentTab();
+  updateScortaDisplay();
+  updateRichiestaInviataBadge();
+  updatePrescrizioniDisplay();
+  showPrescrizioniBanner();
   setFbSyncStatus('✅ Dati scaricati dal cloud.', 'ok');
 }
 
@@ -4834,6 +4843,7 @@ function renderCurrentTab() {
   if(!active) return;
   if(active.id==='tab-inr') renderINRTab();
   else if(active.id==='tab-terapia') renderTerapiaTab();
+  else if(active.id==='tab-strumenti') { updateScortaDisplay(); updatePrescrizioniDisplay(); }
 }
 
 // ---- FCM NOTIFICATIONS ----
