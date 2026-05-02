@@ -2789,7 +2789,7 @@ function _renderDayDetailModal(dateStr, data) {
   document.getElementById('dayDetailDose').textContent = `${doseToText(dose)} — ${mg}mg`;
 
   // Alarm time
-  const _dtTimeVal = alarms[dateStr] || t.oraAllarme || data.defaultAlarmTime || '17:30';
+  const _dtTimeVal = t.oraAllarme || data.defaultAlarmTime || alarms[dateStr] || '17:30';
   document.getElementById('dayDetailTime').value = _dtTimeVal;
   initTimePicker('dayDetailTime', _dtTimeVal);
 
@@ -2809,7 +2809,7 @@ function _renderDayDetailModal(dateStr, data) {
     if(editTakenRow) {
       const picker = document.getElementById('editTakenTimePicker');
       if(picker) { picker.style.opacity = '1'; picker.style.pointerEvents = 'auto'; }
-      const editTime = takenTime || '00:00';
+      const editTime = takenTime || t.oraAllarme || data.defaultAlarmTime || '17:30';
       initEditTimePicker(editTime);
     }
     takenBtn.textContent = '○ Rimuovi assunzione';
