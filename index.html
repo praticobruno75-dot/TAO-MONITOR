@@ -94,7 +94,7 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 .inr-bad{color:var(--danger)}
 .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--card-radius);padding:24px;margin-bottom:24px}
 .chart-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:20px}
-.chart-wrap{position:relative;height:320px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--border) transparent}.chart-wrap::-webkit-scrollbar{height:6px}.chart-wrap::-webkit-scrollbar-track{background:transparent}.chart-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}.chart-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}.chart-wrap canvas{min-width:100%;height:340px!important}
+.chart-wrap{position:relative;height:320px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--border) transparent;display:flex;align-items:flex-start}.chart-wrap::-webkit-scrollbar{height:6px}.chart-wrap::-webkit-scrollbar-track{background:transparent}.chart-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}.chart-wrap::-webkit-scrollbar-thumb:hover{background:var(--muted)}.chart-wrap canvas{min-width:100%;height:340px!important}
 .history-table{width:100%;border-collapse:collapse;font-size:13px}
 .history-table th{text-align:left;padding:10px 16px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:500}
 .history-table td{padding:12px 16px;border-bottom:1px solid rgba(48,54,61,.5);font-family:'DM Mono',monospace;font-size:13px}
@@ -336,37 +336,6 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 </div>
 
 <!-- MODAL: day alarm time -->
-<div class="modal-overlay" id="dayModal">
-  <div class="modal">
-    <div class="modal-title" id="modalTitle">⏰ Imposta orario</div>
-    <div class="modal-row">
-      <div class="modal-label">Orario assunzione</div>
-      <!-- Custom time picker -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;user-select:none">
-        <!-- Hours -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustTime('h',1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="tpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--text);width:64px;text-align:center;line-height:1.2">17</div>
-          <button onclick="adjustTime('h',-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
-        </div>
-        <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--muted);padding:0 8px;margin-bottom:2px">:</div>
-        <!-- Minutes -->
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onclick="adjustTime('m',5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="tpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--text);width:64px;text-align:center;line-height:1.2">30</div>
-          <button onclick="adjustTime('m',-5)" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
-        </div>
-      </div>
-      <!-- Hidden input to store value -->
-      <input type="hidden" id="modalTime" value="17:30">
-    </div>
-    <div class="modal-btns">
-      <button class="btn-secondary" onclick="closeModal()">Annulla</button>
-      <button class="btn-primary" onclick="saveAlarm()">✓ Salva</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL: default time setup -->
 <div class="modal-overlay" id="defaultTimeModal">
   <div class="modal">
@@ -384,7 +353,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 
 <header>
   <div class="logo">
-    <div class="logo-icon">❤️</div>
+    <div class="logo-icon" style="padding:0;background-image:url('tao-icon.png');background-size:cover;background-position:center;border-radius:8px"></div>
     <div>
       <div class="logo-text">TAO Monitor</div>
       <div class="logo-sub">Terapia Anticoagulante Orale</div>
@@ -964,9 +933,9 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 
     <!-- BUTTONS -->
     <div class="modal-btns" style="flex-direction:column;gap:8px">
-      <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%">○ Segna come preso</button>
-      <button onclick="openDiarioModal(_dayDetailKey)" class="btn-secondary" style="width:100%;background:rgba(63,185,80,0.08);border-color:rgba(63,185,80,0.3);color:var(--accent2)">🥦 Diario alimentare</button>
-      <button onclick="closeDayDetailModal()" class="btn-secondary" style="width:100%;color:var(--muted)">Chiudi</button>
+      <button id="dayDetailTakenBtn" onclick="toggleTakenFromModal()" class="btn-primary" style="width:100%;font-size:16px;font-weight:600">○ Segna come preso</button>
+      <button onclick="openDiarioModal(_dayDetailKey)" class="btn-secondary" style="width:100%;font-size:16px;font-weight:600;background:rgba(212,168,0,0.10);border-color:rgba(212,168,0,0.45);color:#d4a800">🥦 Diario alimentare</button>
+      <button onclick="closeDayDetailModal()" class="btn-secondary" style="width:100%;font-size:16px;font-weight:600;color:var(--muted)">Chiudi</button>
     </div>
   </div>
 </div>
@@ -1719,13 +1688,11 @@ function _renderINRChartData(data) {
   // Calculate dimensions
   const MIN_PX_PER_POINT = 60;
   const wrapEl = document.getElementById('inrChartWrap');
-  // Get actual width - use multiple fallbacks
   let wrapWidth = wrapEl ? wrapEl.getBoundingClientRect().width : 0;
   if(!wrapWidth) wrapWidth = wrapEl ? wrapEl.offsetWidth : 0;
   if(!wrapWidth) wrapWidth = wrapEl?.parentElement?.getBoundingClientRect().width || 0;
   if(!wrapWidth) wrapWidth = window.innerWidth - 60;
-  console.log('[TAO] wrapWidth:', wrapWidth, 'labels:', labels.length);
-  const PL = 50, PR = 80, PT = 20, PB = 70; // padding
+  const PL = 50, PR = 80, PT = 20, PB = 70;
   const pointSpacing = Math.max(MIN_PX_PER_POINT, (wrapWidth - PL - PR) / Math.max(labels.length, 1));
   const svgW = PL + PR + pointSpacing * (labels.length - 1 || 1);
   const svgH = 320;
@@ -1737,15 +1704,14 @@ function _renderINRChartData(data) {
   const yScale = v => PT + chartH - (v - yMin) / (yMax - yMin) * chartH;
   const xScale = i => PL + i * pointSpacing;
 
-  // Build SVG
+  // Build SVG (without Y axis labels — those go in the sticky overlay)
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgW}" height="${svgH}" style="display:block;background:#0d1117">`;
 
-  // Grid lines Y
+  // Grid lines Y (no labels here)
   const yTicks = [rMin - 0.5, rMin, tgt, rMax, rMax + 0.5].filter(v => v >= yMin && v <= yMax);
   yTicks.forEach(v => {
     const y = yScale(v);
     svg += `<line x1="${PL}" y1="${y}" x2="${svgW-PR}" y2="${y}" stroke="rgba(48,54,61,0.8)" stroke-width="1"/>`;
-    svg += `<text x="${PL-4}" y="${y+4}" text-anchor="end" fill="#7d8590" font-size="11" font-family="DM Mono,monospace">${v.toFixed(1)}</text>`;
   });
 
   // Range fill
@@ -1764,22 +1730,16 @@ function _renderINRChartData(data) {
     svg += `<path d="${path}" fill="none" stroke="#58a6ff" stroke-width="2"/>`;
   }
 
-  // Points + X labels
+  // Points + X labels + invisible hit areas (no <title> — tooltip is custom)
   vals.forEach((v, i) => {
     const x = xScale(i), y = yScale(v);
     const color = v>=rMin&&v<=rMax ? '#3fb950' : v<rMin*.8||v>rMax*1.2 ? '#ff7b72' : '#f0883e';
-    svg += `<circle cx="${x}" cy="${y}" r="5" fill="${color}" stroke="#0d1117" stroke-width="1.5"/>`;
-    svg += `<title>${labels[i]}: ${v}</title>`;
-    // Show all X labels
+    // Larger invisible hit area for touch
+    svg += `<circle cx="${x}" cy="${y}" r="18" fill="transparent" class="inr-hit" data-i="${i}" data-v="${v}" data-d="${labels[i]}" style="cursor:pointer"/>`;
+    // Visible dot
+    svg += `<circle cx="${x}" cy="${y}" r="5" fill="${color}" stroke="#0d1117" stroke-width="1.5" pointer-events="none"/>`;
+    // X label
     svg += `<text x="${x}" y="${svgH - PB + 18}" text-anchor="start" fill="#7d8590" font-size="10" font-family="DM Sans,sans-serif" transform="rotate(40,${x},${svgH-PB+18})">${labels[i]}</text>`;
-  });
-
-  // Value labels on points
-  vals.forEach((v, i) => {
-    const x = xScale(i), y = yScale(v);
-    if(vals.length <= 20) {
-      svg += `<text x="${x}" y="${y-10}" text-anchor="middle" fill="#e6edf3" font-size="11" font-family="DM Mono,monospace">${v}</text>`;
-    }
   });
 
   svg += `</svg>`;
@@ -1790,6 +1750,98 @@ function _renderINRChartData(data) {
     innerDiv.innerHTML = svg;
     innerDiv.style.cssText = `width:${svgW}px;min-width:${svgW}px;height:${svgH}px`;
   }
+
+  // ── STICKY Y AXIS OVERLAY ──────────────────────────────────────────────
+  // Remove old overlay if present
+  const oldOverlay = document.getElementById('inrYAxisOverlay');
+  if(oldOverlay) oldOverlay.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'inrYAxisOverlay';
+  overlay.style.cssText = `
+    position:sticky; left:0; top:0; width:${PL}px; height:${svgH}px;
+    background:#0d1117; z-index:10; pointer-events:none;
+    flex-shrink:0; margin-right:-${PL}px; float:left;
+  `;
+  let axisSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${PL}" height="${svgH}" style="display:block;background:#0d1117">`;
+  yTicks.forEach(v => {
+    const y = yScale(v);
+    const isRange = v === rMin || v === rMax;
+    const isTarget = v === tgt;
+    const col = isRange ? '#3fb950' : isTarget ? '#f0883e' : '#7d8590';
+    axisSvg += `<text x="${PL-4}" y="${y+4}" text-anchor="end" fill="${col}" font-size="11" font-family="DM Mono,monospace">${v.toFixed(1)}</text>`;
+  });
+  axisSvg += `</svg>`;
+  overlay.innerHTML = axisSvg;
+
+  // Insert overlay before innerDiv inside wrapEl
+  if(wrapEl) {
+    wrapEl.style.position = 'relative';
+    wrapEl.insertBefore(overlay, wrapEl.firstChild);
+  }
+
+  // ── CUSTOM TOOLTIP ─────────────────────────────────────────────────────
+  // Attach tooltip to the chart-card parent (not the scrollable wrap)
+  const chartCard = wrapEl.closest('.chart-card') || wrapEl.parentElement;
+  if(chartCard && getComputedStyle(chartCard).position === 'static') {
+    chartCard.style.position = 'relative';
+  }
+
+  let ttEl = document.getElementById('inrTooltip');
+  if(ttEl) ttEl.remove(); // always recreate to ensure correct parent
+  ttEl = document.createElement('div');
+  ttEl.id = 'inrTooltip';
+  ttEl.style.cssText = `
+    position:absolute; background:rgba(22,27,34,0.97); border:1px solid rgba(88,166,255,0.4);
+    border-radius:8px; padding:7px 12px; font-size:13px; font-family:DM Mono,monospace;
+    color:#e6edf3; pointer-events:none; z-index:20; display:none;
+    box-shadow:0 4px 16px rgba(0,0,0,0.5); white-space:nowrap;
+  `;
+  chartCard.appendChild(ttEl);
+
+  function showTooltip(dotEl) {
+    const v    = +dotEl.dataset.v;
+    const date = dotEl.dataset.d;
+    const color = v>=rMin&&v<=rMax ? '#3fb950' : v<rMin*.8||v>rMax*1.2 ? '#ff7b72' : '#f0883e';
+    ttEl.innerHTML = `<span style="color:${color};font-weight:700">${v}</span> <span style="color:#7d8590;font-size:11px">${date}</span>`;
+    ttEl.style.display = 'block';
+
+    // Use getBoundingClientRect to find the dot's screen position
+    const dotRect  = dotEl.getBoundingClientRect();
+    const cardRect = chartCard.getBoundingClientRect();
+    const ttW = ttEl.offsetWidth || 80;
+    const ttH = ttEl.offsetHeight || 32;
+
+    // Center tooltip above the dot
+    let left = dotRect.left - cardRect.left + dotRect.width / 2 - ttW / 2;
+    let top  = dotRect.top  - cardRect.top  - ttH - 8;
+
+    // Clamp horizontally within card
+    left = Math.max(4, Math.min(left, chartCard.offsetWidth - ttW - 4));
+    // If tooltip would go above card, show below dot instead
+    if(top < 0) top = dotRect.top - cardRect.top + dotRect.height + 8;
+
+    ttEl.style.left = left + 'px';
+    ttEl.style.top  = top  + 'px';
+  }
+  function hideTooltip() { ttEl.style.display = 'none'; }
+
+  // Wire up hit areas after SVG is in DOM
+  setTimeout(() => {
+    if(!innerDiv) return;
+    // Desktop: hover
+    innerDiv.querySelectorAll('.inr-hit').forEach(el => {
+      el.addEventListener('mouseenter', () => showTooltip(el));
+      el.addEventListener('mouseleave', hideTooltip);
+      el.addEventListener('touchstart', e => {
+        e.stopPropagation();
+        showTooltip(el);
+      }, { passive: true });
+    });
+
+    // Hide tooltip on scroll
+    wrapEl.addEventListener('scroll', hideTooltip, { passive: true });
+  }, 50);
 
   // Scroll to rightmost
   if(wrapEl) {
@@ -1885,7 +1937,7 @@ function deleteControl(idx) {
 // TERAPIA TAB
 // ===================================================
 let currentCalMonth=new Date().getMonth(), currentCalYear=new Date().getFullYear();
-let currentView='cal', selectedDayKey=null, calInitialized=false;
+let currentView='cal', calInitialized=false;
 let currentTherapyIdx=0; // index of currently shown therapy plan
 
 function getAllTherapies() {
@@ -2106,7 +2158,7 @@ function renderCalendar(data) {
       el.className='cal-day'+(isToday?' today':'')+(isTaken?' taken':'');
       el.style.cssText='border-color:rgba(255,255,255,0.3)';
       let inner=`<div class="cal-day-num" style="color:var(--muted)">${cur.getDate()}</div>`;
-      inner+=`<div onclick="openModal('${dateStr}')" style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0;opacity:0.8">
+      inner+=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 0;opacity:0.8">
         ${drawDoseSVG(extraDose, t.doseUnitaMg||5, 44)}
       </div>`;
       if(extraAlarm) inner+=`<div class="dose-time-badge">🔔 ${extraAlarm}</div>`;
@@ -2114,7 +2166,7 @@ function renderCalendar(data) {
       else if(isTaken) inner+=`<div class="cal-taken-time">✅</div>`;
       if(hasDiarioEntries(dateStr)) inner+=`<div style="font-size:9px;color:var(--accent2);text-align:center">🥦</div>`;
       el.innerHTML=inner;
-      el.onclick=()=>openModal(dateStr);
+      el.onclick=()=>openDayDetailModal(dateStr);
       addLongPressHandlers(el, dateStr);
     } else {
       el.className='cal-day'+(isToday?' today':'')+(inTherapy?' has-dose':'')+(isTaken?' taken':'')+(isControl?' control-day':'');
@@ -2140,7 +2192,7 @@ function renderCalendar(data) {
       el.innerHTML=inner;
       if(inTherapy || isControl) {
         if(inTherapy && !isControl) {
-          el.onclick=()=>openModal(dateStr);
+          el.onclick=()=>openDayDetailModal(dateStr);
         } else {
           // Control day (with or without therapy): open detail modal
           el.onclick=()=>openDayDetailModal(dateStr);
@@ -2352,32 +2404,6 @@ function renderPlanIndex() {
 // ===================================================
 // MODAL (single day alarm)
 // ===================================================
-function openModal(dateStr) {
-  selectedDayKey=dateStr;
-  const data=loadData();
-  document.getElementById('modalTitle').textContent=`⏰ Orario per il ${dateStr}`;
-  const _mTimeVal = data.alarms?.[dateStr]||data.defaultAlarmTime||'17:30';
-  document.getElementById('modalTime').value = _mTimeVal;
-  initTimePicker('modalTime', _mTimeVal);
-  document.getElementById('dayModal').classList.add('active');
-}
-function closeModal() { document.getElementById('dayModal').classList.remove('active'); selectedDayKey=null; }
-function saveAlarm() {
-  if(!selectedDayKey) return;
-  const time=document.getElementById('modalTime').value;
-  appData=loadData();
-  if(!appData.alarms) appData.alarms={};
-  if(!appData.alarmTimes) appData.alarmTimes={};
-  appData.alarms[selectedDayKey]     = time;
-  appData.alarmTimes[selectedDayKey] = Date.now();
-  saveData(appData);
-  scheduleAlarm(selectedDayKey, time); closeModal(); renderTerapiaTab();
-  fbAutoSync();
-  // Sync alarms to Firestore for push notifications — only if permission already granted
-  if(_fbUser && _fbDb && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    navigator.serviceWorker?.ready.then(()=>fbRegisterFCM());
-  }
-}
 function setAlarmDirect(dateStr, time) {
   appData=loadData();
   if(!appData.alarms) appData.alarms={};
@@ -4330,24 +4356,6 @@ function updateHiddenTime(inputId, prefix) {
   const m = document.getElementById(prefix + 'Min')?.textContent || '30';
   const input = document.getElementById(inputId);
   if(input) input.value = `${h}:${m}`;
-}
-
-function adjustTime(part, delta) {
-  const hourEl = document.getElementById('tpHour');
-  const minEl = document.getElementById('tpMin');
-  if(!hourEl || !minEl) return;
-  let h = parseInt(hourEl.textContent);
-  let m = parseInt(minEl.textContent);
-  if(part === 'h') {
-    h = (h + delta + 24) % 24;
-  } else {
-    m = m + delta;
-    if(m >= 60) { m = 0; h = (h + 1) % 24; }
-    if(m < 0) { m = 59; h = (h - 1 + 24) % 24; }
-  }
-  hourEl.textContent = String(h).padStart(2,'0');
-  minEl.textContent = String(m).padStart(2,'0');
-  updateHiddenTime('modalTime', 'tp');
 }
 
 // ===================================================
