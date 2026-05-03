@@ -5616,24 +5616,25 @@ async function generateMedicoReport() {
     needSpace(75);
     const chartArea = document.getElementById('pdfPreviewArea');
     const chartW = Math.max(800, labs.length * 60);
+    // 2-digit year labels
+    const labsShort = labs.map(d => { const p=d.split('/'); return `${p[0]}/${p[1]}/${p[2].slice(2)}`; });
     chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#0d1117`;
     chartArea.innerHTML = `<canvas id="pdfChartCanvas" width="${chartW}" height="280"></canvas>`;
     const ctx1 = document.getElementById('pdfChartCanvas').getContext('2d');
     const inrChart = new Chart(ctx1, {
       type:'line',
-      data:{labels:labs, datasets:[
+      data:{labels:labsShort, datasets:[
         {label:'INR', data:vals, borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)',
          pointBackgroundColor:vals.map(v=>v>=rMin&&v<=rMax?'#3fb950':v<rMin*0.8||v>rMax*1.2?'#ff7b72':'#f0883e'),
-         pointRadius:5, borderWidth:2, tension:0.3, fill:false,
-         datalabels:{display:true, color:'#e6edf3', font:{size:10,weight:'bold'}, anchor:'end', align:'top', formatter:v=>v}},
-        {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false, datalabels:{display:false}},
-        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.07)', datalabels:{display:false}},
-        {label:'Target', data:Array(labs.length).fill(tgt), borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false, datalabels:{display:false}},
+         pointRadius:5, borderWidth:2, tension:0.3, fill:false},
+        {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
+        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
+        {label:'Target', data:Array(labs.length).fill(tgt), borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
       ]},
       options:{animation:false, responsive:false,
         plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
         scales:{
-          x:{ticks:{color:'#7d8590', maxRotation:90, minRotation:90, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
+          x:{ticks:{color:'#7d8590', maxRotation:45, minRotation:45, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
           y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, suggestedMin:Math.min(...vals,rMin)-0.5, suggestedMax:Math.max(...vals,rMax)+0.5}
         }
       }
@@ -5655,18 +5656,15 @@ async function generateMedicoReport() {
     const ctx2 = document.getElementById('pdfChartCanvas2').getContext('2d');
     const doseChart = new Chart(ctx2, {
       type:'bar',
-      data:{labels:labs, datasets:[
+      data:{labels:labsShort, datasets:[
         {label:'Dose sett. (mg)', data:doses,
          backgroundColor:doses.map(()=>'rgba(88,166,255,0.6)'), borderColor:'#58a6ff', borderWidth:1},
       ]},
       options:{animation:false, responsive:false,
-        plugins:{
-          legend:{labels:{color:'#7d8590',font:{size:10}}},
-          datalabels:{display:true, color:'#e6edf3', font:{size:9,weight:'bold'}, anchor:'end', align:'top', formatter:v=>v||''}
-        },
+        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
         scales:{
-          x:{ticks:{color:'#7d8590', maxRotation:90, minRotation:90, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
-          y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, beginAtZero:false}
+          x:{ticks:{color:'#7d8590', maxRotation:45, minRotation:45, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
+          y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, beginAtZero:true}
         }
       }
     });
@@ -5850,10 +5848,10 @@ async function generateMedicoReport() {
         doc.text(cat.label, margin+4, y+4);
         doc.setTextColor(...MUTED); doc.setFontSize(6.5);
         doc.text('Porzioni (n.)', pw-margin-3, y+4, {align:'right'});
-        y += 7;
+        y += 8; // extra space after header so first row doesn't overlap
         cat.items.forEach(item => {
           needSpace(5);
-          doc.setTextColor(190,195,200); doc.setFontSize(7); doc.setFont('helvetica','normal');
+          doc.setTextColor(20,20,20); doc.setFontSize(7); doc.setFont('helvetica','normal');
           const name = doc.splitTextToSize(item.nome, cw-20)[0];
           doc.text(name, margin+6, y);
           doc.setTextColor(...cat.col); doc.setFont('helvetica','bold');
