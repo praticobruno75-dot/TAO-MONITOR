@@ -1009,6 +1009,8 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   </div>
 
 
+  <!-- SCORTA WARNING POPUP -->
+  <div class="modal-overlay" id="scortaPopup">
     <div class="modal" style="max-width:360px;text-align:center">
       <div id="scortaPopupIcon" style="font-size:48px;margin-bottom:8px">⚠️</div>
       <div class="modal-title" id="scortaPopupTitle">Scorta farmaco in esaurimento</div>
@@ -2371,8 +2373,10 @@ function saveAlarm() {
   saveData(appData);
   scheduleAlarm(selectedDayKey, time); closeModal(); renderTerapiaTab();
   fbAutoSync();
-  // Sync alarms to Firestore for push notifications
-  if(_fbUser && _fbDb) { navigator.serviceWorker?.ready.then(()=>fbRegisterFCM()); }
+  // Sync alarms to Firestore for push notifications — only if permission already granted
+  if(_fbUser && _fbDb && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    navigator.serviceWorker?.ready.then(()=>fbRegisterFCM());
+  }
 }
 function setAlarmDirect(dateStr, time) {
   appData=loadData();
@@ -4485,7 +4489,10 @@ function initFirebase() {
           showFbLoggedIn(user.email);
           fbStartRealtimeSync();
           fbSyncNow(true);
-          fbRegisterFCM();
+          // Only re-register FCM if permission was already granted — don't prompt automatically
+          if(typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            fbRegisterFCM();
+          }
         } else {
           _fbUser = null;
           showFbLoggedOut();
