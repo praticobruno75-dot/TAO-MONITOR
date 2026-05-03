@@ -5303,37 +5303,23 @@ async function generatePDFReport() {
 
   if(window.isCapacitor) {
     try {
-      const { Filesystem, Share } = window.Capacitor.Plugins;
+      const { Share } = window.Capacitor.Plugins;
       msgEl.textContent = '⏳ Preparazione file…';
       await new Promise(r => setTimeout(r, 100));
       const base64 = doc.output('datauristring').split(',')[1];
       if(!base64) throw new Error('PDF base64 vuoto');
 
-      // Try Filesystem first, fall back to blob URL
-      let shared = false;
-      if(Filesystem && Share) {
-        try {
-          await Filesystem.writeFile({ path: fname, data: base64, directory: 'DATA', recursive: true });
-          const fileResult = await Filesystem.getUri({ path: fname, directory: 'DATA' });
-          await Share.share({ title: 'TAO Monitor — Report INR', url: fileResult?.uri, dialogTitle: 'Salva o condividi il report PDF' });
-          shared = true;
-        } catch(fsErr) {
-          console.warn('[TAO] Filesystem failed, trying blob:', fsErr.message);
-        }
-      }
-      if(!shared && Share) {
-        // Fallback: blob URL via Share
-        const blob = new Blob([Uint8Array.from(atob(base64), c=>c.charCodeAt(0))], {type:'application/pdf'});
-        const blobUrl = URL.createObjectURL(blob);
+      // Use blob URL directly — no Filesystem needed
+      const blob = new Blob([Uint8Array.from(atob(base64), c=>c.charCodeAt(0))], {type:'application/pdf'});
+      const blobUrl = URL.createObjectURL(blob);
+      if(Share) {
         await Share.share({ title: 'TAO Monitor — Report INR', url: blobUrl, dialogTitle: 'Salva o condividi il report PDF' });
-        setTimeout(()=>URL.revokeObjectURL(blobUrl), 5000);
-        shared = true;
-      }
-      if(!shared) {
+      } else {
         const a = document.createElement('a');
-        a.href = 'data:application/pdf;base64,' + base64;
-        a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        a.href = blobUrl; a.download = fname;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
       }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       msgEl.style.color = 'var(--accent2)';
       msgEl.textContent = `✅ Report pronto: ${fname}`;
       return;
@@ -5797,68 +5783,46 @@ async function generateMedicoReport(mode = 'download') {
 
   if(window.isCapacitor) {
     try {
-      const { Filesystem, Share } = window.Capacitor.Plugins;
+      const { Share } = window.Capacitor.Plugins;
 
       if(msgEl) msgEl.textContent = '⏳ Preparazione file…';
       await new Promise(r => setTimeout(r, 100));
 
-      // Debug: log available plugins
-      console.log('[TAO] Plugins available:', Object.keys(window.Capacitor.Plugins).join(', '));
-      console.log('[TAO] Filesystem:', Filesystem ? 'OK' : 'null');
-      console.log('[TAO] Share:', Share ? 'OK' : 'null');
-
       const base64 = doc.output('datauristring').split(',')[1];
       if(!base64) throw new Error('PDF base64 vuoto');
 
-      const taoEmail = taoConfig.email || '';
-      const subject  = fillTAOVars(taoConfig.oggetto || `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`);
-      const body     = fillTAOVars(taoConfig.testo || `Gentile Centro TAO, in allegato il report di ${paz.nome||'paziente'} (CF: ${paz.codiceFiscale||''}). Data: ${formatDate(new Date())}. Ultimo INR: ${lastCtrl?.inr||'—'}. TTR: ${ttrResult.ttr}%.`);
+      // Build blob URL — works without Filesystem plugin
+      const blob = new Blob([Uint8Array.from(atob(base64), c=>c.charCodeAt(0))], {type:'application/pdf'});
+      const blobUrl = URL.createObjectURL(blob);
 
-      // Try Filesystem first, fall back to blob URL
-      let shared = false;
-      if(Filesystem && Share) {
-        try {
-          if(msgEl) msgEl.textContent = '⏳ Salvataggio…';
-          await Filesystem.writeFile({ path: fname, data: base64, directory: 'DATA', recursive: true });
-          const fileResult = await Filesystem.getUri({ path: fname, directory: 'DATA' });
-          if(msgEl) msgEl.textContent = '⏳ Apertura condivisione…';
+      if(mode === 'download') {
+        // Download mode: just save the file
+        if(Share) {
+          await Share.share({ title: 'TAO Monitor — Report Medico', url: blobUrl, dialogTitle: 'Salva il report PDF' });
+        } else {
+          const a = document.createElement('a');
+          a.href = blobUrl; a.download = fname;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+      } else {
+        // Share mode: open share sheet with email pre-filled
+        const taoEmail = taoConfig.email || '';
+        const subject  = fillTAOVars(taoConfig.oggetto || `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`);
+        const body     = fillTAOVars(taoConfig.testo || `Gentile Centro TAO, in allegato il report di ${paz.nome||'paziente'} (CF: ${paz.codiceFiscale||''}). Data: ${formatDate(new Date())}. Ultimo INR: ${lastCtrl?.inr||'—'}. TTR: ${ttrResult.ttr}%.`);
+        if(Share) {
           await Share.share({
-            title: mode === 'share' ? subject : 'TAO Monitor — Report Medico',
-            text: mode === 'share' ? body : undefined,
-            url: fileResult?.uri,
-            dialogTitle: mode === 'share' ? 'Invia report al centro TAO' : 'Salva o condividi il report PDF'
+            title: subject,
+            text: body,
+            url: blobUrl,
+            dialogTitle: 'Invia report al centro TAO'
           });
-          if(mode === 'share' && taoEmail) {
+          if(taoEmail) {
             setTimeout(() => window.open(`mailto:${taoEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank'), 1500);
           }
-          shared = true;
-        } catch(fsErr) {
-          console.warn('[TAO] Filesystem failed, trying blob:', fsErr.message);
-          if(msgEl) msgEl.textContent = '⏳ Metodo alternativo…';
         }
-      }
-      if(!shared && Share) {
-        // Fallback: blob URL
-        const blob = new Blob([Uint8Array.from(atob(base64), c=>c.charCodeAt(0))], {type:'application/pdf'});
-        const blobUrl = URL.createObjectURL(blob);
-        await Share.share({
-          title: mode === 'share' ? subject : 'TAO Monitor — Report Medico',
-          text: mode === 'share' ? body : undefined,
-          url: blobUrl,
-          dialogTitle: mode === 'share' ? 'Invia report al centro TAO' : 'Salva o condividi il report PDF'
-        });
-        if(mode === 'share' && taoEmail) {
-          setTimeout(() => window.open(`mailto:${taoEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank'), 1500);
-        }
-        setTimeout(()=>URL.revokeObjectURL(blobUrl), 5000);
-        shared = true;
-      }
-      if(!shared) {
-        const a = document.createElement('a');
-        a.href = 'data:application/pdf;base64,' + base64;
-        a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
       }
 
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report pronto'; }
       return;
     } catch(e) {
