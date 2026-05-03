@@ -5338,7 +5338,7 @@ async function generatePDFReport() {
           borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
         {label:'Max', data:Array(labels2.length).fill(rangeMax),
           borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5,
-          fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
+          fill:'-1', backgroundColor:'rgba(63,185,80,0.10)'},
         {label:'Target', data:Array(labels2.length).fill(target),
           borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
       ]},
@@ -5516,15 +5516,16 @@ async function generateMedicoReport() {
   let y      = margin;
 
   const WHITE  = [255,255,255];
-  const MUTED  = [125,133,144];
-  const DARK   = [13,17,23];
-  const CARD   = [22,27,34];
-  const CARD2  = [28,35,51];
-  const BORDER = [48,54,61];
-  const GREEN  = [63,185,80];
-  const BLUE   = [88,166,255];
-  const ORANGE = [240,136,62];
-  const RED    = [255,123,114];
+  const BLACK  = [20,20,20];
+  const MUTED  = [120,120,120];
+  const DARK   = [30,30,30];
+  const CARD   = [248,249,250];
+  const CARD2  = [240,242,244];
+  const BORDER = [210,210,210];
+  const GREEN  = [30,120,50];
+  const BLUE   = [24,95,165];
+  const ORANGE = [180,90,0];
+  const RED    = [180,40,40];
 
   function newPage() { doc.addPage(); y = margin; }
   function needSpace(n) { if(y + n > ph - 14) newPage(); }
@@ -5533,17 +5534,23 @@ async function generateMedicoReport() {
     needSpace(8);
     doc.setFillColor(...CARD2);
     doc.roundedRect(margin, y, cw, 7, 1, 1, 'F');
+    doc.setDrawColor(...color); doc.setLineWidth(1);
+    doc.line(margin, y, margin, y+7);
+    doc.setLineWidth(0.3); doc.setDrawColor(...BORDER);
+    doc.roundedRect(margin, y, cw, 7, 1, 1, 'S');
     doc.setTextColor(...color);
     doc.setFontSize(9);
     doc.setFont('helvetica','bold');
-    doc.text(label.toUpperCase(), margin+3, y+5);
+    doc.text(label.toUpperCase(), margin+5, y+5);
     y += 10;
   }
 
   // ---- HEADER ----
-  doc.setFillColor(...DARK);
+  doc.setFillColor(240,242,244);
   doc.rect(0, 0, pw, 28, 'F');
-  doc.setTextColor(...WHITE);
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+  doc.line(0, 28, pw, 28);
+  doc.setTextColor(...BLACK);
   doc.setFontSize(17);
   doc.setFont('helvetica','bold');
   doc.text('TAO Monitor — Report per il Medico', margin, 12);
@@ -5560,11 +5567,13 @@ async function generateMedicoReport() {
   const farmaco = lastT.farmaco || 'COUMADIN';
   doc.setFillColor(...CARD);
   doc.roundedRect(margin, y, cw, 18, 2, 2, 'F');
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+  doc.roundedRect(margin, y, cw, 18, 2, 2, 'S');
   doc.setTextColor(...BLUE);
   doc.setFontSize(7);
   doc.setFont('helvetica','bold');
   doc.text('PAZIENTE', margin+3, y+5);
-  doc.setTextColor(...WHITE);
+  doc.setTextColor(...BLACK);
   doc.setFontSize(13);
   doc.text(paz.nome || '—', margin+3, y+12);
   doc.setFontSize(8);
@@ -5605,6 +5614,8 @@ async function generateMedicoReport() {
     statsM.forEach((s,i) => {
       const bx = margin+i*(statW+3);
       doc.setFillColor(...CARD); doc.roundedRect(bx,y,statW,18,2,2,'F');
+      doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+      doc.roundedRect(bx,y,statW,18,2,2,'S');
       doc.setTextColor(...s.col); doc.setFontSize(15); doc.setFont('helvetica','bold');
       doc.text(s.val, bx+statW/2, y+11, {align:'center'});
       doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
@@ -5618,7 +5629,7 @@ async function generateMedicoReport() {
     const chartW = Math.max(800, labs.length * 60);
     // 2-digit year labels
     const labsShort = labs.map(d => { const p=d.split('/'); return `${p[0]}/${p[1]}/${p[2].slice(2)}`; });
-    chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#0d1117`;
+    chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#ffffff`;
     chartArea.innerHTML = `<canvas id="pdfChartCanvas" width="${chartW}" height="280"></canvas>`;
     const ctx1 = document.getElementById('pdfChartCanvas').getContext('2d');
     const inrChart = new Chart(ctx1, {
@@ -5628,14 +5639,14 @@ async function generateMedicoReport() {
          pointBackgroundColor:vals.map(v=>v>=rMin&&v<=rMax?'#3fb950':v<rMin*0.8||v>rMax*1.2?'#ff7b72':'#f0883e'),
          pointRadius:5, borderWidth:2, tension:0.3, fill:false},
         {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
-        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
+        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.10)'},
         {label:'Target', data:Array(labs.length).fill(tgt), borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
       ]},
       options:{animation:false, responsive:false,
-        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
+        plugins:{legend:{labels:{color:'#555555',font:{size:10}}}},
         scales:{
-          x:{ticks:{color:'#7d8590', maxRotation:45, minRotation:45, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
-          y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, suggestedMin:Math.min(...vals,rMin)-0.5, suggestedMax:Math.max(...vals,rMax)+0.5}
+          x:{ticks:{color:'#555555', maxRotation:45, minRotation:45, autoSkip:false, font:{size:9}}, grid:{color:'rgba(180,180,180,0.6)'}},
+          y:{ticks:{color:'#555555'}, grid:{color:'rgba(180,180,180,0.6)'}, suggestedMin:Math.min(...vals,rMin)-0.5, suggestedMax:Math.max(...vals,rMax)+0.5}
         }
       }
     });
@@ -5651,7 +5662,7 @@ async function generateMedicoReport() {
     doc.addImage(inrImg, 'PNG', margin, y, cw, inrChartH); y += inrChartH + 6;
 
     // Dose chart
-    chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:240px;background:#0d1117`;
+    chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:240px;background:#ffffff`;
     chartArea.innerHTML = `<canvas id="pdfChartCanvas2" width="${chartW}" height="240"></canvas>`;
     const ctx2 = document.getElementById('pdfChartCanvas2').getContext('2d');
     const doseChart = new Chart(ctx2, {
@@ -5661,10 +5672,10 @@ async function generateMedicoReport() {
          backgroundColor:doses.map(()=>'rgba(88,166,255,0.6)'), borderColor:'#58a6ff', borderWidth:1},
       ]},
       options:{animation:false, responsive:false,
-        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
+        plugins:{legend:{labels:{color:'#555555',font:{size:10}}}},
         scales:{
-          x:{ticks:{color:'#7d8590', maxRotation:45, minRotation:45, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
-          y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, beginAtZero:true}
+          x:{ticks:{color:'#555555', maxRotation:45, minRotation:45, autoSkip:false, font:{size:9}}, grid:{color:'rgba(180,180,180,0.6)'}},
+          y:{ticks:{color:'#555555'}, grid:{color:'rgba(180,180,180,0.6)'}, min:20, max:50, ticks:{color:'#555555',stepSize:5}, beginAtZero:false}
         }
       }
     });
@@ -5692,17 +5703,22 @@ async function generateMedicoReport() {
     const days     = getTherapyDays(t);
     const isCurrent = pi === 0;
     const planLabel = `Piano ${isCurrent ? 'in corso' : pi===1 ? 'precedente 1' : 'precedente 2'}: ${t.dataInizio} → ${t.dataFine}`;
+    const alarmTime = data.alarms?.[days[0]] || t.defaultAlarmTime || data.defaultAlarmTime || '17:30';
 
     needSpace(14);
-    // Plan header
+    // Plan header — light with blue left border
     doc.setFillColor(...CARD);
     doc.roundedRect(margin, y, cw, 10, 2, 2, 'F');
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, cw, 10, 2, 2, 'S');
+    doc.setDrawColor(...(isCurrent?GREEN:BLUE)); doc.setLineWidth(1.5);
+    doc.line(margin, y+1, margin, y+9);
+    doc.setLineWidth(0.3);
     doc.setTextColor(...(isCurrent?GREEN:BLUE));
     doc.setFontSize(9); doc.setFont('helvetica','bold');
-    doc.text(planLabel, margin+3, y+4.5);
+    doc.text(planLabel, margin+5, y+4.5);
     doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
-    const alarmTime = data.alarms?.[days[0]] || t.defaultAlarmTime || data.defaultAlarmTime || '17:30';
-    doc.text(`Orario programmato: ${alarmTime} · Dose settimanale: ${t.doseSettimanale||'—'}mg · ${t.farmaco||farmaco}`, margin+3, y+9);
+    doc.text(`Orario programmato: ${alarmTime} · Dose settimanale: ${t.doseSettimanale||'—'}mg · ${t.farmaco||farmaco}`, margin+5, y+9);
     y += 13;
 
     // Table header
@@ -5711,6 +5727,8 @@ async function generateMedicoReport() {
     const colH = ['Data','Dose','Programmato','Assunto','Scarto','Stato','Note'];
     doc.setFillColor(...CARD2);
     doc.rect(margin, y, cw, 6, 'F');
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+    doc.rect(margin, y, cw, 6, 'S');
     doc.setTextColor(...MUTED); doc.setFontSize(6.5); doc.setFont('helvetica','bold');
     let tx = margin+2;
     colH.forEach((h,i) => { doc.text(h, tx, y+4.5); tx += colW[i]; });
@@ -5726,31 +5744,33 @@ async function generateMedicoReport() {
       const dose      = getDayDoseFromTherapy(t, dateStr);
       const isSosp    = dose === 0;
 
-      // Scarto
+      // Scarto — verde ±5min, arancio se anticipo, rosso se ritardo
       let scarto = '—', scartoColor = MUTED;
       if(taken && takenTime && alarmD) {
         const [ah,am] = alarmD.split(':').map(Number);
         const [th2,tm] = takenTime.split(':').map(Number);
         const diff = (th2*60+tm) - (ah*60+am);
         if(Math.abs(diff) <= 5) { scarto = 'Puntuale'; scartoColor = GREEN; }
-        else if(diff > 0) { scarto = `+${diff}min`; scartoColor = diff>30?ORANGE:GREEN; }
-        else { scarto = `${diff}min`; scartoColor = ORANGE; }
+        else if(diff < 0) { scarto = `${diff}min`; scartoColor = ORANGE; }   // anticipata
+        else              { scarto = `+${diff}min`; scartoColor = RED; }      // posticipata
       }
 
-      const rowBg = di%2===0 ? CARD : CARD2;
+      const rowBg = di%2===0 ? [255,255,255] : [248,249,250];
       doc.setFillColor(...rowBg); doc.rect(margin, y, cw, 5.5, 'F');
 
-      const statoText = isSosp ? 'SOSPESA' : taken ? 'Presa' : 'Non confermata';
-      const statoColor = isSosp ? MUTED : taken ? GREEN : ORANGE;
+      // Stato: sempre verde se presa, grigio altrimenti
+      const statoText = isSosp ? 'Sospesa' : taken ? 'Presa' : 'Non conf.';
+      const statoColor = taken ? GREEN : MUTED;
 
+      const BLACK = [20,20,20];
       const rowData = [
-        {text:dateStr, col:WHITE},
-        {text:isSosp?'—':dose?`${dose}mg`:'—', col:MUTED},
-        {text:alarmD, col:MUTED},
-        {text:isSosp?'—':(takenTime||'—'), col:taken?WHITE:MUTED},
-        {text:isSosp?'—':scarto, col:isSosp?MUTED:scartoColor},
-        {text:statoText, col:statoColor},
-        {text:'', col:MUTED},
+        {text:dateStr,                           col:BLACK},
+        {text:isSosp?'—':dose?`${dose}mg`:'—',  col:[100,100,100]},
+        {text:alarmD,                            col:[100,100,100]},
+        {text:isSosp?'—':(takenTime||'—'),       col:taken?BLACK:MUTED},
+        {text:isSosp?'—':scarto,                 col:isSosp?MUTED:scartoColor},
+        {text:statoText,                         col:statoColor},
+        {text:'',                                col:MUTED},
       ];
       tx = margin+2;
       doc.setFontSize(6.5);
@@ -5768,9 +5788,11 @@ async function generateMedicoReport() {
     const missing  = expected - taken;
     doc.setFillColor(...CARD);
     doc.roundedRect(margin, y, cw, 7, 1, 1, 'F');
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, cw, 7, 1, 1, 'S');
     doc.setTextColor(...GREEN); doc.setFontSize(7); doc.setFont('helvetica','bold');
     doc.text(`${taken}/${expected} assunzioni confermate`, margin+3, y+5);
-    if(missing>0) { doc.setTextColor(...ORANGE); doc.text(`· ${missing} mancanti`, margin+50, y+5); }
+    if(missing>0) { doc.setTextColor(...RED); doc.text(`· ${missing} mancanti`, margin+50, y+5); }
     if(sosp>0)    { doc.setTextColor(...MUTED);  doc.text(`· ${sosp} giorni sospesi`, margin+80, y+5); }
     y += 12;
   });
@@ -5786,9 +5808,14 @@ async function generateMedicoReport() {
     needSpace(12);
     doc.setFillColor(...CARD);
     doc.roundedRect(margin, y, cw, 8, 2, 2, 'F');
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, cw, 8, 2, 2, 'S');
+    doc.setDrawColor(...(isCurrent?GREEN:BLUE)); doc.setLineWidth(1.5);
+    doc.line(margin, y+1, margin, y+7);
+    doc.setLineWidth(0.3);
     doc.setTextColor(...(isCurrent?GREEN:BLUE));
     doc.setFontSize(9); doc.setFont('helvetica','bold');
-    doc.text(planLabel, margin+3, y+5.5);
+    doc.text(planLabel, margin+5, y+5.5);
     y += 12;
 
     const planDiario = getDiarioForPeriod(t.dataInizio, t.dataFine);
@@ -5824,7 +5851,9 @@ async function generateMedicoReport() {
       needSpace(10);
       doc.setFillColor(...CARD2);
       doc.roundedRect(margin, y, cw, 6, 1, 1, 'F');
-      doc.setTextColor(...WHITE); doc.setFontSize(8); doc.setFont('helvetica','bold');
+      doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, cw, 6, 1, 1, 'S');
+      doc.setTextColor(...BLACK); doc.setFontSize(8); doc.setFont('helvetica','bold');
       doc.text(wk, margin+3, y+4.5); y += 9;
 
       if(!hasData) {
@@ -5868,13 +5897,21 @@ async function generateMedicoReport() {
 
   // ---- FOOTER on last page ----
   needSpace(8);
-  doc.setFillColor(...DARK);
+  doc.setFillColor(...CARD2);
   doc.rect(0, ph-14, pw, 14, 'F');
+  doc.setDrawColor(...BORDER); doc.setLineWidth(0.3);
+  doc.line(0, ph-14, pw, ph-14);
   doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
   doc.text('TAO Monitor — Report per uso clinico — Dati del paziente', margin, ph-7);
   doc.text(`Pag. ${doc.internal.getNumberOfPages()}`, pw-margin, ph-7, {align:'right'});
 
-  doc.save(`TAO_Report_Medico_${formatDate(new Date()).replace(/\//g,'-')}.pdf`);
+  // Save — use bloburl on mobile for better compatibility
+  try {
+    doc.save(`TAO_Report_Medico_${formatDate(new Date()).replace(/\//g,'-')}.pdf`);
+  } catch(e) {
+    const url = doc.output('bloburl');
+    window.open(url, '_blank');
+  }
 }
 
 // ===================================================
