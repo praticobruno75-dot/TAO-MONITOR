@@ -4210,8 +4210,6 @@ function initTimePicker(elementId, timeStr) {
   let m = parts[1] !== undefined ? parseInt(parts[1]) : 30;
   if(isNaN(h)) h = 17;
   if(isNaN(m)) m = 30;
-  m = Math.round(m / 5) * 5; // round to nearest 5
-  if(m >= 60) { m = 0; h = (h + 1) % 24; }
 
   const prefix = elementId === 'modalTime' ? 'tp' : 'dtp';
   const hourEl = document.getElementById(prefix + 'Hour');
