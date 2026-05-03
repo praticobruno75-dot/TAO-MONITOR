@@ -5877,13 +5877,12 @@ async function scheduleNativeAlarm(dateStr, time) {
     const therapies = getAllTherapies();
     const t = therapies[currentTherapyIdx];
     const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
-    const doseText = doseToText(dose);
 
     await AlarmPlugin.scheduleAlarm({
       date: dateStr,
       time: time,
       alarmId: alarmId,
-      dose: doseText
+      dose: String(dose ?? 0)  // numeric string e.g. "1", "0.75", "1.25"
     });
     console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
   } catch(e) {
@@ -5962,6 +5961,14 @@ function initCapacitor() {
     console.log('[CAP] App opened with:', data);
   });
 
+  // Check pending confirms every time app comes to foreground
+  window.Capacitor.Plugins.App?.addListener('appStateChange', ({ isActive }) => {
+    if(isActive) {
+      console.log('[CAP] App resumed — checking pending confirms');
+      checkPendingConfirmFromNative();
+    }
+  });
+
   // Check if app was opened from alarm notification
   const urlParams = new URLSearchParams(window.location.search);
   const alarmDate = urlParams.get('alarmDate');
@@ -5979,6 +5986,10 @@ function initCapacitor() {
       fbAutoSync();
       renderTerapiaTab();
     }, 1500);
+  }
+  // show_alarm: app opened from alarm — check pending confirms (set by AlarmActivity onConfirm)
+  if(alarmAction === 'show_alarm') {
+    setTimeout(() => checkPendingConfirmFromNative(), 800);
   }
 }
 
