@@ -397,7 +397,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <!-- REPORT BUTTON -->
       <div style="margin-bottom:20px">
         <button onclick="openMedicoReportDialog()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">
-          🩺 Report per il medico
+          📤 Genera e condividi report
         </button>
         <div id="medicoReportMsg" style="font-size:13px;color:var(--muted);margin-top:8px;min-height:18px;text-align:center"></div>
       </div>
@@ -953,13 +953,10 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       <div style="font-size:36px;margin-bottom:8px">🩺</div>
       <div class="modal-title">Report per il Medico</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">
-        Scegli come vuoi utilizzare il report
+        Genera il report PDF e scegli come condividerlo
       </div>
-      <button onclick="closeMedicoReportDialog();generateMedicoReport('download')" class="btn-primary" style="width:100%;margin-bottom:10px;padding:12px;font-size:14px">
-        📥 Scarica PDF
-      </button>
-      <button onclick="closeMedicoReportDialog();generateMedicoReport('share')" class="btn-secondary" style="width:100%;margin-bottom:10px;padding:12px;font-size:14px;border-color:rgba(88,166,255,0.5);color:var(--accent)">
-        📤 Condividi / Invia per mail
+      <button onclick="closeMedicoReportDialog();generateMedicoReport()" class="btn-primary" style="width:100%;margin-bottom:10px;padding:12px;font-size:14px">
+        📤 Genera e condividi PDF
       </button>
       <button onclick="closeMedicoReportDialog()" class="btn-secondary" style="width:100%;padding:10px">
         ✕ Annulla
@@ -5341,7 +5338,7 @@ async function generatePDFReport() {
 // ===================================================
 // REPORT MEDICO
 // ===================================================
-async function generateMedicoReport(mode = 'download') {
+async function generateMedicoReport() {
   const msgEl = document.getElementById('medicoReportMsg');
   try {
   const { jsPDF } = window.jspdf;
@@ -5474,7 +5471,7 @@ async function generateMedicoReport(mode = 'download') {
     const chartW = Math.max(800, labs.length * 60);
     // 2-digit year labels
     const labsShort = labs.map(d => { const p=d.split('/'); return `${p[0]}/${p[1]}/${p[2].slice(2)}`; });
-    const DPR = 2; // render at 2x for crisp PDF without OOM risk
+    const DPR = 1; // DPR=1 keeps file size small for email
     chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#ffffff`;
     chartArea.innerHTML = `<canvas id="pdfChartCanvas" width="${chartW*DPR}" height="${280*DPR}" style="width:${chartW}px;height:280px"></canvas>`;
     const ctx1 = document.getElementById('pdfChartCanvas').getContext('2d');
@@ -5498,7 +5495,7 @@ async function generateMedicoReport(mode = 'download') {
       }
     });
     await new Promise(r=>setTimeout(r,400));
-    const inrImg = chartArea.querySelector('canvas').toDataURL('image/png');
+    const inrImg = chartArea.querySelector('canvas').toDataURL('image/jpeg', 0.75);
     inrChart.destroy();
 
     const inrChartH = 65;
@@ -5506,7 +5503,7 @@ async function generateMedicoReport(mode = 'download') {
     doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
     doc.text('ANDAMENTO INR', margin+3, y+4);
     y += 6;
-    doc.addImage(inrImg, 'PNG', margin, y, cw, inrChartH); y += inrChartH + 6;
+    doc.addImage(inrImg, 'JPEG', margin, y, cw, inrChartH); y += inrChartH + 6;
 
     // Dose chart
     chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:240px;background:#ffffff`;
@@ -5543,7 +5540,7 @@ async function generateMedicoReport(mode = 'download') {
       }
     });
     await new Promise(r=>setTimeout(r,400));
-    const doseImg = chartArea.querySelector('canvas').toDataURL('image/png');
+    const doseImg = chartArea.querySelector('canvas').toDataURL('image/jpeg', 0.75);
     doseChart.destroy();
     chartArea.style.display='none'; chartArea.innerHTML='';
 
@@ -5552,7 +5549,7 @@ async function generateMedicoReport(mode = 'download') {
     doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
     doc.text('DOSAGGIO SETTIMANALE (mg)', margin+3, y+4);
     y += 6;
-    doc.addImage(doseImg, 'PNG', margin, y, cw, doseChartH); y += doseChartH + 6;
+    doc.addImage(doseImg, 'JPEG', margin, y, cw, doseChartH); y += doseChartH + 6;
   }
 
   // ---- SECTION 2: ASSUNZIONI PER PIANO ----
@@ -5819,13 +5816,13 @@ async function generateMedicoReport(mode = 'download') {
       const body     = fillTAOVars(taoConfig.testo || `Gentile Centro TAO, in allegato il report di ${paz.nome||'paziente'} (CF: ${paz.codiceFiscale||''}). Data: ${formatDate(new Date())}. Ultimo INR: ${lastCtrl?.inr||'—'}. TTR: ${ttrResult.ttr}%.`);
 
       await Share.share({
-        title: mode === 'share' ? subject : 'TAO Monitor — Report Medico',
-        text: mode === 'share' ? body : undefined,
+        title: taoEmail ? subject : 'TAO Monitor — Report Medico',
+        text: taoEmail ? body : undefined,
         url: fileUri,
-        dialogTitle: mode === 'share' ? 'Invia report al centro TAO' : 'Salva o condividi il report PDF'
+        dialogTitle: 'Salva o condividi il report PDF'
       });
 
-      if(mode === 'share' && taoEmail) {
+      if(taoEmail) {
         setTimeout(() => window.open(`mailto:${taoEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank'), 1500);
       }
 
@@ -5836,13 +5833,11 @@ async function generateMedicoReport(mode = 'download') {
     }
   } else {
   // Desktop fallback — only reached if NOT Capacitor
-  if(mode === 'share' && taoConfig.email) {
-    doc.save(fname);
+  doc.save(fname);
+  if(taoConfig.email) {
     const subjectEnc = encodeURIComponent(fillTAOVars(taoConfig.oggetto || `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`));
     const bodyEnc    = encodeURIComponent(fillTAOVars(taoConfig.testo || `Gentile Centro TAO, in allegato il report di ${paz.nome||'paziente'}.`));
     window.open(`mailto:${taoConfig.email}?subject=${subjectEnc}&body=${bodyEnc}`, '_blank');
-  } else {
-    doc.save(fname);
   }
   if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report salvato'; }
   } // end else (desktop)
