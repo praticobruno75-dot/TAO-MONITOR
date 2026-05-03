@@ -424,38 +424,11 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   </div>
   <div class="chart-wrap" id="doseChartWrap"><div id="doseChartInner" style="height:280px"><canvas id="doseChart"></canvas></div></div></div>
       <!-- REPORT BUTTON -->
-      <div id="reportPanel" style="margin-bottom:20px">
-        <button onclick="toggleReportPanel()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">
-          📄 Crea Report PDF
+      <div style="margin-bottom:20px">
+        <button onclick="openMedicoReportDialog()" class="btn-primary" style="width:100%;font-size:15px;padding:12px">
+          🩺 Report per il medico
         </button>
-        <div id="reportPanelContent" style="display:none;margin-top:12px">
-          <div class="card">
-            <div class="modal-label" style="margin-bottom:12px">Seleziona periodo</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-              <button onclick="setReportRange(1)" class="range-btn">1 mese</button>
-              <button onclick="setReportRange(3)" class="range-btn">3 mesi</button>
-              <button onclick="setReportRange(6)" class="range-btn">6 mesi</button>
-              <button onclick="setReportRange(0)" class="range-btn">Tutto</button>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
-              <div class="modal-row">
-                <div class="modal-label">Data inizio</div>
-                <input type="date" id="reportDateFrom" class="modal-input">
-              </div>
-              <div class="modal-row">
-                <div class="modal-label">Data fine</div>
-                <input type="date" id="reportDateTo" class="modal-input">
-              </div>
-            </div>
-            <div id="reportMsg" style="font-size:13px;color:var(--muted);margin-bottom:12px;min-height:18px"></div>
-            <button onclick="handlePDFReport()" class="btn-primary" style="width:100%;padding:12px;font-size:15px">
-              📄 Genera e scarica PDF
-            </button>
-            <button onclick="generateMedicoReport()" class="btn-secondary" style="width:100%;padding:12px;font-size:15px;margin-top:8px;border-color:rgba(88,166,255,0.5);color:var(--accent)">
-              🩺 Report per il medico
-            </button>
-          </div>
-        </div>
+        <div id="medicoReportMsg" style="font-size:13px;color:var(--muted);margin-top:8px;min-height:18px;text-align:center"></div>
       </div>
 
       <div class="section-title">📋 Tutti i controlli</div>
@@ -737,6 +710,35 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
       </div>
     </div>
 
+    <!-- EMAIL CENTRO TAO -->
+    <div class="section-title">📋 Invio report al centro TAO</div>
+    <div class="card" style="margin-bottom:20px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Configura i dati per condividere il report direttamente al tuo centro TAO.
+      </div>
+
+      <div class="modal-label" style="margin-bottom:6px">Email centro TAO</div>
+      <input type="email" id="taoEmail" class="modal-input" placeholder="tao@asl.it" style="width:100%;margin-bottom:10px">
+
+      <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
+      <input type="text" id="taoOggetto" class="modal-input"
+        placeholder="es. Report TAO - {nome} - {data}" style="width:100%;margin-bottom:10px">
+
+      <div class="modal-label" style="margin-bottom:4px">Testo email</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
+        Variabili: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
+        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
+        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{data}</code>
+        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{ultimoINR}</code>
+        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{ttr}</code>
+      </div>
+      <textarea id="taoTesto" class="modal-input"
+        placeholder="Gentile Centro TAO, in allegato il report della terapia anticoagulante di {nome} (CF: {cf}). Data: {data}. Ultimo INR: {ultimoINR}. TTR Rosendaal: {ttr}%."
+        style="width:100%;height:90px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
+
+      <button onclick="saveTAOConfig()" class="btn-primary" style="width:100%">💾 Salva configurazione</button>
+    </div>
+
     <!-- ORARIO DEFAULT ALLARME -->
     <div class="section-title">⏰ Orario predefinito farmaco</div>
     <div class="card" style="margin-bottom:20px">
@@ -965,6 +967,26 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <div id="intPanelFarm" style="display:none"></div>
   </div><!-- /tab-interazioni -->
 
+
+  <!-- REPORT MEDICO DIALOG -->
+  <div class="modal-overlay" id="medicoReportDialog">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">🩺</div>
+      <div class="modal-title">Report per il Medico</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">
+        Scegli come vuoi utilizzare il report
+      </div>
+      <button onclick="closeMedicoReportDialog();generateMedicoReport('download')" class="btn-primary" style="width:100%;margin-bottom:10px;padding:12px;font-size:14px">
+        📥 Scarica PDF
+      </button>
+      <button onclick="closeMedicoReportDialog();generateMedicoReport('share')" class="btn-secondary" style="width:100%;margin-bottom:10px;padding:12px;font-size:14px;border-color:rgba(88,166,255,0.5);color:var(--accent)">
+        📤 Condividi / Invia per mail
+      </button>
+      <button onclick="closeMedicoReportDialog()" class="btn-secondary" style="width:100%;padding:10px">
+        ✕ Annulla
+      </button>
+    </div>
+  </div>
 
   <!-- PRESCRIZIONI CONTROLLO POPUP -->
   <div class="modal-overlay" id="prescrizioniPopup">
@@ -5018,15 +5040,8 @@ function initStrumenti() {
   const defInput = document.getElementById('defaultAlarmTimeInput');
   if(defInput && data.defaultAlarmTime) defInput.value = data.defaultAlarmTime;
 
-  const controls = data.controls || [];
-  if(!controls.length) return;
-
-  // Set default date range = all data
-  const sorted = [...controls].sort((a,b)=>parseDate(a.data)-parseDate(b.data));
-  const first = sorted[0].data.split('/').reverse().join('-');
-  const last  = sorted[sorted.length-1].data.split('/').reverse().join('-');
-  document.getElementById('reportDateFrom').value = first;
-  document.getElementById('reportDateTo').value   = last;
+  // Init TAO email config
+  initTAOConfig();
 }
 
 function saveDefaultAlarmTime() {
@@ -5040,17 +5055,46 @@ function saveDefaultAlarmTime() {
   showAutoBackupToast('✅ Orario predefinito salvato: ' + time);
 }
 
-function toggleReportPanel() {
-  const content = document.getElementById('reportPanelContent');
-  const btn     = document.querySelector('[onclick="toggleReportPanel()"]');
-  if(!content) return;
-  const isOpen = content.style.display !== 'none';
-  content.style.display = isOpen ? 'none' : 'block';
-  if(btn) btn.textContent = isOpen ? '📄 Crea Report PDF' : '✕ Chiudi report';
+function toggleReportPanel() {} // kept for compatibility — no longer used
+
+function openMedicoReportDialog() {
+  document.getElementById('medicoReportDialog').classList.add('active');
+}
+function closeMedicoReportDialog() {
+  document.getElementById('medicoReportDialog').classList.remove('active');
 }
 
-async function handlePDFReport() {
-  await generatePDFReport();
+// ===================================================
+// TAO CENTER EMAIL CONFIG
+// ===================================================
+const TAO_CONFIG_KEY = 'tao_tao_config';
+
+function loadTAOConfig() {
+  try { return JSON.parse(localStorage.getItem(TAO_CONFIG_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+function initTAOConfig() {
+  const cfg = loadTAOConfig();
+  const emailEl   = document.getElementById('taoEmail');
+  const oggettoEl = document.getElementById('taoOggetto');
+  const testoEl   = document.getElementById('taoTesto');
+  if(emailEl   && cfg.email)   emailEl.value   = cfg.email;
+  if(oggettoEl && cfg.oggetto) oggettoEl.value = cfg.oggetto;
+  if(testoEl   && cfg.testo)   testoEl.value   = cfg.testo;
+}
+
+function saveTAOConfig() {
+  const email   = document.getElementById('taoEmail')?.value.trim() || '';
+  const oggetto = document.getElementById('taoOggetto')?.value.trim() || '';
+  const testo   = document.getElementById('taoTesto')?.value.trim() || '';
+  const cfg = loadTAOConfig();
+  if(email)   cfg.email   = email;
+  if(oggetto) cfg.oggetto = oggetto;
+  if(testo)   cfg.testo   = testo;
+  localStorage.setItem(TAO_CONFIG_KEY, JSON.stringify(cfg));
+  fbAutoSync();
+  showAutoBackupToast('✅ Configurazione centro TAO salvata');
 }
 
 function setReportRange(months) {
@@ -5471,26 +5515,25 @@ async function generatePDFReport() {
 
   if(window.isCapacitor) {
     try {
-      // Use blob URL — works in Capacitor WebView without plugins
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-
-      // Create temporary link and click it
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fname;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
-
+      const { Filesystem, Share } = window.Capacitor.Plugins;
+      const base64 = doc.output('datauristring').split(',')[1];
+      await Filesystem.writeFile({
+        path: fname,
+        data: base64,
+        directory: 'CACHE',
+        recursive: true
+      });
+      const fileResult = await Filesystem.getUri({ path: fname, directory: 'CACHE' });
+      await Share.share({
+        title: 'TAO Monitor — Report INR',
+        url: fileResult.uri,
+        dialogTitle: 'Salva o condividi il report PDF'
+      });
       msgEl.style.color = 'var(--accent2)';
-      msgEl.textContent = `✅ Report scaricato: ${fname}`;
+      msgEl.textContent = `✅ Report pronto: ${fname}`;
       return;
     } catch(e) {
       console.warn('[TAO] PDF Capacitor error:', e.message || e);
-      // Fall through to normal download
     }
   }
 
@@ -5502,9 +5545,12 @@ async function generatePDFReport() {
 // ===================================================
 // REPORT MEDICO
 // ===================================================
-async function generateMedicoReport() {
+async function generateMedicoReport(mode = 'download') {
   const { jsPDF } = window.jspdf;
   if(!jsPDF) { alert('jsPDF non disponibile'); return; }
+
+  const msgEl = document.getElementById('medicoReportMsg');
+  if(msgEl) { msgEl.style.color = 'var(--muted)'; msgEl.textContent = '⏳ Generazione in corso…'; }
 
   const data      = loadData();
   const diario    = loadDiario();
@@ -5923,31 +5969,67 @@ async function generateMedicoReport() {
   doc.text(`Pag. ${doc.internal.getNumberOfPages()}`, pw-margin, ph-7, {align:'right'});
 
   const fname = `TAO_Report_Medico_${formatDate(new Date()).replace(/\//g,'-')}.pdf`;
+  if(msgEl) { msgEl.style.color = 'var(--muted)'; msgEl.textContent = '⏳ Finalizzazione…'; }
+
+  // Build share text with TAO config
+  const taoConfig = loadTAOConfig();
+  const therapies = getAllTherapies();
+  const paz = therapies.length ? (therapies[therapies.length-1].paziente || {}) : {};
+  const allControls = (data.controls||[]).sort((a,b)=>parseDate(a.data)-parseDate(b.data));
+  const lastCtrl = allControls[allControls.length-1];
+  const ttrResult = allControls.length ? calcRosendaalTTR(allControls) : {ttr:'—'};
+
+  function fillTAOVars(text) {
+    return text
+      .replace(/\{nome\}/gi, paz.nome || 'Paziente')
+      .replace(/\{cf\}/gi, paz.codiceFiscale || '')
+      .replace(/\{data\}/gi, formatDate(new Date()))
+      .replace(/\{ultimoINR\}/gi, lastCtrl ? String(lastCtrl.inr) : '—')
+      .replace(/\{ttr\}/gi, String(ttrResult.ttr));
+  }
 
   if(window.isCapacitor) {
     try {
-      const pdfBlob = doc.output('blob');
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = fname;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 3000);
+      const { Filesystem, Share } = window.Capacitor.Plugins;
+      const base64 = doc.output('datauristring').split(',')[1];
+      await Filesystem.writeFile({ path: fname, data: base64, directory: 'CACHE', recursive: true });
+      const fileResult = await Filesystem.getUri({ path: fname, directory: 'CACHE' });
+
+      if(mode === 'share') {
+        const defaultText = taoConfig.testo
+          ? fillTAOVars(taoConfig.testo)
+          : `Gentile Centro TAO, in allegato il report TAO di ${paz.nome||'paziente'} (CF: ${paz.codiceFiscale||''}). Data: ${formatDate(new Date())}. Ultimo INR: ${lastCtrl?.inr||'—'}. TTR: ${ttrResult.ttr}%.`;
+        await Share.share({
+          title: taoConfig.oggetto ? fillTAOVars(taoConfig.oggetto) : `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`,
+          text: defaultText,
+          url: fileResult.uri,
+          dialogTitle: 'Invia report al centro TAO'
+        });
+      } else {
+        await Share.share({
+          title: 'TAO Monitor — Report Medico',
+          url: fileResult.uri,
+          dialogTitle: 'Salva o condividi il report PDF'
+        });
+      }
+      if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report pronto'; }
       return;
     } catch(e) {
       console.warn('[TAO] PDF Capacitor error:', e.message || e);
     }
   }
 
-  try {
+  // Desktop fallback
+  if(mode === 'share' && taoConfig.email) {
+    // Save PDF then open mailto
     doc.save(fname);
-  } catch(e) {
-    const url = doc.output('bloburl');
-    window.open(url, '_blank');
+    const subject = encodeURIComponent(fillTAOVars(taoConfig.oggetto || `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`));
+    const body    = encodeURIComponent(fillTAOVars(taoConfig.testo || `Gentile Centro TAO, in allegato il report di ${paz.nome||'paziente'}.`));
+    window.open(`mailto:${taoConfig.email}?subject=${subject}&body=${body}`, '_blank');
+  } else {
+    doc.save(fname);
   }
+  if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report salvato'; }
 }
 
 // ===================================================
