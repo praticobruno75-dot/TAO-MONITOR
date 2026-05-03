@@ -1383,10 +1383,18 @@ function applyExtractedData(extracted) {
   if(!alreadyScheduled) {
     askDefaultAlarmTime(newT);
   } else if(window.isCapacitor) {
-    // Plan reload — reschedule native alarms with updated dose values
+    // Plan reload — reschedule native alarms with updated dose values (force past-time check bypass)
     therapyDays.forEach(d => {
-      const t = appData.alarms[d] || appData.defaultAlarmTime || '17:30';
-      scheduleAlarm(d, t);
+      const time = appData.alarms[d] || appData.defaultAlarmTime || '17:30';
+      const data = loadData();
+      const dose = getDayDoseFromTherapy(newT, d);
+      const [dd,mm,yyyy] = d.split('/');
+      const alarmId = parseInt(`${yyyy}${mm}${dd}`);
+      const { AlarmPlugin } = window.Capacitor?.Plugins || {};
+      if(AlarmPlugin) {
+        AlarmPlugin.scheduleAlarm({ date: d, time, alarmId, dose: String(dose ?? 0) })
+          .catch(e => console.warn('[CAP] Reschedule error:', d, e.message));
+      }
     });
   }
 }
@@ -1396,6 +1404,30 @@ function applyExtractedData(extracted) {
 // ===================================================
 let pendingTherapyForAlarm = null;
 let _preLoadSnapshot = null;
+
+function isRollbackAllowed() {
+  if(!_preLoadSnapshot) return false;
+  // Expired after 24h
+  const loadTs = parseInt(localStorage.getItem('tao_last_load_ts') || '0');
+  if(Date.now() - loadTs > 24 * 60 * 60 * 1000) return false;
+  // Expired after first taken confirmation
+  const data = loadData();
+  const snap = JSON.parse(_preLoadSnapshot);
+  const snapTaken = Object.keys(snap.taken || {}).filter(d => snap.taken[d]).length;
+  const curTaken  = Object.keys(data.taken || {}).filter(d => data.taken[d]).length;
+  if(curTaken > snapTaken) return false;
+  return true;
+}
+
+function checkRollbackBtn() {
+  const btn = document.getElementById('uploadRollbackBtn');
+  if(!btn) return;
+  if(!isRollbackAllowed()) {
+    btn.style.display = 'none';
+    _preLoadSnapshot = null;
+    localStorage.removeItem('tao_last_load_ts');
+  }
+}
 
 function askDefaultAlarmTime(therapy) {
   const data = loadData();
@@ -1480,6 +1512,10 @@ function keepDefaultTime() {
 // ===================================================
 function rollbackLastLoad() {
   if(!_preLoadSnapshot) return;
+  if(!isRollbackAllowed()) {
+    alert('Non è possibile annullare il caricamento dopo 24 ore o dopo aver confermato un\'assunzione.');
+    return;
+  }
   try {
     const snap = JSON.parse(_preLoadSnapshot);
     saveData(snap);
@@ -1519,9 +1555,11 @@ function showExtractedResult(extracted) {
   `;
   document.getElementById('uploadResult').style.display = 'block';
   document.getElementById('uploadResultText').textContent = `Dati estratti dal ${ctrl.data}. Storico: ${appData.controls.length} controlli, ${appData.therapies.length} periodi terapia.`;
-  // Add rollback button
+  // Add rollback button — visible only within 24h and before first confirmed taken
   const existing = document.getElementById('uploadRollbackBtn');
   if(existing) existing.remove();
+  const loadTs = Date.now();
+  localStorage.setItem('tao_last_load_ts', String(loadTs));
   const btn = document.createElement('button');
   btn.id = 'uploadRollbackBtn';
   btn.className = 'btn-secondary';
@@ -1954,6 +1992,7 @@ function getAllTherapies() {
 }
 
 function renderTerapiaTab() {
+  checkRollbackBtn();
   const data=loadData();
   const therapies=getAllTherapies();
   if(!therapies.length) {
@@ -5866,31 +5905,39 @@ async function generateMedicoReport() {
 // INIT
 // ===================================================
 // ---- CAPACITOR NATIVE ALARMS ----
-async function scheduleNativeAlarm(dateStr, time) {
+async function scheduleNativeAlarm(dateStr, time, force = false) {
   if(!window.isCapacitor) return;
   try {
     const { AlarmPlugin } = window.Capacitor.Plugins;
     if(!AlarmPlugin) return;
 
-    // Check if alarm time is in the future before scheduling
-    const [dd,mm,yyyy] = dateStr.split('/');
-    const [hh,min] = time.split(':');
-    const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
-    if(alarmDate <= new Date()) {
-      console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
-      return; // Skip past alarms silently
+    // Check if alarm time is in the future before scheduling (skip if forced)
+    if(!force) {
+      const [dd,mm,yyyy] = dateStr.split('/');
+      const [hh,min] = time.split(':');
+      const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
+      if(alarmDate <= new Date()) {
+        console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
+        return;
+      }
     }
 
     const alarmId = parseInt(`${yyyy}${mm}${dd}`);
     const therapies = getAllTherapies();
-    const t = therapies[currentTherapyIdx];
+    // Find the therapy that contains this date, not currentTherapyIdx
+    const t = therapies.find(th => {
+      const from = parseDate(th.dataInizio);
+      const to   = parseDate(th.dataFine);
+      const d    = parseDate(dateStr);
+      return d >= from && d <= to;
+    }) || therapies[therapies.length - 1];
     const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
 
     await AlarmPlugin.scheduleAlarm({
       date: dateStr,
       time: time,
       alarmId: alarmId,
-      dose: String(dose ?? 0)  // numeric string e.g. "1", "0.75", "1.25"
+      dose: String(dose ?? 0)
     });
     console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
   } catch(e) {
