@@ -195,25 +195,6 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 .btn-secondary{flex:1;padding:10px;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;transition:all .2s;min-width:100px}
 .btn-secondary:hover{color:var(--text);border-color:var(--text)}
 
-/* ALARM TOAST */
-.alarm-toast{position:fixed;bottom:0;right:0;left:0;margin:0 auto;background:var(--surface2);border:2px solid var(--warn);border-top-left-radius:20px;border-top-right-radius:20px;border-bottom-left-radius:0;border-bottom-right-radius:0;padding:24px 28px 32px;z-index:9999;transform:translateY(100%);transition:transform .4s cubic-bezier(.17,.84,.44,1);max-width:480px;width:100%;box-shadow:0 -8px 40px rgba(0,0,0,.6)}
-@media(min-width:520px){.alarm-toast{bottom:24px;right:24px;left:auto;border-radius:20px;width:380px;transform:translateY(calc(100% + 40px))}}
-.alarm-toast.show{transform:translateY(0)}
-@media(min-width:520px){.alarm-toast.show{transform:translateY(0)}}
-.alarm-toast-header{display:flex;align-items:center;gap:12px;margin-bottom:14px}
-.alarm-icon{font-size:32px;animation:pulse 1s ease-in-out infinite}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
-.alarm-toast.confirmed .alarm-icon{animation:none}
-.alarm-title{font-size:16px;font-weight:600}
-.alarm-sub{font-size:12px;color:var(--muted);margin-top:2px}
-.alarm-actions{display:flex;flex-direction:column;gap:8px}
-.alarm-btn-confirm{width:100%;padding:10px;background:var(--accent2);color:#0d1117;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .2s}
-.alarm-btn-confirm:hover{opacity:.85}
-.alarm-snooze-row{display:flex;gap:6px}
-.alarm-snooze-btn{flex:1;padding:8px 4px;background:rgba(88,166,255,.12);border:1px solid var(--accent);color:var(--accent);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;transition:all .2s}
-.alarm-snooze-btn:hover{background:rgba(88,166,255,.25)}
-.alarm-btn-close{width:100%;padding:8px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;transition:all .2s}
-.alarm-btn-close:hover{color:var(--text);border-color:var(--text)}
 
 .info-bar{background:rgba(88,166,255,.08);border:1px solid rgba(88,166,255,.2);border-radius:10px;padding:12px 18px;font-size:13px;color:var(--accent);margin-bottom:20px;display:flex;align-items:center;gap:10px}
 .empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
@@ -238,7 +219,6 @@ main{padding:28px 32px;max-width:1200px;margin:0 auto}
 
 /* Prevent text selection on long press for interactive elements */
 .cal-day, .cal-day *, .cal-header, .list-item, .plan-card,
-.alarm-btn-confirm, .alarm-snooze-btn, .alarm-btn-close,
 button, .btn-primary, .btn-secondary {
   -webkit-user-select: none;
   user-select: none;
@@ -325,25 +305,7 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 </style>
 
 <!-- ALARM TOAST -->
-<div class="alarm-toast" id="alarmToast">
-  <div class="alarm-toast-header">
-    <div class="alarm-icon">💊</div>
-    <div>
-      <div class="alarm-title">Ora del Coumadin!</div>
-      <div class="alarm-sub" id="alarmSub"></div>
-      <div id="alarmControlloBanner" style="display:none;font-size:12px;margin-top:6px;padding:6px 10px;border-radius:6px;background:rgba(88,166,255,0.1);color:var(--accent);border:1px solid rgba(88,166,255,0.3)"></div>
-    </div>
-  </div>
-  <div class="alarm-actions">
-    <button class="alarm-btn-confirm" onclick="confirmAlarm()">✅ Confermo assunzione</button>
-    <div class="alarm-snooze-row">
-      <button class="alarm-snooze-btn" onclick="snoozeAlarm(30)">+30 min</button>
-      <button class="alarm-snooze-btn" onclick="snoozeAlarm(45)">+45 min</button>
-      <button class="alarm-snooze-btn" onclick="snoozeAlarm(60)">+60 min</button>
-    </div>
-    <button class="alarm-btn-close" onclick="closeAlarm()">✕ Chiudi senza confermare</button>
-  </div>
-</div>
+
 
 <!-- MODAL: day alarm time -->
 <!-- MODAL: default time setup -->
@@ -902,17 +864,21 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
 
     <!-- ALLARME SECTION -->
     <div style="border:2px solid rgba(88,166,255,0.4);border-radius:12px;padding:12px;margin-bottom:20px;background:rgba(88,166,255,0.04)">
-      <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(88,166,255,0.2);border-radius:10px;padding:12px;user-select:none">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onmousedown="startAdjust('dtp','h',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','h',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
-          <button onmousedown="startAdjust('dtp','h',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','h',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--bg);border:1px solid rgba(88,166,255,0.2);border-radius:10px;padding:10px 14px;user-select:none">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:40px;font-weight:700;color:var(--accent);width:54px;text-align:center">00</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div ontouchstart="event.preventDefault();_doAdjust('dtp','h',1)" onmousedown="if(!event.touches)_doAdjust('dtp','h',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▲</div>
+            <div ontouchstart="event.preventDefault();_doAdjust('dtp','h',-1)" onmousedown="if(!event.touches)_doAdjust('dtp','h',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▼</div>
+          </div>
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--muted);padding:0 8px;margin-bottom:2px">:</div>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-          <button onmousedown="startAdjust('dtp','m',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','m',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▲</button>
-          <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent);width:64px;text-align:center;line-height:1.2">00</div>
-          <button onmousedown="startAdjust('dtp','m',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('dtp','m',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:48px;height:36px;font-size:18px;cursor:pointer">▼</button>
+        <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted)">:</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:40px;font-weight:700;color:var(--accent);width:54px;text-align:center">00</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div ontouchstart="event.preventDefault();_doAdjust('dtp','m',1)" onmousedown="if(!event.touches)_doAdjust('dtp','m',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▲</div>
+            <div ontouchstart="event.preventDefault();_doAdjust('dtp','m',-1)" onmousedown="if(!event.touches)_doAdjust('dtp','m',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▼</div>
+          </div>
         </div>
       </div>
       <input type="hidden" id="dayDetailTime" value="00:00">
@@ -927,17 +893,21 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
     <!-- ASSUNZIONE SECTION -->
     <div id="editTakenTimeRow" style="border:2px solid rgba(63,185,80,0.4);border-radius:12px;padding:12px;margin-bottom:20px;background:rgba(63,185,80,0.04)">
       <div id="editTakenTimePicker" style="opacity:0.4;pointer-events:none">
-        <div style="display:flex;align-items:center;justify-content:center;gap:0;background:var(--bg);border:1px solid rgba(63,185,80,0.2);border-radius:10px;padding:10px;user-select:none">
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <button onmousedown="startAdjust('etp','h',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','h',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
-            <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
-            <button onmousedown="startAdjust('etp','h',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','h',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--bg);border:1px solid rgba(63,185,80,0.2);border-radius:10px;padding:10px 14px;user-select:none">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent2);width:50px;text-align:center">00</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div ontouchstart="event.preventDefault();_doAdjust('etp','h',1)" onmousedown="if(!event.touches)_doAdjust('etp','h',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▲</div>
+              <div ontouchstart="event.preventDefault();_doAdjust('etp','h',-1)" onmousedown="if(!event.touches)_doAdjust('etp','h',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▼</div>
+            </div>
           </div>
-          <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted);padding:0 6px">:</div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
-            <button onmousedown="startAdjust('etp','m',1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','m',1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▲</button>
-            <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--accent2);width:56px;text-align:center">00</div>
-            <button onmousedown="startAdjust('etp','m',-1)" onmouseup="stopAdjust()" onmouseleave="stopAdjust()" ontouchstart="startAdjust('etp','m',-1)" ontouchend="stopAdjust()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;width:44px;height:32px;font-size:16px;cursor:pointer">▼</button>
+          <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--muted)">:</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent2);width:50px;text-align:center">00</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div ontouchstart="event.preventDefault();_doAdjust('etp','m',1)" onmousedown="if(!event.touches)_doAdjust('etp','m',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▲</div>
+              <div ontouchstart="event.preventDefault();_doAdjust('etp','m',-1)" onmousedown="if(!event.touches)_doAdjust('etp','m',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▼</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2488,165 +2458,22 @@ function toggleTaken(dateStr) {
 // ===================================================
 // ALARM ENGINE
 // ===================================================
-const activeAlarmTimers={};
-let currentAlarmDate=null;
-let alarmAudioCtx=null;
-let alarmOscillators=[];
-let alarmInterval=null;
+
 
 function scheduleAlarm(dateStr, time) {
   const data = loadData();
   if(data.taken && data.taken[dateStr]===true) return;
-  if(window.isCapacitor) {
-    scheduleNativeAlarm(dateStr, time);
-    return;
-  }
-  scheduleAlarmTimeout(dateStr, time);
+  if(window.isCapacitor) scheduleNativeAlarm(dateStr, time);
 }
 
-function scheduleAlarmTimeout(dateStr, time) {
-  if(activeAlarmTimers[dateStr]) clearTimeout(activeAlarmTimers[dateStr]);
-  const [h,m]=time.split(':').map(Number);
-  const [dd,mm,yyyy]=dateStr.split('/').map(Number);
-  const alarmTime=new Date(yyyy,mm-1,dd,h,m,0);
-  const now=new Date(), diff=alarmTime-now;
-  // Only schedule future alarms within 7 days; skip already-taken days
-  const data=loadData();
-  if(data.taken&&data.taken[dateStr]) return; // already taken, no alarm
-  if(diff<0||diff>7*24*60*60*1000) return;
-  activeAlarmTimers[dateStr]=setTimeout(()=>fireAlarm(dateStr,time),diff);
-}
 
-function fireAlarm(dateStr, time) {
-  currentAlarmDate=dateStr;
-  startAlarmSound();
-  document.getElementById('alarmSub').textContent=`${dateStr} — orario programmato: ${time}`;
-  document.getElementById('alarmToast').classList.add('show');
 
-  // Show controllo countdown in alarm toast
-  const ctrlMsg = getControlloToastMsg();
-  const ctrlBanner = document.getElementById('alarmControlloBanner');
-  if(ctrlBanner) {
-    if(ctrlMsg) {
-      ctrlBanner.textContent = ctrlMsg;
-      ctrlBanner.style.display = 'block';
-      const isWarn = ctrlMsg.startsWith('⚠️');
-      ctrlBanner.style.background = isWarn ? 'rgba(240,136,62,0.1)' : 'rgba(88,166,255,0.1)';
-      ctrlBanner.style.color = isWarn ? 'var(--warn)' : 'var(--accent)';
-      ctrlBanner.style.borderColor = isWarn ? 'rgba(240,136,62,0.3)' : 'rgba(88,166,255,0.3)';
-    } else {
-      ctrlBanner.style.display = 'none';
-    }
-  }
-  if(typeof Notification !== 'undefined' && Notification.permission==='granted') new Notification('TAO Monitor — Assunzione farmaco',{body:`Ora di prendere il Coumadin! (${dateStr} alle ${time})`});
-}
 
-function startAlarmSound() {
-  stopAlarmSound();
-  try {
-    alarmAudioCtx=new(window.AudioContext||window.webkitAudioContext)();
-    playBeepSequence();
-    alarmInterval=setInterval(playBeepSequence,4000);
-  } catch(e) { console.warn('Audio error:',e); }
-}
 
-function playBeepSequence() {
-  if(!alarmAudioCtx) return;
-  // Two-tone alarm: high + mid frequency for better audibility
-  const pattern = [
-    {t:0,    freq:1046, dur:0.18},
-    {t:0.22, freq:880,  dur:0.18},
-    {t:0.44, freq:1046, dur:0.18},
-    {t:0.66, freq:880,  dur:0.18},
-    {t:0.88, freq:1318, dur:0.28},
-  ];
-  pattern.forEach(({t, freq, dur})=>{
-    // Main oscillator (square wave - more penetrating)
-    const osc=alarmAudioCtx.createOscillator();
-    const gain=alarmAudioCtx.createGain();
-    // Distortion for extra punch
-    const wave=alarmAudioCtx.createWaveShaper();
-    wave.curve=makeDistortionCurve(80);
-    osc.connect(wave); wave.connect(gain); gain.connect(alarmAudioCtx.destination);
-    osc.frequency.value=freq;
-    osc.type='square';
-    gain.gain.setValueAtTime(0, alarmAudioCtx.currentTime+t);
-    gain.gain.linearRampToValueAtTime(0.85, alarmAudioCtx.currentTime+t+0.02);
-    gain.gain.setValueAtTime(0.85, alarmAudioCtx.currentTime+t+dur-0.03);
-    gain.gain.linearRampToValueAtTime(0, alarmAudioCtx.currentTime+t+dur);
-    osc.start(alarmAudioCtx.currentTime+t);
-    osc.stop(alarmAudioCtx.currentTime+t+dur+0.01);
-    alarmOscillators.push(osc);
-  });
-}
 
-function makeDistortionCurve(amount) {
-  const n=256, curve=new Float32Array(n);
-  for(let i=0;i<n;i++){
-    const x=i*2/n-1;
-    curve[i]=(Math.PI+amount)*x/(Math.PI+amount*Math.abs(x));
-  }
-  return curve;
-}
 
-function stopAlarmSound() {
-  if(alarmInterval) { clearInterval(alarmInterval); alarmInterval=null; }
-  alarmOscillators.forEach(o=>{ try{o.stop();}catch(e){} });
-  alarmOscillators=[];
-  if(alarmAudioCtx) { try{alarmAudioCtx.close();}catch(e){} alarmAudioCtx=null; }
-}
 
-function confirmAlarm() {
-  stopAlarmSound();
-  if(currentAlarmDate) {
-    appData=loadData();
-    if(!appData.taken) appData.taken={};
-    if(!appData.takenTimes) appData.takenTimes={};
-    appData.taken[currentAlarmDate]=true;
-    if(!appData.takenEditTimes) appData.takenEditTimes={};
-    appData.takenEditTimes[currentAlarmDate]=Date.now();
-    appData.takenTimes[currentAlarmDate]=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-    saveData(appData);
-    // Cancel any pending snooze alarms for this date
-    cancelNativeAlarm(currentAlarmDate);
-    // Deduct dose from scorta
-    deductScorta(currentAlarmDate);
-  }
-  document.getElementById('alarmToast').classList.remove('show');
-  currentAlarmDate=null;
-  renderTerapiaTab();
-  // Auto backup + Drive sync after dose confirmed
-  saveBackupToFolder(true);
-  fbAutoSync();
-}
 
-function snoozeAlarm(minutes) {
-  stopAlarmSound();
-  document.getElementById('alarmToast').classList.remove('show');
-  const dateToSnooze = currentAlarmDate;
-  currentAlarmDate = null;
-
-  // Calculate new alarm time
-  const snoozeDate = new Date(Date.now() + minutes * 60 * 1000);
-  const newTimeStr = snoozeDate.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-
-  // Schedule native alarm if in Capacitor
-  if(window.isCapacitor) {
-    scheduleNativeAlarm(dateToSnooze, newTimeStr);
-    console.log(`[TAO] Snooze nativo: ${dateToSnooze} alle ${newTimeStr}`);
-  }
-
-  // Also schedule local setTimeout as fallback (if app stays open)
-  setTimeout(() => {
-    fireAlarm(dateToSnooze, newTimeStr);
-  }, minutes * 60 * 1000);
-}
-
-function closeAlarm() {
-  stopAlarmSound();
-  document.getElementById('alarmToast').classList.remove('show');
-  currentAlarmDate=null;
-}
 
 function requestNotifPermission() {
   if(typeof Notification === 'undefined') return; // Not available in Capacitor
@@ -2654,7 +2481,6 @@ function requestNotifPermission() {
 }
 
 // Test sound button
-function testAlarmSound() { playBeepSequence(); }
 
 // ===================================================
 // DOSE SVG RENDERER
@@ -2843,42 +2669,7 @@ function closeDayDetailModal() {
   _dayDetailKey = null;
 }
 
-function showAlarmToast(dateStr, time) {
-  console.log('[TAO] showAlarmToast called:', dateStr, time);
-  currentAlarmDate = dateStr;
 
-  // Update subtitle
-  const sub = document.getElementById('alarmSub');
-  if(sub) sub.textContent = `${dateStr} — orario programmato: ${time}`;
-
-  // Show toast — uses translateY transform, just add 'show' class
-  const toast = document.getElementById('alarmToast');
-  if(toast) {
-    toast.style.zIndex = '99999';
-    toast.classList.add('show');
-    console.log('[TAO] Toast shown, classes:', toast.className);
-  } else {
-    console.warn('[TAO] alarmToast element not found!');
-  }
-
-  // Try to play sound
-  try { startAlarmSound(); } catch(e) { console.warn('[TAO] Sound error:', e); }
-}
-
-function toggleTakenFromAlarm(dateStr) {
-  appData = loadData();
-  if(!appData.taken) appData.taken = {};
-  if(!appData.takenTimes) appData.takenTimes = {};
-  if(!appData.takenEditTimes) appData.takenEditTimes = {};
-  appData.taken[dateStr] = true;
-  appData.takenEditTimes[dateStr] = Date.now();
-  appData.takenTimes[dateStr] = new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-  saveData(appData);
-  fbAutoSync();
-  saveBackupToFolder(true);
-  renderTerapiaTab();
-  showAutoBackupToast('✅ Assunzione confermata dalla notifica');
-}
 
 function toggleTakenFromModal() {
   if(!_dayDetailKey) return;
@@ -4455,13 +4246,7 @@ function adjustEditTime(unit, delta)   { _doAdjust('etp', unit, delta); }
 // ===================================================
 // HELPERS
 // ===================================================
-function previewAlarm() {
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('alarmSub').textContent = `Test — ${timeStr}`;
-  document.getElementById('alarmToast').classList.add('show');
-  startAlarmSound();
-}
+
 function parseDate(s) { if(!s) return new Date(0); const[d,m,y]=s.split('/').map(Number); return new Date(y,m-1,d); }
 function formatDate(d) { return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
 function inrClass(v,min,max) { if(!min||!max) return ''; if(v>=min&&v<=max) return 'inr-good'; if(v<min*.85||v>max*1.15) return 'inr-bad'; return 'inr-warn'; }
@@ -4565,9 +4350,7 @@ function initFirebase() {
       renderTerapiaTab();
       fbAutoSync();
     }
-    if(msg.type === 'SNOOZE_ALARM' && msg.date) {
-      snoozeAlarm(msg.minutes || 15);
-    }
+
   });
 }
 
@@ -5024,12 +4807,8 @@ function fbListenMessages() {
     console.log('[FB] Message received:', payload);
     const data = payload.data || {};
     if(data.type === 'DOSE_ALARM') {
-      // Show in-app alarm toast
-      currentAlarmDate = data.date;
-      document.getElementById('alarmSub').textContent =
-        `${data.date} — orario programmato: ${data.time}`;
-      document.getElementById('alarmToast').classList.add('show');
-      startAlarmSound();
+      // Native alarm handles this on Android — nothing to do on web
+      console.log('[TAO] FCM DOSE_ALARM received (native handles it):', data.date);
     }
   });
 }
@@ -5525,15 +5304,22 @@ async function generatePDFReport() {
   if(window.isCapacitor) {
     try {
       const { Filesystem, Share } = window.Capacitor.Plugins;
-      if(!Filesystem) throw new Error('Filesystem plugin non disponibile');
       msgEl.textContent = '⏳ Preparazione file…';
       await new Promise(r => setTimeout(r, 100));
       const base64 = doc.output('datauristring').split(',')[1];
       if(!base64) throw new Error('PDF base64 vuoto');
-      await Filesystem.writeFile({ path: fname, data: base64, directory: 'TEMPORARY', recursive: true });
-      const fileResult = await Filesystem.getUri({ path: fname, directory: 'TEMPORARY' });
-      if(!fileResult?.uri) throw new Error('URI file non ottenuto');
-      await Share.share({ title: 'TAO Monitor — Report INR', url: fileResult.uri, dialogTitle: 'Salva o condividi il report PDF' });
+
+      if(Filesystem && Share) {
+        await Filesystem.writeFile({ path: fname, data: base64, directory: 'TEMPORARY', recursive: true });
+        const fileResult = await Filesystem.getUri({ path: fname, directory: 'TEMPORARY' });
+        await Share.share({ title: 'TAO Monitor — Report INR', url: fileResult?.uri, dialogTitle: 'Salva o condividi il report PDF' });
+      } else if(Share) {
+        await Share.share({ title: 'TAO Monitor — Report INR', text: `Report INR generato il ${formatDate(new Date())}`, dialogTitle: 'Condividi report' });
+      } else {
+        const a = document.createElement('a');
+        a.href = 'data:application/pdf;base64,' + base64;
+        a.download = fname; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      }
       msgEl.style.color = 'var(--accent2)';
       msgEl.textContent = `✅ Report pronto: ${fname}`;
       return;
@@ -5554,11 +5340,13 @@ async function generatePDFReport() {
 // REPORT MEDICO
 // ===================================================
 async function generateMedicoReport(mode = 'download') {
+  const msgEl = document.getElementById('medicoReportMsg');
+  try {
   const { jsPDF } = window.jspdf;
   if(!jsPDF) { alert('jsPDF non disponibile'); return; }
 
-  const msgEl = document.getElementById('medicoReportMsg');
   if(msgEl) { msgEl.style.color = 'var(--muted)'; msgEl.textContent = '⏳ Generazione in corso…'; }
+  await new Promise(r => setTimeout(r, 50)); // let UI update before heavy work
 
   const data      = loadData();
   const diario    = loadDiario();
@@ -5684,7 +5472,7 @@ async function generateMedicoReport(mode = 'download') {
     const chartW = Math.max(800, labs.length * 60);
     // 2-digit year labels
     const labsShort = labs.map(d => { const p=d.split('/'); return `${p[0]}/${p[1]}/${p[2].slice(2)}`; });
-    const DPR = 3; // render at 3x for crisp PDF
+    const DPR = 2; // render at 2x for crisp PDF without OOM risk
     chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#ffffff`;
     chartArea.innerHTML = `<canvas id="pdfChartCanvas" width="${chartW*DPR}" height="${280*DPR}" style="width:${chartW}px;height:280px"></canvas>`;
     const ctx1 = document.getElementById('pdfChartCanvas').getContext('2d');
@@ -5996,51 +5784,46 @@ async function generateMedicoReport(mode = 'download') {
   if(window.isCapacitor) {
     try {
       const { Filesystem, Share } = window.Capacitor.Plugins;
-      if(!Filesystem) throw new Error('Filesystem plugin non disponibile');
-      if(!Share) throw new Error('Share plugin non disponibile');
 
       if(msgEl) msgEl.textContent = '⏳ Preparazione file…';
-      // Give UI thread a moment to update before heavy base64 encoding
       await new Promise(r => setTimeout(r, 100));
 
       const base64 = doc.output('datauristring').split(',')[1];
       if(!base64) throw new Error('PDF base64 vuoto');
 
-      if(msgEl) msgEl.textContent = '⏳ Salvataggio…';
-      await Filesystem.writeFile({
-        path: fname,
-        data: base64,
-        directory: 'TEMPORARY',
-        recursive: true
-      });
-
-      const fileResult = await Filesystem.getUri({ path: fname, directory: 'TEMPORARY' });
-      if(!fileResult?.uri) throw new Error('URI file non ottenuto');
-
-      if(msgEl) msgEl.textContent = '⏳ Apertura condivisione…';
-
       const taoEmail = taoConfig.email || '';
       const subject  = fillTAOVars(taoConfig.oggetto || `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`);
       const body     = fillTAOVars(taoConfig.testo || `Gentile Centro TAO, in allegato il report di ${paz.nome||'paziente'} (CF: ${paz.codiceFiscale||''}). Data: ${formatDate(new Date())}. Ultimo INR: ${lastCtrl?.inr||'—'}. TTR: ${ttrResult.ttr}%.`);
 
-      if(mode === 'share' && taoEmail) {
-        // Step 1: save PDF, Step 2: open mailto precompiled
-        await Share.share({
-          title: subject,
-          url: fileResult.uri,
-          dialogTitle: 'Salva il PDF, poi invialo per mail'
-        });
-        // Open mailto after share dialog closes
-        setTimeout(() => {
-          window.open(`mailto:${taoEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank');
-        }, 1000);
-      } else {
+      if(Filesystem && Share) {
+        // Full flow: save to file then share
+        if(msgEl) msgEl.textContent = '⏳ Salvataggio…';
+        await Filesystem.writeFile({ path: fname, data: base64, directory: 'TEMPORARY', recursive: true });
+        const fileResult = await Filesystem.getUri({ path: fname, directory: 'TEMPORARY' });
+        if(msgEl) msgEl.textContent = '⏳ Apertura condivisione…';
         await Share.share({
           title: mode === 'share' ? subject : 'TAO Monitor — Report Medico',
           text: mode === 'share' ? body : undefined,
-          url: fileResult.uri,
+          url: fileResult?.uri,
           dialogTitle: mode === 'share' ? 'Invia report al centro TAO' : 'Salva o condividi il report PDF'
         });
+        if(mode === 'share' && taoEmail) {
+          setTimeout(() => window.open(`mailto:${taoEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank'), 1500);
+        }
+      } else if(Share) {
+        // Share only — no file URI, just text
+        await Share.share({
+          title: subject,
+          text: body,
+          dialogTitle: 'Condividi report TAO'
+        });
+      } else {
+        // Last resort: data URI download
+        const dataUri = 'data:application/pdf;base64,' + base64;
+        const a = document.createElement('a');
+        a.href = dataUri; a.download = fname;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a);
       }
 
       if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report pronto'; }
@@ -6062,6 +5845,14 @@ async function generateMedicoReport(mode = 'download') {
     doc.save(fname);
   }
   if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report salvato'; }
+
+  } catch(err) {
+    console.error('[TAO] generateMedicoReport error:', err);
+    if(msgEl) {
+      msgEl.style.color = 'var(--danger)';
+      msgEl.textContent = '❌ Errore: ' + (err.message || String(err));
+    }
+  }
 }
 
 // ===================================================
