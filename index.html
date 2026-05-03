@@ -5163,11 +5163,11 @@ async function generatePDFReport() {
         {label:'INR', data:vals2,
           borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.1)',
           pointBackgroundColor:vals2.map(v=>v>=rangeMin&&v<=rangeMax?'#3fb950':v<rangeMin*0.8||v>rangeMax*1.2?'#ff7b72':'#f0883e'),
-          pointRadius:5, borderWidth:2, tension:0.3, fill:false},
+          pointRadius:5*DPR, borderWidth:2*DPR, tension:0.3, fill:false},
         {label:'Min', data:Array(labels2.length).fill(rangeMin),
-          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
+          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5*DPR, fill:false},
         {label:'Max', data:Array(labels2.length).fill(rangeMax),
-          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5,
+          borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5*DPR,
           fill:'-1', backgroundColor:'rgba(63,185,80,0.10)'},
         {label:'Target', data:Array(labels2.length).fill(target),
           borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
@@ -5471,27 +5471,28 @@ async function generateMedicoReport() {
     const chartW = Math.max(800, labs.length * 60);
     // 2-digit year labels
     const labsShort = labs.map(d => { const p=d.split('/'); return `${p[0]}/${p[1]}/${p[2].slice(2)}`; });
-    const DPR = 1; // DPR=1 keeps file size small for email
+    const DPR = 2; // 2x for good quality, JPEG keeps file small
     chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#ffffff`;
     chartArea.innerHTML = `<canvas id="pdfChartCanvas" width="${chartW*DPR}" height="${280*DPR}" style="width:${chartW}px;height:280px"></canvas>`;
     const ctx1 = document.getElementById('pdfChartCanvas').getContext('2d');
     ctx1.scale(DPR, DPR);
-    ctx1.fillStyle = '#ffffff'; ctx1.fillRect(0, 0, chartW, 280);
+    const whiteBgPlugin = { id:'whiteBg', beforeDraw: c => { const ctx=c.ctx; ctx.save(); ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,c.width,c.height); ctx.restore(); }};
     const inrChart = new Chart(ctx1, {
       type:'line',
       data:{labels:labsShort, datasets:[
         {label:'INR', data:vals, borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)',
          pointBackgroundColor:vals.map(v=>v>=rMin&&v<=rMax?'#3fb950':v<rMin*0.8||v>rMax*1.2?'#ff7b72':'#f0883e'),
-         pointRadius:5, borderWidth:2, tension:0.3, fill:false},
-        {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
-        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.10)'},
+         pointRadius:5*DPR, borderWidth:2*DPR, tension:0.3, fill:false},
+        {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5*DPR, fill:false},
+        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5*DPR, fill:'-1', backgroundColor:'rgba(63,185,80,0.10)'},
         {label:'Target', data:Array(labs.length).fill(tgt), borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
       ]},
+      plugins:[whiteBgPlugin],
       options:{animation:false, responsive:false, devicePixelRatio: DPR,
-        plugins:{legend:{labels:{color:'#555555',font:{size:11}}}},
+        plugins:{legend:{labels:{color:'#555555',font:{size:22}}}},
         scales:{
-          x:{ticks:{color:'#555555', maxRotation:45, minRotation:45, autoSkip:false, font:{size:10}}, grid:{color:'rgba(180,180,180,0.6)'}},
-          y:{ticks:{color:'#555555',font:{size:10}}, grid:{color:'rgba(180,180,180,0.6)'}, suggestedMin:Math.min(...vals,rMin)-0.5, suggestedMax:Math.max(...vals,rMax)+0.5}
+          x:{ticks:{color:'#555555', maxRotation:45, minRotation:45, autoSkip:false, font:{size:20}}, grid:{color:'rgba(180,180,180,0.6)'}},
+          y:{ticks:{color:'#555555',font:{size:20}}, grid:{color:'rgba(180,180,180,0.6)'}, suggestedMin:Math.min(...vals,rMin)-0.5, suggestedMax:Math.max(...vals,rMax)+0.5}
         }
       }
     });
@@ -5511,10 +5512,10 @@ async function generateMedicoReport() {
     chartArea.innerHTML = `<canvas id="pdfChartCanvas2" width="${chartW*DPR}" height="${240*DPR}" style="width:${chartW}px;height:240px"></canvas>`;
     const ctx2 = document.getElementById('pdfChartCanvas2').getContext('2d');
     ctx2.scale(DPR, DPR);
-    ctx2.fillStyle = '#ffffff'; ctx2.fillRect(0, 0, chartW, 240);
     // Register datalabels plugin if available
     if(window.ChartDataLabels) Chart.register(window.ChartDataLabels);
     const doseChart = new Chart(ctx2, {
+      plugins:[whiteBgPlugin],
       type:'bar',
       data:{labels:labsShort, datasets:[
         {label:'Dose sett. (mg)', data:doses,
@@ -5522,7 +5523,7 @@ async function generateMedicoReport() {
          datalabels:{
            display: true,
            color: '#000000',
-           font: {size:10, weight:'normal'},
+           font: {size:20, weight:'normal'},
            anchor: 'end',
            align: 'bottom',
            clamp: true,
@@ -5532,12 +5533,12 @@ async function generateMedicoReport() {
       ]},
       options:{animation:false, responsive:false, devicePixelRatio: DPR,
         plugins:{
-          legend:{labels:{color:'#555555',font:{size:11}}},
-          datalabels:{color:'#000000', font:{size:10,weight:'bold'}, anchor:'end', align:'bottom', clamp:true, formatter:v=>v>0?v:''}
+          legend:{labels:{color:'#555555',font:{size:22}}},
+          datalabels:{color:'#000000', font:{size:20,weight:'bold'}, anchor:'end', align:'bottom', clamp:true, formatter:v=>v>0?v:''}
         },
         scales:{
-          x:{ticks:{color:'#555555', maxRotation:45, minRotation:45, autoSkip:false, font:{size:10}}, grid:{color:'rgba(180,180,180,0.6)'}},
-          y:{ticks:{color:'#555555',font:{size:10},stepSize:5}, grid:{color:'rgba(180,180,180,0.6)'}, min:20, max:50}
+          x:{ticks:{color:'#555555', maxRotation:45, minRotation:45, autoSkip:false, font:{size:20}}, grid:{color:'rgba(180,180,180,0.6)'}},
+          y:{ticks:{color:'#555555',font:{size:20},stepSize:5}, grid:{color:'rgba(180,180,180,0.6)'}, min:20, max:50}
         }
       }
     });
