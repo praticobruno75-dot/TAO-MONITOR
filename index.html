@@ -5909,10 +5909,11 @@ async function scheduleNativeAlarm(dateStr, time, force = false) {
     const { AlarmPlugin } = window.Capacitor.Plugins;
     if(!AlarmPlugin) return;
 
+    const [dd,mm,yyyy] = dateStr.split('/');
+    const [hh,min] = time.split(':');
+
     // Check if alarm time is in the future before scheduling (skip if forced)
     if(!force) {
-      const [dd,mm,yyyy] = dateStr.split('/');
-      const [hh,min] = time.split(':');
       const alarmDate = new Date(parseInt(yyyy), parseInt(mm)-1, parseInt(dd), parseInt(hh), parseInt(min), 0);
       if(alarmDate <= new Date()) {
         console.log(`[CAP] Skipping past alarm: ${dateStr} ${time}`);
