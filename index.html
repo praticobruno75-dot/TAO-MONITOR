@@ -1382,6 +1382,12 @@ function applyExtractedData(extracted) {
     therapyDays.every(d => !!(appData.alarms && appData.alarms[d]));
   if(!alreadyScheduled) {
     askDefaultAlarmTime(newT);
+  } else if(window.isCapacitor) {
+    // Plan reload — reschedule native alarms with updated dose values
+    therapyDays.forEach(d => {
+      const t = appData.alarms[d] || appData.defaultAlarmTime || '17:30';
+      scheduleAlarm(d, t);
+    });
   }
 }
 
@@ -4161,8 +4167,10 @@ async function exportDiarioReportPDF() {
 
 function initTimePicker(elementId, timeStr) {
   const parts = (timeStr || '17:30').split(':');
-  let h = parseInt(parts[0]) || 17;
-  let m = parseInt(parts[1]) || 30;
+  let h = parts[0] !== undefined ? parseInt(parts[0]) : 17;
+  let m = parts[1] !== undefined ? parseInt(parts[1]) : 30;
+  if(isNaN(h)) h = 17;
+  if(isNaN(m)) m = 30;
   m = Math.round(m / 5) * 5; // round to nearest 5
   if(m >= 60) { m = 0; h = (h + 1) % 24; }
 
@@ -6046,8 +6054,10 @@ function initBatteryOptUI() {
 
 function initEditTimePicker(timeStr) {
   const parts = (timeStr || '17:30').split(':');
-  let h = parseInt(parts[0]) || 17;
-  let m = parseInt(parts[1]) || 30;
+  let h = parts[0] !== undefined ? parseInt(parts[0]) : 17;
+  let m = parts[1] !== undefined ? parseInt(parts[1]) : 30;
+  if(isNaN(h)) h = 17;
+  if(isNaN(m)) m = 30;
   const hEl = document.getElementById('etpHour');
   const mEl = document.getElementById('etpMin');
   if(hEl) hEl.textContent = String(h).padStart(2,'0');
