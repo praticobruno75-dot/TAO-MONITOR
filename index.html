@@ -5322,18 +5322,16 @@ async function generatePDFReport() {
       setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       msgEl.style.color = 'var(--accent2)';
       msgEl.textContent = `✅ Report pronto: ${fname}`;
-      return;
     } catch(e) {
       console.error('[TAO] PDF Capacitor error:', e);
       msgEl.style.color = 'var(--danger)';
       msgEl.textContent = '❌ Errore: ' + (e.message || e);
-      return;
     }
+  } else {
+    doc.save(fname);
+    msgEl.style.color = 'var(--accent2)';
+    msgEl.textContent = `✅ Report salvato: ${fname}`;
   }
-
-  doc.save(fname);
-  msgEl.style.color = 'var(--accent2)';
-  msgEl.textContent = `✅ Report salvato: ${fname}`;
 }
 
 // ===================================================
@@ -5824,15 +5822,12 @@ async function generateMedicoReport(mode = 'download') {
 
       setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report pronto'; }
-      return;
     } catch(e) {
       console.error('[TAO] PDF Capacitor error:', e);
       if(msgEl) { msgEl.style.color = 'var(--danger)'; msgEl.textContent = '❌ Errore: ' + (e.message || e); }
-      return;
     }
-  }
-
-  // Desktop fallback
+  } else {
+  // Desktop fallback — only reached if NOT Capacitor
   if(mode === 'share' && taoConfig.email) {
     doc.save(fname);
     const subjectEnc = encodeURIComponent(fillTAOVars(taoConfig.oggetto || `Report TAO - ${paz.nome||'paziente'} - ${formatDate(new Date())}`));
@@ -5842,6 +5837,7 @@ async function generateMedicoReport(mode = 'download') {
     doc.save(fname);
   }
   if(msgEl) { msgEl.style.color = 'var(--accent2)'; msgEl.textContent = '✅ Report salvato'; }
+  } // end else (desktop)
 
   } catch(err) {
     console.error('[TAO] generateMedicoReport error:', err);
