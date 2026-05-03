@@ -5039,6 +5039,19 @@ function saveDefaultAlarmTime() {
   showAutoBackupToast('✅ Orario predefinito salvato: ' + time);
 }
 
+function toggleReportPanel() {
+  const content = document.getElementById('reportPanelContent');
+  const btn     = document.querySelector('[onclick="toggleReportPanel()"]');
+  if(!content) return;
+  const isOpen = content.style.display !== 'none';
+  content.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.textContent = isOpen ? '📄 Crea Report PDF' : '✕ Chiudi report';
+}
+
+async function handlePDFReport() {
+  await generatePDFReport();
+}
+
 function setReportRange(months) {
   const data = loadData();
   const controls = data.controls || [];
