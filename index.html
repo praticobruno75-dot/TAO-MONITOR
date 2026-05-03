@@ -5683,7 +5683,7 @@ async function generateMedicoReport() {
     // Plan header
     doc.setFillColor(...CARD);
     doc.roundedRect(margin, y, cw, 10, 2, 2, 'F');
-    doc.setTextColor(isCurrent?GREEN:BLUE);
+    doc.setTextColor(...(isCurrent?GREEN:BLUE));
     doc.setFontSize(9); doc.setFont('helvetica','bold');
     doc.text(planLabel, margin+3, y+4.5);
     doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
@@ -5772,7 +5772,7 @@ async function generateMedicoReport() {
     needSpace(12);
     doc.setFillColor(...CARD);
     doc.roundedRect(margin, y, cw, 8, 2, 2, 'F');
-    doc.setTextColor(isCurrent?GREEN:BLUE);
+    doc.setTextColor(...(isCurrent?GREEN:BLUE));
     doc.setFontSize(9); doc.setFont('helvetica','bold');
     doc.text(planLabel, margin+3, y+5.5);
     y += 12;
