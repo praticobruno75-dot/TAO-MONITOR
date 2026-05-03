@@ -5615,56 +5615,72 @@ async function generateMedicoReport() {
     // Render both charts offscreen
     needSpace(75);
     const chartArea = document.getElementById('pdfPreviewArea');
-    chartArea.style.cssText = 'display:block;position:fixed;left:-9999px;top:0;width:800px;height:260px;background:#0d1117';
-    chartArea.innerHTML = '<canvas id="pdfChartCanvas" width="800" height="260"></canvas>';
+    const chartW = Math.max(800, labs.length * 60);
+    chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:280px;background:#0d1117`;
+    chartArea.innerHTML = `<canvas id="pdfChartCanvas" width="${chartW}" height="280"></canvas>`;
     const ctx1 = document.getElementById('pdfChartCanvas').getContext('2d');
     const inrChart = new Chart(ctx1, {
       type:'line',
       data:{labels:labs, datasets:[
         {label:'INR', data:vals, borderColor:'#58a6ff', backgroundColor:'rgba(88,166,255,0.08)',
          pointBackgroundColor:vals.map(v=>v>=rMin&&v<=rMax?'#3fb950':v<rMin*0.8||v>rMax*1.2?'#ff7b72':'#f0883e'),
-         pointRadius:4, borderWidth:2, tension:0.3, fill:false},
-        {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false},
-        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.07)'},
-        {label:'Target', data:Array(labs.length).fill(tgt), borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false},
+         pointRadius:5, borderWidth:2, tension:0.3, fill:false,
+         datalabels:{display:true, color:'#e6edf3', font:{size:10,weight:'bold'}, anchor:'end', align:'top', formatter:v=>v}},
+        {label:'Min', data:Array(labs.length).fill(rMin), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:false, datalabels:{display:false}},
+        {label:'Max', data:Array(labs.length).fill(rMax), borderColor:'rgba(63,185,80,0.6)', borderDash:[5,4], pointRadius:0, borderWidth:1.5, fill:'-1', backgroundColor:'rgba(63,185,80,0.07)', datalabels:{display:false}},
+        {label:'Target', data:Array(labs.length).fill(tgt), borderColor:'rgba(240,136,62,0.7)', borderDash:[3,3], pointRadius:0, borderWidth:1, fill:false, datalabels:{display:false}},
       ]},
       options:{animation:false, responsive:false,
         plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
-        scales:{x:{ticks:{color:'#7d8590',maxRotation:45,maxTicksLimit:12},grid:{color:'rgba(48,54,61,0.8)'}},
-          y:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,0.8)'},suggestedMin:Math.min(...vals,rMin)-0.5,suggestedMax:Math.max(...vals,rMax)+0.5}}}
+        scales:{
+          x:{ticks:{color:'#7d8590', maxRotation:90, minRotation:90, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
+          y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, suggestedMin:Math.min(...vals,rMin)-0.5, suggestedMax:Math.max(...vals,rMax)+0.5}
+        }
+      }
     });
-    await new Promise(r=>setTimeout(r,300));
+    await new Promise(r=>setTimeout(r,400));
     const inrImg = chartArea.querySelector('canvas').toDataURL('image/png');
     inrChart.destroy();
 
+    const inrChartH = 65;
+    needSpace(inrChartH + 10);
     doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
     doc.text('ANDAMENTO INR', margin+3, y+4);
     y += 6;
-    doc.addImage(inrImg, 'PNG', margin, y, cw, 58); y += 62;
+    doc.addImage(inrImg, 'PNG', margin, y, cw, inrChartH); y += inrChartH + 6;
 
     // Dose chart
-    chartArea.innerHTML = '<canvas id="pdfChartCanvas2" width="800" height="200"></canvas>';
+    chartArea.style.cssText = `display:block;position:fixed;left:-9999px;top:0;width:${chartW}px;height:240px;background:#0d1117`;
+    chartArea.innerHTML = `<canvas id="pdfChartCanvas2" width="${chartW}" height="240"></canvas>`;
     const ctx2 = document.getElementById('pdfChartCanvas2').getContext('2d');
     const doseChart = new Chart(ctx2, {
       type:'bar',
       data:{labels:labs, datasets:[
-        {label:'Dose sett. (mg)', data:doses, backgroundColor:doses.map(()=>'rgba(88,166,255,0.6)'), borderColor:'#58a6ff', borderWidth:1},
+        {label:'Dose sett. (mg)', data:doses,
+         backgroundColor:doses.map(()=>'rgba(88,166,255,0.6)'), borderColor:'#58a6ff', borderWidth:1},
       ]},
       options:{animation:false, responsive:false,
-        plugins:{legend:{labels:{color:'#7d8590',font:{size:10}}}},
-        scales:{x:{ticks:{color:'#7d8590',maxRotation:45,maxTicksLimit:12},grid:{color:'rgba(48,54,61,0.8)'}},
-          y:{ticks:{color:'#7d8590'},grid:{color:'rgba(48,54,61,0.8)'},beginAtZero:false}}}
+        plugins:{
+          legend:{labels:{color:'#7d8590',font:{size:10}}},
+          datalabels:{display:true, color:'#e6edf3', font:{size:9,weight:'bold'}, anchor:'end', align:'top', formatter:v=>v||''}
+        },
+        scales:{
+          x:{ticks:{color:'#7d8590', maxRotation:90, minRotation:90, autoSkip:false, font:{size:9}}, grid:{color:'rgba(48,54,61,0.8)'}},
+          y:{ticks:{color:'#7d8590'}, grid:{color:'rgba(48,54,61,0.8)'}, beginAtZero:false}
+        }
+      }
     });
-    await new Promise(r=>setTimeout(r,300));
+    await new Promise(r=>setTimeout(r,400));
     const doseImg = chartArea.querySelector('canvas').toDataURL('image/png');
     doseChart.destroy();
     chartArea.style.display='none'; chartArea.innerHTML='';
 
-    needSpace(52);
+    const doseChartH = 52;
+    needSpace(doseChartH + 10);
     doc.setTextColor(...MUTED); doc.setFontSize(7); doc.setFont('helvetica','normal');
     doc.text('DOSAGGIO SETTIMANALE (mg)', margin+3, y+4);
     y += 6;
-    doc.addImage(doseImg, 'PNG', margin, y, cw, 44); y += 50;
+    doc.addImage(doseImg, 'PNG', margin, y, cw, doseChartH); y += doseChartH + 6;
   }
 
   // ---- SECTION 2: ASSUNZIONI PER PIANO ----
@@ -5819,23 +5835,30 @@ async function generateMedicoReport() {
       }
 
       const cats = [
-        {label:'🔴 Da evitare', items:groupByName(w.rossi), col:RED},
-        {label:'🟡 Da moderare', items:groupByName(w.gialli), col:ORANGE},
-        {label:'💊 Integratori', items:w.integratori.map(e=>({nome:`${e.nome}${e.dose?' '+e.dose:''}`,count:1})), col:BLUE},
-        {label:'💉 Farmaci', items:w.farmaci.map(e=>({nome:`${e.nome}${e.dose?' '+e.dose:''}`,count:1})), col:GREEN},
+        {label:'Alimenti da evitare', items:groupByName(w.rossi), col:RED},
+        {label:'Alimenti da moderare', items:groupByName(w.gialli), col:ORANGE},
+        {label:'Integratori', items:w.integratori.map(e=>({nome:`${e.nome}${e.dose?' '+e.dose:''}`,count:1})), col:BLUE},
+        {label:'Farmaci', items:w.farmaci.map(e=>({nome:`${e.nome}${e.dose?' '+e.dose:''}`,count:1})), col:GREEN},
       ];
       cats.forEach(cat => {
         if(!cat.items.length) return;
-        needSpace(6);
-        doc.setTextColor(...cat.col); doc.setFontSize(7); doc.setFont('helvetica','bold');
-        doc.text(cat.label, margin+4, y); y += 4;
+        needSpace(12);
+        // Category header with "Porzioni (n.)" column title
+        doc.setFillColor(35,42,55);
+        doc.rect(margin, y, cw, 5.5, 'F');
+        doc.setTextColor(...cat.col); doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+        doc.text(cat.label, margin+4, y+4);
+        doc.setTextColor(...MUTED); doc.setFontSize(6.5);
+        doc.text('Porzioni (n.)', pw-margin-3, y+4, {align:'right'});
+        y += 7;
         cat.items.forEach(item => {
           needSpace(5);
-          doc.setTextColor(210,210,210); doc.setFontSize(7); doc.setFont('helvetica','normal');
+          doc.setTextColor(190,195,200); doc.setFontSize(7); doc.setFont('helvetica','normal');
           const name = doc.splitTextToSize(item.nome, cw-20)[0];
           doc.text(name, margin+6, y);
-          doc.setTextColor(...cat.col);
-          doc.text(item.count>1?`×${item.count}`:'', pw-margin-3, y, {align:'right'});
+          doc.setTextColor(...cat.col); doc.setFont('helvetica','bold');
+          doc.text(item.count > 0 ? String(item.count) : '', pw-margin-3, y, {align:'right'});
+          doc.setFont('helvetica','normal');
           doc.setDrawColor(...BORDER); doc.setLineWidth(0.15);
           doc.line(margin+5, y+1, pw-margin-3, y+1);
           y += 5;
