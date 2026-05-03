@@ -5310,8 +5310,8 @@ async function generatePDFReport() {
       if(!base64) throw new Error('PDF base64 vuoto');
 
       if(Filesystem && Share) {
-        await Filesystem.writeFile({ path: fname, data: base64, directory: 'TEMPORARY', recursive: true });
-        const fileResult = await Filesystem.getUri({ path: fname, directory: 'TEMPORARY' });
+        await Filesystem.writeFile({ path: fname, data: base64, directory: 'CACHE', recursive: true });
+        const fileResult = await Filesystem.getUri({ path: fname, directory: 'CACHE' });
         await Share.share({ title: 'TAO Monitor — Report INR', url: fileResult?.uri, dialogTitle: 'Salva o condividi il report PDF' });
       } else if(Share) {
         await Share.share({ title: 'TAO Monitor — Report INR', text: `Report INR generato il ${formatDate(new Date())}`, dialogTitle: 'Condividi report' });
@@ -5798,8 +5798,8 @@ async function generateMedicoReport(mode = 'download') {
       if(Filesystem && Share) {
         // Full flow: save to file then share
         if(msgEl) msgEl.textContent = '⏳ Salvataggio…';
-        await Filesystem.writeFile({ path: fname, data: base64, directory: 'TEMPORARY', recursive: true });
-        const fileResult = await Filesystem.getUri({ path: fname, directory: 'TEMPORARY' });
+        await Filesystem.writeFile({ path: fname, data: base64, directory: 'CACHE', recursive: true });
+        const fileResult = await Filesystem.getUri({ path: fname, directory: 'CACHE' });
         if(msgEl) msgEl.textContent = '⏳ Apertura condivisione…';
         await Share.share({
           title: mode === 'share' ? subject : 'TAO Monitor — Report Medico',
