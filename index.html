@@ -5922,14 +5922,15 @@ async function scheduleNativeAlarm(dateStr, time, force = false) {
 
     const alarmId = parseInt(`${yyyy}${mm}${dd}`);
     const therapies = getAllTherapies();
-    // Find the therapy that contains this date, not currentTherapyIdx
+    // Find the therapy that contains this date using timestamps for reliable comparison
+    const dNum = parseDate(dateStr).getTime();
     const t = therapies.find(th => {
-      const from = parseDate(th.dataInizio);
-      const to   = parseDate(th.dataFine);
-      const d    = parseDate(dateStr);
-      return d >= from && d <= to;
+      const from = parseDate(th.dataInizio).getTime();
+      const to   = parseDate(th.dataFine).getTime();
+      return dNum >= from && dNum <= to;
     }) || therapies[therapies.length - 1];
     const dose = t ? getDayDoseFromTherapy(t, dateStr) : 1;
+    console.log(`[CAP] Scheduling: ${dateStr} ${time} dose=${dose} therapy=${t?.dataInizio}-${t?.dataFine}`);
 
     await AlarmPlugin.scheduleAlarm({
       date: dateStr,
@@ -5937,7 +5938,7 @@ async function scheduleNativeAlarm(dateStr, time, force = false) {
       alarmId: alarmId,
       dose: String(dose ?? 0)
     });
-    console.log(`[CAP] Alarm scheduled: ${dateStr} ${time}`);
+    console.log(`[CAP] Alarm scheduled OK: ${dateStr} ${time}`);
   } catch(e) {
     console.warn('[CAP] Native alarm error:', e.message || e);
     // Don't fallback to setTimeout in Capacitor — just log
