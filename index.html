@@ -868,16 +868,16 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
         <div style="display:flex;align-items:center;gap:8px">
           <div id="dtpHour" style="font-family:'DM Mono',monospace;font-size:40px;font-weight:700;color:var(--accent);width:54px;text-align:center">00</div>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <div ontouchstart="event.preventDefault();_doAdjust('dtp','h',1)" onmousedown="if(!event.touches)_doAdjust('dtp','h',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▲</div>
-            <div ontouchstart="event.preventDefault();_doAdjust('dtp','h',-1)" onmousedown="if(!event.touches)_doAdjust('dtp','h',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▼</div>
+            <div ontouchstart="event.preventDefault();_startAdjust('dtp','h',1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('dtp','h',1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▲</div>
+            <div ontouchstart="event.preventDefault();_startAdjust('dtp','h',-1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('dtp','h',-1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▼</div>
           </div>
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:32px;font-weight:700;color:var(--muted)">:</div>
         <div style="display:flex;align-items:center;gap:8px">
           <div id="dtpMin" style="font-family:'DM Mono',monospace;font-size:40px;font-weight:700;color:var(--accent);width:54px;text-align:center">00</div>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <div ontouchstart="event.preventDefault();_doAdjust('dtp','m',1)" onmousedown="if(!event.touches)_doAdjust('dtp','m',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▲</div>
-            <div ontouchstart="event.preventDefault();_doAdjust('dtp','m',-1)" onmousedown="if(!event.touches)_doAdjust('dtp','m',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▼</div>
+            <div ontouchstart="event.preventDefault();_startAdjust('dtp','m',1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('dtp','m',1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▲</div>
+            <div ontouchstart="event.preventDefault();_startAdjust('dtp','m',-1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('dtp','m',-1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(88,166,255,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#58a6ff;user-select:none">▼</div>
           </div>
         </div>
       </div>
@@ -897,16 +897,16 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
           <div style="display:flex;align-items:center;gap:8px">
             <div id="etpHour" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent2);width:50px;text-align:center">00</div>
             <div style="display:flex;flex-direction:column;gap:8px">
-              <div ontouchstart="event.preventDefault();_doAdjust('etp','h',1)" onmousedown="if(!event.touches)_doAdjust('etp','h',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▲</div>
-              <div ontouchstart="event.preventDefault();_doAdjust('etp','h',-1)" onmousedown="if(!event.touches)_doAdjust('etp','h',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▼</div>
+              <div ontouchstart="event.preventDefault();_startAdjust('etp','h',1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('etp','h',1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▲</div>
+              <div ontouchstart="event.preventDefault();_startAdjust('etp','h',-1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('etp','h',-1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▼</div>
             </div>
           </div>
           <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;color:var(--muted)">:</div>
           <div style="display:flex;align-items:center;gap:8px">
             <div id="etpMin" style="font-family:'DM Mono',monospace;font-size:36px;font-weight:700;color:var(--accent2);width:50px;text-align:center">00</div>
             <div style="display:flex;flex-direction:column;gap:8px">
-              <div ontouchstart="event.preventDefault();_doAdjust('etp','m',1)" onmousedown="if(!event.touches)_doAdjust('etp','m',1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▲</div>
-              <div ontouchstart="event.preventDefault();_doAdjust('etp','m',-1)" onmousedown="if(!event.touches)_doAdjust('etp','m',-1)" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▼</div>
+              <div ontouchstart="event.preventDefault();_startAdjust('etp','m',1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('etp','m',1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▲</div>
+              <div ontouchstart="event.preventDefault();_startAdjust('etp','m',-1)" ontouchend="_stopAdjust()" onmousedown="if(!event.touches)_startAdjust('etp','m',-1)" onmouseup="_stopAdjust()" onmouseleave="_stopAdjust()" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;background:rgba(255,255,255,0.06);border:1px solid rgba(63,185,80,0.3);border-radius:8px;font-size:14px;cursor:pointer;color:#3fb950;user-select:none">▼</div>
             </div>
           </div>
         </div>
@@ -4278,8 +4278,23 @@ function _doAdjust(prefix, part, delta) {
   hEl.textContent = String(h).padStart(2,'0');
   mEl.textContent = String(m).padStart(2,'0');
 
-  // Update hidden input
   if(prefix === 'dtp') updateHiddenTime('dayDetailTime', 'dtp');
+  if(prefix === 'etp') updateHiddenTime('takenTimeHidden', 'etp');
+}
+
+let _adjTimer = null;
+let _adjInterval = null;
+
+function _startAdjust(prefix, part, delta) {
+  _doAdjust(prefix, part, delta); // immediate first step
+  _adjTimer = setTimeout(() => {
+    _adjInterval = setInterval(() => _doAdjust(prefix, part, delta), 120);
+  }, 400);
+}
+
+function _stopAdjust() {
+  if(_adjTimer)    { clearTimeout(_adjTimer);   _adjTimer = null; }
+  if(_adjInterval) { clearInterval(_adjInterval); _adjInterval = null; }
 }
 
 function adjustDetailTime(part, delta) { _doAdjust('dtp', part, delta); }
