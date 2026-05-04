@@ -4535,6 +4535,7 @@ function fbStartRealtimeSync() {
       // Restore prescrizioni
       if(remoteData.tao_prescrizioni) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(remoteData.tao_prescrizioni)); delete merged.tao_prescrizioni; }
       if(remoteData.tao_prescrizioni_medico) { localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(remoteData.tao_prescrizioni_medico)); delete merged.tao_prescrizioni_medico; }
+      if(remoteData.tao_tao_config) { localStorage.setItem(TAO_CONFIG_KEY, JSON.stringify(remoteData.tao_tao_config)); delete merged.tao_tao_config; }
       saveData(merged);
       appData = merged;
       calInitialized = false;
@@ -4649,6 +4650,7 @@ async function fbSyncNow(silent=false) {
         if(remoteData.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(remoteData.tao_medico)); delete merged.tao_medico; }
         if(remoteData.tao_prescrizioni) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(remoteData.tao_prescrizioni)); delete merged.tao_prescrizioni; }
         if(remoteData.tao_prescrizioni_medico) { localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(remoteData.tao_prescrizioni_medico)); delete merged.tao_prescrizioni_medico; }
+        if(remoteData.tao_tao_config) { localStorage.setItem(TAO_CONFIG_KEY, JSON.stringify(remoteData.tao_tao_config)); delete merged.tao_tao_config; }
         saveData(merged);
         appData = merged;
         calInitialized = false;
@@ -4682,12 +4684,14 @@ async function fbUploadData(data) {
   const medico = loadMedico();
   const prescrizioni = loadPrescrizioni();
   const prescrizioniMedico = loadPrescrizioniMedico();
+  const taoConfig = loadTAOConfig();
   const dataWithExtras = Object.assign({}, data, {
     tao_diario: diario,
     tao_scorta: scorta,
     tao_medico: medico,
     tao_prescrizioni: prescrizioni,
-    tao_prescrizioni_medico: prescrizioniMedico
+    tao_prescrizioni_medico: prescrizioniMedico,
+    tao_tao_config: taoConfig
   });
   const docRef = doc(_fbDb, 'users', _fbUser.uid, 'data', 'tao');
   await setDoc(docRef, dataWithExtras);
@@ -4713,6 +4717,7 @@ async function fbForceDownload() {
   if(data.tao_medico) { localStorage.setItem(MEDICO_KEY, JSON.stringify(data.tao_medico)); delete data.tao_medico; }
   if(data.tao_prescrizioni) { localStorage.setItem(PRESCRIZIONI_KEY, JSON.stringify(data.tao_prescrizioni)); delete data.tao_prescrizioni; }
   if(data.tao_prescrizioni_medico) { localStorage.setItem(PRESCRIZIONI_MEDICO_KEY, JSON.stringify(data.tao_prescrizioni_medico)); delete data.tao_prescrizioni_medico; }
+  if(data.tao_tao_config) { localStorage.setItem(TAO_CONFIG_KEY, JSON.stringify(data.tao_tao_config)); delete data.tao_tao_config; }
   saveData(data);
   appData = data;
   calInitialized = false;
