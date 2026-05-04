@@ -505,352 +505,356 @@ body.splash-active header, body.splash-active nav, body.splash-active main {
   <!-- STRUMENTI TAB -->
   <div class="tab-panel" id="tab-strumenti">
 
-    <!-- BACKUP -->
-    <!-- BATTERY OPTIMIZATION SECTION -->
-    <div class="section-title">🔋 Ottimizzazione batteria</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.7">
-        Per garantire che gli allarmi suonino sempre — anche a schermo spento — 
-        è necessario disabilitare l'ottimizzazione batteria per TAO Monitor.<br>
-        <span style="color:var(--warn)">⚠️ Senza questa impostazione l'allarme potrebbe non suonare.</span>
-      </div>
-      <div id="batteryOptStatus" style="font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:12px;display:none"></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button onclick="openBatterySettings()" class="btn-primary" style="flex:1" id="batteryOptBtn">
-          🔋 Disabilita ottimizzazione batteria
-        </button>
-        <button onclick="checkBatteryOptimization()" class="btn-secondary" style="flex:1">
-          🔍 Verifica stato
-        </button>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
-        Su <b>Xiaomi/MIUI</b>: Impostazioni → App → TAO Monitor → Risparmio energetico → Nessuna restrizione<br>
-        Su <b>Huawei</b>: Impostazioni → Batteria → Avvio app → TAO Monitor → Gestione manuale<br>
-        Su <b>Samsung</b>: Impostazioni → Batteria → Ottimizzazione batteria → TAO Monitor → Non ottimizzare
-      </div>
-    </div>
+<style>
+.accordion-btn {
+  width:100%; display:flex; align-items:center; justify-content:space-between;
+  padding:16px 18px; margin-bottom:2px;
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:12px; cursor:pointer; user-select:none;
+  font-size:16px; font-weight:600; color:var(--text);
+  transition:background .15s;
+}
+.accordion-btn:active { background:var(--bg); }
+.accordion-btn .acc-arrow { font-size:12px; color:var(--muted); transition:transform .2s; }
+.accordion-btn.open .acc-arrow { transform:rotate(180deg); }
+.accordion-body { display:none; padding:4px 0 8px; }
+.accordion-body.open { display:block; }
+</style>
 
-    <!-- RINGTONE SECTION -->
-    <!-- ALLARME CONTROLLO INR -->
-    <div class="section-title">🩸 Allarme controllo INR</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Imposta un allarme che suona il giorno del controllo INR per ricordarti di andare.
-      </div>
-      <div class="modal-label" style="margin-bottom:8px">Orario allarme controllo</div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="time" id="controlloAlarmTime" class="modal-input" value="08:00" style="flex:1">
-        <button onclick="saveControlloAlarmTime()" class="btn-primary" style="padding:10px 16px">💾 Salva</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted)">L'allarme suonerà solo il giorno del prossimo controllo INR.</div>
-    </div>
+    <!-- ═══════════════════════════════ -->
+    <!-- SEZIONE 1: IMPOSTAZIONI TECNICHE -->
+    <!-- ═══════════════════════════════ -->
+    <button class="accordion-btn" onclick="toggleAccordion('acc-tecnico')">
+      <span>⚙️ Impostazioni tecniche</span>
+      <span class="acc-arrow">▼</span>
+    </button>
+    <div class="accordion-body" id="acc-tecnico">
 
-    <div class="section-title">🔔 Suoneria allarme</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Scegli la suoneria che verrà usata quando scatta l'allarme farmaco.
-        <span id="ringtoneCapacitorOnly" style="display:none;color:var(--warn)">
-          Disponibile solo nell'app Android.
-        </span>
-      </div>
-      <div id="currentRingtoneLabel" style="font-size:13px;color:var(--accent2);margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">
-        🎵 Suoneria sveglia predefinita
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button onclick="pickRingtone()" id="pickRingtoneBtn" class="btn-primary" style="flex:1">
-          🔔 Scegli suoneria
-        </button>
-        <button onclick="resetRingtone()" class="btn-secondary" style="flex:1">
-          ↩ Predefinita
-        </button>
-      </div>
-    </div>
-
-    <!-- SCORTA FARMACO -->
-    <div class="section-title">💊 Scorta farmaco</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Inserisci la scorta attuale di <strong>COUMADIN</strong>. L'app calcolerà automaticamente
-        quando richiedere la ricetta al medico.
-      </div>
-
-      <!-- Scorta display -->
-      <div id="scortaDisplay" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:12px">
-        <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:2px">COMPRESSE DISPONIBILI</div>
-          <div id="scortaCount" style="font-size:28px;font-weight:700;color:var(--accent2)">—</div>
-          <div id="scortaGiorni" style="font-size:11px;color:var(--muted)"></div>
+      <div class="section-title">🔋 Ottimizzazione batteria</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+          Per garantire che gli allarmi suonino sempre — anche a schermo spento — 
+          è necessario disabilitare l'ottimizzazione batteria per TAO Monitor.<br>
+          <span style="color:var(--warn)">⚠️ Senza questa impostazione l'allarme potrebbe non suonare.</span>
         </div>
-        <div id="scortaWarning" style="display:none;font-size:13px;color:var(--warn);text-align:right;max-width:160px;line-height:1.5"></div>
-      </div>
-
-      <!-- Input nuova scorta -->
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <input type="number" id="scortaInput" class="modal-input" placeholder="N. compresse" min="0" step="0.25" style="flex:1">
-        <button onclick="setScorta()" class="btn-primary" style="padding:10px 16px">Imposta</button>
-      </div>
-      <!-- Richiesta inviata badge -->
-      <div id="richiestaInviataBadge" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--accent2);font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        <span>📧</span>
-        <span id="richiestaInviataText">Richiesta inviata</span>
-      </div>
-
-      <button onclick="addConfezione()" class="btn-secondary" style="width:100%;margin-bottom:8px">
-        📦 Ho ricevuto nuove confezioni
-      </button>
-
-      <!-- Email medico -->
-      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-        <div class="modal-label" style="margin-bottom:6px">Email medico di base</div>
-        <input type="email" id="medicoEmail" class="modal-input" placeholder="dott@esempio.it" style="width:100%;margin-bottom:10px">
-
-        <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
-        <input type="text" id="medicoOggetto" class="modal-input"
-          placeholder="es. Richiesta ricetta Coumadin" style="width:100%;margin-bottom:10px">
-
-        <div class="modal-label" style="margin-bottom:4px">Testo email</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
-          Puoi usare: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
-          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
-          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{farmaco}</code>
-          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{giorni}</code>
-        </div>
-        <textarea id="medicoTesto" class="modal-input"
-          placeholder="es. Gentile Dottoressa, sono {nome} (CF: {cf}). Richiedo la prescrizione di {farmaco}. Scorta rimanente: {giorni} giorni. Grazie."
-          style="width:100%;height:100px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
-
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button onclick="saveMedicoConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
-          <button onclick="inviaRichiestaMedico()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PRESCRIZIONI CONTROLLO INR -->
-    <div class="section-title">🩸 Prescrizioni controllo INR</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Tieni traccia delle prescrizioni per i controlli al centro TAO. Il contatore scala automaticamente ad ogni nuovo PDF caricato.
-      </div>
-
-      <div id="prescrizioniDisplay" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:12px">
-        <div>
-          <div style="font-size:11px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Prescrizioni disponibili</div>
-          <div id="prescrizioniCount" style="font-size:28px;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace">—</div>
-          <div id="prescrizioniNote" style="font-size:11px;color:var(--muted)"></div>
-        </div>
-        <div id="prescrizioniWarning" style="display:none;font-size:13px;color:var(--danger);text-align:right;max-width:160px;line-height:1.5"></div>
-      </div>
-
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <input type="number" id="prescrizioniInput" class="modal-input" placeholder="N. prescrizioni rimanenti" min="1" step="1" style="flex:1">
-        <button onclick="setPrescrizioniControllo()" class="btn-primary" style="padding:10px 16px">Imposta</button>
-      </div>
-
-      <div id="richiestaPrescrBadge" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--accent2);font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        <span>📧</span><span id="richiestaPrescrText">Richiesta inviata</span>
-      </div>
-
-      <button onclick="addPrescrizioniControllo()" class="btn-secondary" style="width:100%;margin-bottom:8px">
-        📋 Ho ricevuto nuove prescrizioni
-      </button>
-
-      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
-        <div class="modal-label" style="margin-bottom:6px">Email medico di base</div>
-        <input type="email" id="prescrizioniEmail" class="modal-input" placeholder="dott@esempio.it" style="width:100%;margin-bottom:10px">
-
-        <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
-        <input type="text" id="prescrizioniOggetto" class="modal-input"
-          placeholder="es. Richiesta prescrizione controlli INR" style="width:100%;margin-bottom:10px">
-
-        <div class="modal-label" style="margin-bottom:4px">Testo email</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
-          Puoi usare: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
-          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
-          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{controlli}</code>
-          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{prossimo}</code>
-        </div>
-        <textarea id="prescrizioniTesto" class="modal-input"
-          placeholder="es. Gentile Dottoressa, sono {nome} (CF: {cf}). Richiedo la prescrizione per i controlli INR al centro TAO. Prescrizioni rimanenti: {controlli}. Prossimo controllo previsto: {prossimo}. Grazie."
-          style="width:100%;height:100px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
-
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button onclick="savePrescrizioniConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
-          <button onclick="inviaRichiestaPrescrizioni()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- EMAIL CENTRO TAO -->
-    <div class="section-title">📋 Invio report al centro TAO</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Configura i dati per condividere il report direttamente al tuo centro TAO.
-      </div>
-
-      <div class="modal-label" style="margin-bottom:6px">Email centro TAO</div>
-      <input type="email" id="taoEmail" class="modal-input" placeholder="tao@asl.it" style="width:100%;margin-bottom:10px">
-
-      <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
-      <input type="text" id="taoOggetto" class="modal-input"
-        placeholder="es. Report TAO - {nome} - {data}" style="width:100%;margin-bottom:10px">
-
-      <div class="modal-label" style="margin-bottom:4px">Testo email</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
-        Variabili: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
-        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
-        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{data}</code>
-        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{ultimoINR}</code>
-        <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{ttr}</code>
-      </div>
-      <textarea id="taoTesto" class="modal-input"
-        placeholder="Gentile Centro TAO, in allegato il report della terapia anticoagulante di {nome} (CF: {cf}). Data: {data}. Ultimo INR: {ultimoINR}. TTR Rosendaal: {ttr}%."
-        style="width:100%;height:90px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
-
-      <button onclick="saveTAOConfig()" class="btn-primary" style="width:100%">💾 Salva configurazione</button>
-    </div>
-
-    <!-- ORARIO DEFAULT ALLARME -->
-    <div class="section-title">⏰ Orario predefinito farmaco</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Orario usato come base per tutti i nuovi piani terapeutici. Puoi variarlo giorno per giorno dal tap lungo sul calendario.
-      </div>
-      <div class="modal-label" style="margin-bottom:8px">Orario predefinito</div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="time" id="defaultAlarmTimeInput" class="modal-input" value="17:30" style="flex:1">
-        <button onclick="saveDefaultAlarmTime()" class="btn-primary" style="padding:10px 16px">💾 Salva</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted)">Modifica l'orario qui per i piani futuri. I giorni già programmati non vengono cambiati.</div>
-    </div>
-
-    <!-- VOLUME SUONERIA -->
-    <div class="section-title">🔊 Volume allarme</div>
-    <div class="card" style="margin-bottom:20px">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
-        Regola il volume della suoneria dell'allarme farmaco.
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-        <span style="font-size:16px">🔈</span>
-        <input type="range" id="alarmVolumeSlider" min="0" max="100" value="80"
-          oninput="onAlarmVolumeChange(this.value)"
-          style="flex:1;accent-color:var(--accent)">
-        <span style="font-size:16px">🔊</span>
-        <span id="alarmVolumeLabel" style="font-size:14px;font-weight:600;color:var(--accent2);min-width:36px">80%</span>
-      </div>
-      <button onclick="testAlarmVolume()" class="btn-secondary" style="width:100%;margin-top:4px">
-        🔔 Testa volume
-      </button>
-    </div>
-
-    <div class="section-title">💾 Backup dati</div>
-    <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:32px">
-      <div class="card">
-        <div class="card-label" style="margin-bottom:10px">Backup automatico</div>
-        <div style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">
-          Scegli una cartella sul dispositivo. Il backup verrà salvato automaticamente dopo ogni caricamento PDF e dopo ogni conferma assunzione.
-        </div>
-        <button onclick="pickBackupFolder()" class="btn-primary" style="width:100%;margin-bottom:10px">📁 Scegli cartella backup</button>
-        <div id="backupFolderStatus" style="font-size:12px;display:none;line-height:1.5;padding:8px;background:var(--bg);border-radius:8px"></div>
-        <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
-        <div style="color:var(--muted);font-size:12px;margin-bottom:10px">Oppure scarica manualmente:</div>
-        <button onclick="exportBackup()" class="btn-secondary" style="width:100%">⬇ Scarica backup JSON</button>
-      </div>
-      <div class="card">
-        <div class="card-label" style="margin-bottom:10px">Importa backup</div>
-        <div style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">
-          Ripristina i dati da un file JSON precedentemente esportato. <strong style="color:var(--warn)">Attenzione: sovrascrive i dati attuali.</strong>
-        </div>
-        <label style="display:block;width:100%">
-          <input type="file" accept=".json" id="importBackupInput" onchange="importBackup(event)" style="display:none">
-          <span class="btn-primary" style="display:block;text-align:center;cursor:pointer;padding:10px;border-radius:8px;font-weight:600;font-size:14px">⬆ Carica backup JSON</span>
-        </label>
-        <div id="importBackupMsg" style="margin-top:10px;font-size:12px;display:none"></div>
-      </div>
-    </div>
-
-    <!-- FIREBASE SYNC -->
-    <div class="section-title">☁️ Sincronizzazione & Notifiche</div>
-
-    <!-- LOGIN CARD -->
-    <div class="card" style="margin-bottom:20px" id="fbAuthCard">
-      <div id="fbLoggedOut">
-        <div style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">
-          Accedi per sincronizzare i dati tra smartphone e desktop e ricevere 
-          notifiche anche a schermo spento.
-        </div>
-        <!-- CONFIG (collapsible) -->
-        <details style="margin-bottom:14px">
-          <summary style="font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:8px">
-            ⚙️ Configurazione Firebase (solo al primo avvio)
-          </summary>
-          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
-            <div class="modal-row">
-              <div class="modal-label">Firebase Config (JSON)</div>
-              <textarea id="fbConfigInput" class="modal-input" rows="4"
-                placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","messagingSenderId":"...","appId":"..."}'
-                style="font-size:11px;resize:vertical"></textarea>
-            </div>
-            <div class="modal-row">
-              <div class="modal-label">VAPID Key (per notifiche push)</div>
-              <input type="text" id="fbVapidInput" class="modal-input" placeholder="BxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxA">
-            </div>
-            <button onclick="saveFirebaseConfig()" class="btn-primary" style="width:100%">💾 Salva configurazione</button>
-            <div id="fbConfigStatus" style="font-size:12px;display:none"></div>
-          </div>
-        </details>
-
-        <!-- LOGIN FORM -->
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div class="modal-row">
-            <div class="modal-label">Email</div>
-            <input type="email" id="fbEmail" class="modal-input" placeholder="email@esempio.it">
-          </div>
-          <div class="modal-row">
-            <div class="modal-label">Password</div>
-            <input type="password" id="fbPassword" class="modal-input" placeholder="••••••••">
-          </div>
-          <div style="display:flex;gap:10px">
-            <button onclick="fbSignIn()" class="btn-primary" style="flex:1">🔑 Accedi</button>
-            <button onclick="fbRegister()" class="btn-secondary" style="flex:1">📝 Registrati</button>
-          </div>
-          <div id="fbAuthError" style="font-size:12px;color:var(--danger);display:none"></div>
-        </div>
-      </div>
-
-      <div id="fbLoggedIn" style="display:none">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-          <div style="width:40px;height:40px;background:rgba(63,185,80,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px">☁️</div>
-          <div>
-            <div style="font-weight:600;color:var(--accent2)">Connesso</div>
-            <div id="fbUserEmail" style="font-size:12px;color:var(--muted)"></div>
-          </div>
-          <button onclick="fbSignOut()" class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:12px">Esci</button>
-        </div>
-        <div id="fbSyncStatus" style="font-size:12px;color:var(--muted);padding:10px;background:var(--bg);border-radius:8px;line-height:1.7;margin-bottom:12px"></div>
+        <div id="batteryOptStatus" style="font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:12px;display:none"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button onclick="fbSyncNow()" class="btn-primary" style="flex:1">🔄 Sincronizza ora</button>
-          <button onclick="fbForceUpload()" class="btn-secondary" style="flex:1">⬆ Carica su cloud</button>
-          <button onclick="fbForceDownload()" class="btn-secondary" style="flex:1">⬇ Scarica da cloud</button>
+          <button onclick="openBatterySettings()" class="btn-primary" style="flex:1" id="batteryOptBtn">
+            🔋 Disabilita ottimizzazione batteria
+          </button>
+          <button onclick="checkBatteryOptimization()" class="btn-secondary" style="flex:1">
+            🔍 Verifica stato
+          </button>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6">
+          Su <b>Xiaomi/MIUI</b>: Impostazioni → App → TAO Monitor → Risparmio energetico → Nessuna restrizione<br>
+          Su <b>Huawei</b>: Impostazioni → Batteria → Avvio app → TAO Monitor → Gestione manuale<br>
+          Su <b>Samsung</b>: Impostazioni → Batteria → Ottimizzazione batteria → TAO Monitor → Non ottimizzare
+        </div>
+      </div>
 
-        <!-- NOTIFICHE PUSH -->
-        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
-          <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔔 Notifiche push</div>
-          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
-            Abilita le notifiche per ricevere l'allarme anche a schermo spento.
+      <div class="section-title">💾 Backup dati</div>
+      <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:20px">
+        <div class="card">
+          <div class="card-label" style="margin-bottom:10px">Backup automatico</div>
+          <div style="color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.6">
+            Scegli una cartella sul dispositivo. Il backup verrà salvato automaticamente dopo ogni caricamento PDF e dopo ogni conferma assunzione.
           </div>
-          <div id="fbNotifStatus" style="font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:10px;display:none"></div>
-          <button onclick="fbRequestNotifications()" id="fbNotifBtn" class="btn-primary" style="width:100%">
-            🔔 Abilita notifiche push
+          <button onclick="pickBackupFolder()" class="btn-primary" style="width:100%;margin-bottom:10px">📁 Scegli cartella backup</button>
+          <div id="backupFolderStatus" style="font-size:12px;display:none;line-height:1.5;padding:8px;background:var(--bg);border-radius:8px"></div>
+          <div style="border-top:1px solid var(--border);margin:14px 0 12px"></div>
+          <div style="color:var(--muted);font-size:12px;margin-bottom:10px">Oppure scarica manualmente:</div>
+          <button onclick="exportBackup()" class="btn-secondary" style="width:100%">⬇ Scarica backup JSON</button>
+        </div>
+        <div class="card">
+          <div class="card-label" style="margin-bottom:10px">Importa backup</div>
+          <div style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">
+            Ripristina i dati da un file JSON precedentemente esportato. <strong style="color:var(--warn)">Attenzione: sovrascrive i dati attuali.</strong>
+          </div>
+          <label style="display:block;width:100%">
+            <input type="file" accept=".json" id="importBackupInput" onchange="importBackup(event)" style="display:none">
+            <span class="btn-primary" style="display:block;text-align:center;cursor:pointer;padding:10px;border-radius:8px;font-weight:600;font-size:14px">⬆ Carica backup JSON</span>
+          </label>
+          <div id="importBackupMsg" style="margin-top:10px;font-size:12px;display:none"></div>
+        </div>
+      </div>
+
+      <div class="section-title">☁️ Sincronizzazione & Notifiche</div>
+      <div class="card" style="margin-bottom:20px" id="fbAuthCard">
+        <div id="fbLoggedOut">
+          <div style="color:var(--muted);font-size:13px;margin-bottom:16px;line-height:1.6">
+            Accedi per sincronizzare i dati tra smartphone e desktop e ricevere 
+            notifiche anche a schermo spento.
+          </div>
+          <details style="margin-bottom:14px">
+            <summary style="font-size:12px;color:var(--muted);cursor:pointer;margin-bottom:8px">
+              ⚙️ Configurazione Firebase (solo al primo avvio)
+            </summary>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+              <div class="modal-row">
+                <div class="modal-label">Firebase Config (JSON)</div>
+                <textarea id="fbConfigInput" class="modal-input" rows="4"
+                  placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","messagingSenderId":"...","appId":"..."}'
+                  style="font-size:11px;resize:vertical"></textarea>
+              </div>
+              <div class="modal-row">
+                <div class="modal-label">VAPID Key (per notifiche push)</div>
+                <input type="text" id="fbVapidInput" class="modal-input" placeholder="BxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxA">
+              </div>
+              <button onclick="saveFirebaseConfig()" class="btn-primary" style="width:100%">💾 Salva configurazione</button>
+              <div id="fbConfigStatus" style="font-size:12px;display:none"></div>
+            </div>
+          </details>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div class="modal-row">
+              <div class="modal-label">Email</div>
+              <input type="email" id="fbEmail" class="modal-input" placeholder="email@esempio.it">
+            </div>
+            <div class="modal-row">
+              <div class="modal-label">Password</div>
+              <input type="password" id="fbPassword" class="modal-input" placeholder="••••••••">
+            </div>
+            <div style="display:flex;gap:10px">
+              <button onclick="fbSignIn()" class="btn-primary" style="flex:1">🔑 Accedi</button>
+              <button onclick="fbRegister()" class="btn-secondary" style="flex:1">📝 Registrati</button>
+            </div>
+            <div id="fbAuthError" style="font-size:12px;color:var(--danger);display:none"></div>
+          </div>
+        </div>
+        <div id="fbLoggedIn" style="display:none">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <div style="width:40px;height:40px;background:rgba(63,185,80,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px">☁️</div>
+            <div>
+              <div style="font-weight:600;color:var(--accent2)">Connesso</div>
+              <div id="fbUserEmail" style="font-size:12px;color:var(--muted)"></div>
+            </div>
+            <button onclick="fbSignOut()" class="btn-secondary" style="margin-left:auto;padding:6px 14px;font-size:12px">Esci</button>
+          </div>
+          <div id="fbSyncStatus" style="font-size:12px;color:var(--muted);padding:10px;background:var(--bg);border-radius:8px;line-height:1.7;margin-bottom:12px"></div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="fbSyncNow()" class="btn-primary" style="flex:1">🔄 Sincronizza ora</button>
+            <button onclick="fbForceUpload()" class="btn-secondary" style="flex:1">⬆ Carica su cloud</button>
+            <button onclick="fbForceDownload()" class="btn-secondary" style="flex:1">⬇ Scarica da cloud</button>
+          </div>
+          <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:8px">🔔 Notifiche push</div>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.6">
+              Abilita le notifiche per ricevere l'allarme anche a schermo spento.
+            </div>
+            <div id="fbNotifStatus" style="font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:10px;display:none"></div>
+            <button onclick="fbRequestNotifications()" id="fbNotifBtn" class="btn-primary" style="width:100%">
+              🔔 Abilita notifiche push
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /acc-tecnico -->
+
+    <!-- ═══════════════════════════════ -->
+    <!-- SEZIONE 2: ALLARMI E SUONERIE  -->
+    <!-- ═══════════════════════════════ -->
+    <button class="accordion-btn" onclick="toggleAccordion('acc-allarmi')">
+      <span>🔔 Allarmi e suonerie</span>
+      <span class="acc-arrow">▼</span>
+    </button>
+    <div class="accordion-body" id="acc-allarmi">
+
+      <div class="section-title">⏰ Orario predefinito farmaco</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Orario usato come base per tutti i nuovi piani terapeutici. Puoi variarlo giorno per giorno dal tap lungo sul calendario.
+        </div>
+        <div class="modal-label" style="margin-bottom:8px">Orario predefinito</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="time" id="defaultAlarmTimeInput" class="modal-input" value="17:30" style="flex:1">
+          <button onclick="saveDefaultAlarmTime()" class="btn-primary" style="padding:10px 16px">💾 Salva</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">Modifica l'orario qui per i piani futuri. I giorni già programmati non vengono cambiati.</div>
+      </div>
+
+      <div class="section-title">🔔 Suoneria allarme</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Scegli la suoneria che verrà usata quando scatta l'allarme farmaco.
+          <span id="ringtoneCapacitorOnly" style="display:none;color:var(--warn)">
+            Disponibile solo nell'app Android.
+          </span>
+        </div>
+        <div id="currentRingtoneLabel" style="font-size:13px;color:var(--accent2);margin-bottom:12px;padding:8px 12px;background:var(--bg);border-radius:8px">
+          🎵 Suoneria sveglia predefinita
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button onclick="pickRingtone()" id="pickRingtoneBtn" class="btn-primary" style="flex:1">
+            🔔 Scegli suoneria
+          </button>
+          <button onclick="resetRingtone()" class="btn-secondary" style="flex:1">
+            ↩ Predefinita
           </button>
         </div>
       </div>
-    </div>
 
-    <!-- PDF REPORT -->
-</div>
-    </div>
+      <div class="section-title">🔊 Volume allarme</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Regola il volume della suoneria dell'allarme farmaco.
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:16px">🔈</span>
+          <input type="range" id="alarmVolumeSlider" min="0" max="100" value="80"
+            oninput="onAlarmVolumeChange(this.value)"
+            style="flex:1;accent-color:var(--accent)">
+          <span style="font-size:16px">🔊</span>
+          <span id="alarmVolumeLabel" style="font-size:14px;font-weight:600;color:var(--accent2);min-width:36px">80%</span>
+        </div>
+        <button onclick="testAlarmVolume()" class="btn-secondary" style="width:100%;margin-top:4px">
+          🔔 Testa volume
+        </button>
+      </div>
+
+      <div class="section-title">🩸 Allarme controllo INR</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Imposta un allarme che suona il giorno del controllo INR per ricordarti di andare.
+        </div>
+        <div class="modal-label" style="margin-bottom:8px">Orario allarme controllo</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="time" id="controlloAlarmTime" class="modal-input" value="08:00" style="flex:1">
+          <button onclick="saveControlloAlarmTime()" class="btn-primary" style="padding:10px 16px">💾 Salva</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted)">L'allarme suonerà solo il giorno del prossimo controllo INR.</div>
+      </div>
+
+    </div><!-- /acc-allarmi -->
+
+    <!-- ═══════════════════════════════ -->
+    <!-- SEZIONE 3: FUNZIONI            -->
+    <!-- ═══════════════════════════════ -->
+    <button class="accordion-btn" onclick="toggleAccordion('acc-funzioni')">
+      <span>💊 Funzioni</span>
+      <span class="acc-arrow">▼</span>
+    </button>
+    <div class="accordion-body" id="acc-funzioni">
+
+      <div class="section-title">💊 Scorta farmaco</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Inserisci la scorta attuale di <strong>COUMADIN</strong>. L'app calcolerà automaticamente
+          quando richiedere la ricetta al medico.
+        </div>
+        <div id="scortaDisplay" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:12px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:2px">COMPRESSE DISPONIBILI</div>
+            <div id="scortaCount" style="font-size:28px;font-weight:700;color:var(--accent2)">—</div>
+            <div id="scortaGiorni" style="font-size:11px;color:var(--muted)"></div>
+          </div>
+          <div id="scortaWarning" style="display:none;font-size:13px;color:var(--warn);text-align:right;max-width:160px;line-height:1.5"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="number" id="scortaInput" class="modal-input" placeholder="N. compresse" min="0" step="0.25" style="flex:1">
+          <button onclick="setScorta()" class="btn-primary" style="padding:10px 16px">Imposta</button>
+        </div>
+        <div id="richiestaInviataBadge" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--accent2);font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+          <span>📧</span>
+          <span id="richiestaInviataText">Richiesta inviata</span>
+        </div>
+        <button onclick="addConfezione()" class="btn-secondary" style="width:100%;margin-bottom:8px">
+          📦 Ho ricevuto nuove confezioni
+        </button>
+        <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+          <div class="modal-label" style="margin-bottom:6px">Email medico di base</div>
+          <input type="email" id="medicoEmail" class="modal-input" placeholder="dott@esempio.it" style="width:100%;margin-bottom:10px">
+          <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
+          <input type="text" id="medicoOggetto" class="modal-input"
+            placeholder="es. Richiesta ricetta Coumadin" style="width:100%;margin-bottom:10px">
+          <div class="modal-label" style="margin-bottom:4px">Testo email</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
+            Puoi usare: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
+            <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
+            <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{farmaco}</code>
+            <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{giorni}</code>
+          </div>
+          <textarea id="medicoTesto" class="modal-input"
+            placeholder="es. Gentile Dottoressa, sono {nome} (CF: {cf}). Richiedo la prescrizione di {farmaco}. Scorta rimanente: {giorni} giorni. Grazie."
+            style="width:100%;height:100px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button onclick="saveMedicoConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
+            <button onclick="inviaRichiestaMedico()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">🩸 Prescrizioni controllo INR</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Tieni traccia delle prescrizioni per i controlli al centro TAO. Il contatore scala automaticamente ad ogni nuovo PDF caricato.
+        </div>
+        <div id="prescrizioniDisplay" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg);border-radius:10px;padding:12px 16px;margin-bottom:12px">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:1px">Prescrizioni disponibili</div>
+            <div id="prescrizioniCount" style="font-size:28px;font-weight:700;color:var(--accent2);font-family:'DM Mono',monospace">—</div>
+            <div id="prescrizioniNote" style="font-size:11px;color:var(--muted)"></div>
+          </div>
+          <div id="prescrizioniWarning" style="display:none;font-size:13px;color:var(--danger);text-align:right;max-width:160px;line-height:1.5"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <input type="number" id="prescrizioniInput" class="modal-input" placeholder="N. prescrizioni rimanenti" min="1" step="1" style="flex:1">
+          <button onclick="setPrescrizioniControllo()" class="btn-primary" style="padding:10px 16px">Imposta</button>
+        </div>
+        <div id="richiestaPrescrBadge" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--accent2);font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+          <span>📧</span><span id="richiestaPrescrText">Richiesta inviata</span>
+        </div>
+        <button onclick="addPrescrizioniControllo()" class="btn-secondary" style="width:100%;margin-bottom:8px">
+          📋 Ho ricevuto nuove prescrizioni
+        </button>
+        <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px">
+          <div class="modal-label" style="margin-bottom:6px">Email medico di base</div>
+          <input type="email" id="prescrizioniEmail" class="modal-input" placeholder="dott@esempio.it" style="width:100%;margin-bottom:10px">
+          <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
+          <input type="text" id="prescrizioniOggetto" class="modal-input"
+            placeholder="es. Richiesta prescrizione controlli INR" style="width:100%;margin-bottom:10px">
+          <div class="modal-label" style="margin-bottom:4px">Testo email</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
+            Puoi usare: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
+            <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
+            <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{controlli}</code>
+            <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{prossimo}</code>
+          </div>
+          <textarea id="prescrizioniTesto" class="modal-input"
+            placeholder="es. Gentile Dottoressa, sono {nome} (CF: {cf}). Richiedo la prescrizione per i controlli INR al centro TAO. Prescrizioni rimanenti: {controlli}. Prossimo controllo previsto: {prossimo}. Grazie."
+            style="width:100%;height:100px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <button onclick="savePrescrizioniConfig()" class="btn-secondary" style="flex:1">💾 Salva configurazione</button>
+            <button onclick="inviaRichiestaPrescrizioni()" class="btn-primary" style="flex:1">📧 Invia richiesta</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">📋 Invio report al centro TAO</div>
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+          Configura i dati per condividere il report direttamente al tuo centro TAO.
+        </div>
+        <div class="modal-label" style="margin-bottom:6px">Email centro TAO</div>
+        <input type="email" id="taoEmail" class="modal-input" placeholder="tao@asl.it" style="width:100%;margin-bottom:10px">
+        <div class="modal-label" style="margin-bottom:6px">Oggetto email</div>
+        <input type="text" id="taoOggetto" class="modal-input"
+          placeholder="es. Report TAO - {nome} - {data}" style="width:100%;margin-bottom:10px">
+        <div class="modal-label" style="margin-bottom:4px">Testo email</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.5">
+          Variabili: <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{nome}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{cf}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{data}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{ultimoINR}</code>
+          <code style="background:var(--bg);padding:1px 4px;border-radius:4px">{ttr}</code>
+        </div>
+        <textarea id="taoTesto" class="modal-input"
+          placeholder="Gentile Centro TAO, in allegato il report della terapia anticoagulante di {nome} (CF: {cf}). Data: {data}. Ultimo INR: {ultimoINR}. TTR Rosendaal: {ttr}%."
+          style="width:100%;height:90px;resize:vertical;margin-bottom:12px;font-family:'DM Sans',sans-serif;font-size:13px"></textarea>
+        <button onclick="saveTAOConfig()" class="btn-primary" style="width:100%">💾 Salva configurazione</button>
+      </div>
+
+    </div><!-- /acc-funzioni -->
 
     <!-- PDF PREVIEW AREA (hidden, used for capture) -->
     <div id="pdfPreviewArea" style="display:none"></div>
@@ -4898,6 +4902,21 @@ function saveDefaultAlarmTime() {
   saveData(appData);
   fbAutoSync();
   showAutoBackupToast('✅ Orario predefinito salvato: ' + time);
+}
+
+function toggleAccordion(id) {
+  const body = document.getElementById(id);
+  const btn  = body?.previousElementSibling;
+  if(!body) return;
+  const isOpen = body.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.accordion-body').forEach(b => b.classList.remove('open'));
+  document.querySelectorAll('.accordion-btn').forEach(b => b.classList.remove('open'));
+  // Open clicked if it was closed
+  if(!isOpen) {
+    body.classList.add('open');
+    if(btn) btn.classList.add('open');
+  }
 }
 
 function toggleReportPanel() {} // kept for compatibility — no longer used
